@@ -1,0 +1,24 @@
+<package>
+  <description brief="projector_calibration">
+
+     projector_calibration
+
+  </description>
+  <author>Nikolas Engelhard</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/projector_calibration</url>
+
+
+  <rosdep name="qt4"/>
+
+  <!-- rosbuild1 -->
+  <depend package="qt_build"/>
+  <depend package="roscpp"/>
+  
+  <rosbuild2>
+    <depend package="qt_build"/>
+    <depend package="roscpp"/>
+  </rosbuild2>
+  
+</package>

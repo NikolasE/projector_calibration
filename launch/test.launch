@@ -1,11 +1,10 @@
 <launch>
 
 <node pkg="projector_calibration" type="projector_calibration" name="projector_calibration" output="screen"> 
+
 <param name="checkerboard_internal_corners_x" value="10" />
 <param name="checkerboard_internal_corners_y" value="6" />
-
 <param name="projector_px_width" value="1024" />
-
 <param name="projector_px_height" value="768" />
 
 </node>

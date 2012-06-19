@@ -10,6 +10,10 @@
   <url>http://ros.org/wiki/projector_calibration</url>
 
 
+  <depend package="sensor_msgs"/>
+  <depend package="pcl_ros"/>
+  <depend package="opencv2"/>
+
   <rosdep name="qt4"/>
 
   <!-- rosbuild1 -->

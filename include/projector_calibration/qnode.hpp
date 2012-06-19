@@ -6,65 +6,84 @@
  * @date February 2011
  **/
 /*****************************************************************************
-** Ifdefs
-*****************************************************************************/
+ ** Ifdefs
+ *****************************************************************************/
 
 #ifndef projector_calibration_QNODE_HPP_
 #define projector_calibration_QNODE_HPP_
 
 /*****************************************************************************
-** Includes
-*****************************************************************************/
+ ** Includes
+ *****************************************************************************/
 
 #include <ros/ros.h>
 #include <string>
 #include <QThread>
 #include <QStringListModel>
 
+#include "projector_calibration/projector_calibrator.h"
+
 
 /*****************************************************************************
-** Namespaces
-*****************************************************************************/
+ ** Namespaces
+ *****************************************************************************/
 
 namespace projector_calibration {
 
-/*****************************************************************************
-** Class
-*****************************************************************************/
+ /*****************************************************************************
+  ** Class
+  *****************************************************************************/
 
-class QNode : public QThread {
-    Q_OBJECT
-public:
-	QNode(int argc, char** argv );
-	virtual ~QNode();
-	bool init();
-	bool init(const std::string &master_url, const std::string &host_url);
-	void run();
+ class QNode : public QThread {
+  Q_OBJECT
+ public:
 
-	/*********************
-	** Logging
-	**********************/
-	enum LogLevel {
-	         Debug,
-	         Info,
-	         Warn,
-	         Error,
-	         Fatal
-	 };
 
-	QStringListModel* loggingModel() { return &logging_model; }
-	void log( const LogLevel &level, const std::string &msg);
+  // the actual calibration object
+  Projector_Calibrator calibrator;
 
-signals:
-	void loggingUpdated();
-    void rosShutdown();
+  int foo;
+  void writeFooToList();
+  void writeToOutput(const std::stringstream& msg);
 
-private:
-	int init_argc;
-	char** init_argv;
-	ros::Publisher chatter_publisher;
-    QStringListModel logging_model;
-};
+
+  QNode(int argc, char** argv );
+  virtual ~QNode();
+  bool init();
+  bool init(const std::string &master_url, const std::string &host_url);
+  void run();
+
+  /*********************
+   ** Logging
+   **********************/
+  enum LogLevel {
+   Debug,
+   Info,
+   Warn,
+   Error,
+   Fatal
+  };
+
+  QStringListModel* loggingModel() { return &logging_model; }
+  void log( const LogLevel &level, const std::string &msg);
+
+  signals:
+  void loggingUpdated();
+  void rosShutdown();
+
+
+
+ private:
+  int init_argc;
+  char** init_argv;
+  ros::Publisher chatter_publisher;
+  QStringListModel logging_model;
+
+
+
+
+
+ };
 
 }  // namespace projector_calibration
 

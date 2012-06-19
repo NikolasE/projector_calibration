@@ -48,6 +48,8 @@ public slots:
 	void on_actionAbout_triggered();
 	void on_button_connect_clicked(bool check );
 	void on_checkbox_use_environment_stateChanged(int state);
+  void foobar();
+  void show_fullscreen_pattern();
 
     /******************************************
     ** Manual connections

@@ -22,7 +22,9 @@
 #include <QStringListModel>
 
 #include "projector_calibration/projector_calibrator.h"
+#include "projector_calibration/type_definitions.h"
 
+ #include <message_filters/sync_policies/approximate_time.h>
 
 /*****************************************************************************
  ** Namespaces
@@ -43,6 +45,9 @@ namespace projector_calibration {
   Projector_Calibrator calibrator;
 
   int foo;
+
+  cv::Mat current_col_img;
+  Cloud current_cloud;
   void writeFooToList();
   void writeToOutput(const std::stringstream& msg);
 

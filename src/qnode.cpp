@@ -116,19 +116,36 @@ namespace projector_calibration {
  }
 
  void QNode::run() {
-  ros::Rate loop_rate(1);
-  int count = 0;
+  ros::Rate loop_rate(30);
+//  int count = 0;
+
+
+  ROS_INFO("Starting to run");
+
+  typedef sync_policies::ApproximateTime<Image, PointCloud2> policy;
+//  message_filters::Subscriber<Image> image_sub(nh, "/camera/rgb/image_color", 1);
+//  message_filters::Subscriber<PointCloud2> cloud_sub(nh, "/camera/rgb/points", 1);
+//  Synchronizer<policy> sync(policy(2), image_sub, cloud_sub);
+//  sync.registerCallback(boost::bind(&imgCB, _1, _2));
+
+
+
   while ( ros::ok() ) {
 
-   std_msgs::String msg;
-   std::stringstream ss;
-   ss << "hello world " << count;
-   msg.data = ss.str();
-   chatter_publisher.publish(msg);
-   log(Info,std::string("I sent: ")+msg.data);
-   ros::spinOnce();
-   loop_rate.sleep();
-   ++count;
+
+
+
+
+
+//   std_msgs::String msg;
+//   std::stringstream ss;
+//   ss << "hello world " << count;
+//   msg.data = ss.str();
+//   chatter_publisher.publish(msg);
+//   log(Info,std::string("I sent: ")+msg.data);
+//   ros::spinOnce();
+//   loop_rate.sleep();
+//   ++count;
   }
   std::cout << "Ros shutdown, proceeding to close the gui." << std::endl;
   emit rosShutdown(); // used to signal the gui for a shutdown (useful to roslaunch)

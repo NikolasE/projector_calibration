@@ -24,7 +24,12 @@
 #include "projector_calibration/projector_calibrator.h"
 #include "projector_calibration/type_definitions.h"
 
- #include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/subscriber.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+#include <opencv/cv.h>
+
 
 /*****************************************************************************
  ** Namespaces
@@ -48,6 +53,7 @@ namespace projector_calibration {
 
   cv::Mat current_col_img;
   Cloud current_cloud;
+  void imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_msgs::PointCloud2ConstPtr& cloud_ptr);
   void writeFooToList();
   void writeToOutput(const std::stringstream& msg);
 
@@ -72,10 +78,10 @@ namespace projector_calibration {
   QStringListModel* loggingModel() { return &logging_model; }
   void log( const LogLevel &level, const std::string &msg);
 
-  signals:
+  Q_SIGNALS:
   void loggingUpdated();
   void rosShutdown();
-
+  void received_col_Image();
 
 
  private:

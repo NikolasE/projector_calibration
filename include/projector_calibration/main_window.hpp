@@ -9,58 +9,139 @@
 #define projector_calibration_MAIN_WINDOW_H
 
 /*****************************************************************************
-** Includes
-*****************************************************************************/
+ ** Includes
+ *****************************************************************************/
 
 #include <QtGui/QMainWindow>
 #include "ui_main_window.h"
 #include "qnode.hpp"
+#include <qevent.h>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/core/core.hpp>
 
 /*****************************************************************************
-** Namespace
-*****************************************************************************/
+ ** Namespace
+ *****************************************************************************/
 
 namespace projector_calibration {
 
-/*****************************************************************************
-** Interface [MainWindow]
-*****************************************************************************/
-/**
- * @brief Qt central, all operations relating to the view part here.
- */
-class MainWindow : public QMainWindow {
-Q_OBJECT
 
-public:
-	MainWindow(int argc, char** argv, QWidget *parent = 0);
-	~MainWindow();
+ class MouseHandler : public QObject
+ {
+ public:
+  MouseHandler( QObject *parent = 0 ) : QObject( parent ) {
+//   active = true;
+   up = cv::Point2i(-1,-1);
+  }
 
-	void ReadSettings(); // Load up qt program settings at startup
-	void WriteSettings(); // Save qt program settings when closing
 
-	void closeEvent(QCloseEvent *event); // Overloaded function
-	void showNoMasterMessage();
+  cv::Point2i down;
+  cv::Point2i move;
+  cv::Point2i up;
 
-public slots:
-	/******************************************
-	** Auto-connections (connectSlotsByName())
-	*******************************************/
-	void on_actionAbout_triggered();
-	void on_button_connect_clicked(bool check );
-	void on_checkbox_use_environment_stateChanged(int state);
-  void foobar();
-  void show_fullscreen_pattern();
+  bool area_marked(){return up.x > 0;}
 
-    /******************************************
-    ** Manual connections
-    *******************************************/
-    void updateLoggingView(); // no idea why this can't connect automatically
+  void reset(){
+   up = cv::Point2i(-1,-1);
+  }
 
-private:
-	Ui::MainWindowDesign ui;
-	QNode qnode;
-};
+//  bool active;
+
+ protected:
+  bool eventFilter( QObject *dist, QEvent *event )
+  {
+//   if (!active) return false;
+
+   if( event->type() == QMouseEvent::MouseButtonPress)
+    {
+    QMouseEvent *mouseEvent = static_cast<QMouseEvent*>( event );
+//    ROS_INFO("down at %i %i", mouseEvent->x(), mouseEvent->y());
+
+    down = cv::Point2i(mouseEvent->x(), mouseEvent->y());
+    move = down;
+    up = cv::Point2i(-1,-1);
+
+    }
+
+   if( event->type() == QMouseEvent::MouseButtonRelease)
+    {
+//    ROS_INFO("release");
+
+    QMouseEvent *mouseEvent = static_cast<QMouseEvent*>( event );
+    up = cv::Point2i(mouseEvent->x(), mouseEvent->y());
+    move = up;
+    }
+
+   if( event->type() == QMouseEvent::MouseMove){
+//    ROS_INFO("move");
+    QMouseEvent *mouseEvent = static_cast<QMouseEvent*>( event );
+    move = cv::Point2i(mouseEvent->x(), mouseEvent->y());
+   }
+
+
+   return false;
+  }
+ };
+
+
+
+
+ /*****************************************************************************
+  ** Interface [MainWindow]
+  *****************************************************************************/
+ /**
+  * @brief Qt central, all operations relating to the view part here.
+  */
+ class MainWindow : public QMainWindow {
+  Q_OBJECT
+
+ public:
+  MainWindow(int argc, char** argv, QWidget *parent = 0);
+  ~MainWindow();
+
+  void ReadSettings(); // Load up qt program settings at startup
+  void WriteSettings(); // Save qt program settings when closing
+
+  void closeEvent(QCloseEvent *event); // Overloaded function
+  void showNoMasterMessage();
+
+
+ public Q_SLOTS:
+ /******************************************
+  ** Auto-connections (connectQ_SLOTSByName())
+  *******************************************/
+ void on_actionAbout_triggered();
+ //void on_checkbox_use_environment_stateChanged(int state);
+ void foobar();
+ void show_fullscreen_pattern();
+ void select_marker_area();
+
+ /******************************************
+  ** Manual connections
+  *******************************************/
+ void updateLoggingView(); // no idea why this can't connect automatically
+ void sl_received_image();
+ void pattern_size_changed();
+
+
+ private:
+ Ui::MainWindowDesign ui;
+ QNode qnode;
+
+ MouseHandler mouse_handler;
+// bool mouse_selection_active;
+
+ // only show smaller images on the gui:
+ float image_scale;
+
+ };
 
 }  // namespace projector_calibration
+
+
+
+
+
+
 
 #endif // projector_calibration_MAIN_WINDOW_H

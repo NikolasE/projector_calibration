@@ -99,6 +99,73 @@ void Projector_Calibrator::initFromFile(){
 }
 
 
+
+
+
+
+void Projector_Calibrator::drawCheckerboard(cv::Mat& img,cv::Point l1, const cv::Point l2, const cv::Size size, vector<cv::Point2f>& corners_2d){
+
+ corners_2d.clear();
+
+ float min_x = min(l1.x,l2.x);
+ float min_y = min(l1.y,l2.y);
+
+ float max_x = max(l1.x,l2.x);
+ float max_y = max(l1.y,l2.y);
+
+
+ // draw white border with this size
+ // "Note: the function requires some white space (like a square-thick border,
+ // the wider the better) around the board to make the detection more robust in various environment"
+ float border = 40;
+
+ if (min_x > border && min_y > border && max_x < img.cols - border && max_y < img.rows-border)
+  border = 0;
+
+
+ float width = ((max_x-min_x)-2*border)/(size.width+1);
+ float height = ((max_y-min_y)-2*border)/(size.height+1);
+
+ img.setTo(255); // all white
+
+ float minx = border+min_x;
+ float miny = border+min_y;
+
+ // ROS_INFO("GRID: W: %f, H: %f", width, height);
+
+ // start with black square
+ for (int j = 0; j<=size.height; j++)
+  for (int i = (j%2); i<size.width+1; i+=2){
+
+   cv::Point2f lu = cv::Point2f(minx+i*width,miny+j*height);
+   cv::Point2f rl = cv::Point2f(minx+(i+1)*width,miny+(j+1)*height);
+   cv::rectangle(img, lu, rl ,cv::Scalar::all(0), -1);
+
+   cv::Point2f ru = cv::Point2f(rl.x,lu.y);
+
+   if (j==0) continue;
+   if (i>0){
+    corners_2d.push_back(cv::Point2f(lu.x, lu.y));
+    //        cvCircle(img, cvPoint(lu.x, lu.y),20, CV_RGB(255,0,0),3);
+   }
+   if (i<size.width){
+    corners_2d.push_back(cv::Point2f(ru.x, ru.y));
+    //        cvCircle(img, cvPoint(ru.x, ru.y),20, CV_RGB(255,0,0),3);
+   }
+  }
+
+ assert(int(corners_2d.size()) == size.width*size.height);
+
+ // improve position of corners: (improvement of reprojection error of about 0.2 px)
+ cv::Mat gray;
+ cv::cvtColor(img, gray, CV_BGR2GRAY);
+ cv::cornerSubPix(gray, corners_2d, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 50, 0.01));
+}
+
+
+
+/*
+
 void Projector_Calibrator::drawCheckerboard(cv::Mat& img, const cv::Size size, vector<cv::Point2f>& corners_2d){
 
  corners_2d.clear();
@@ -147,7 +214,7 @@ void Projector_Calibrator::drawCheckerboard(cv::Mat& img, const cv::Size size, v
  cv::cornerSubPix(gray, corners_2d, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 50, 0.01));
 }
 
-
+*/
 
 
 // set wall_region to same ratio as image
@@ -631,7 +698,6 @@ Cloud Projector_Calibrator::visualizePointCloud(){
  }
 
  // min dist from wall
- float min_dist = 0.00;
  float max_dist = 0.25; // needed to scale color
 
  // sort cloud in z-direction
@@ -1065,9 +1131,29 @@ void Projector_Calibrator::applyMaskOnInputCloud(Cloud& out){
   }
 }
 
+void showMarker(cv::Point l1, cv::Point l2){
 
-void Projector_Calibrator::showFullscreenCheckerboard(){
- drawCheckerboard(projector_image, checkboard_size, projector_corners);
+
+}
+
+
+void Projector_Calibrator::projectSmallCheckerboard(cv::Point l1, cv::Point l2){
+ drawCheckerboard(projector_image, l1,l2,
+   checkboard_size,
+   projector_corners);
+
+ IplImage proj_ipl = projector_image;
+ cvShowImage("fullscreen_ipl", &proj_ipl);
+}
+
+
+void Projector_Calibrator::projectFullscreenCheckerboard(){
+
+ drawCheckerboard(projector_image, cv::Point(0,0),
+   cv::Point(projector_image.cols, projector_image.rows),
+   checkboard_size,
+   projector_corners);
+
  IplImage proj_ipl = projector_image;
  cvShowImage("fullscreen_ipl", &proj_ipl);
 }

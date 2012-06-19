@@ -17,6 +17,8 @@ cmake_minimum_required(VERSION 2.4.6)
 # Ros Initialisation
 ##############################################################################
 
+
+
 include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 rosbuild_init()
 
@@ -39,6 +41,8 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 rosbuild_include(qt_build qt-ros)
 rosbuild_prepare_qt4(QtCore QtGui) # Add the appropriate components to the component list here
+
+ADD_DEFINITIONS(-DQT_NO_KEYWORDS)
 
 ##############################################################################
 # Sections

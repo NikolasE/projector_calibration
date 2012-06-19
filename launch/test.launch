@@ -4,8 +4,8 @@
 
 <param name="checkerboard_internal_corners_x" value="10" />
 <param name="checkerboard_internal_corners_y" value="6" />
-<param name="projector_px_width" value="1024" />
-<param name="projector_px_height" value="768" />
+<param name="projector_px_width" value="640" />
+<param name="projector_px_height" value="480" />
 
 </node>
 

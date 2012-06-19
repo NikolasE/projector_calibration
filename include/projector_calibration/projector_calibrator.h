@@ -54,7 +54,8 @@ class Projector_Calibrator {
 
 
  // draw a checkerboard with given number of internal corners on the image and store the corners
- void drawCheckerboard(cv::Mat& img, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
+// void drawCheckerboard(cv::Mat& img, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
+ void drawCheckerboard(cv::Mat& img,cv::Point l1, const cv::Point l2, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
 
 
  // Position of internal checkerboard corners
@@ -189,7 +190,8 @@ public:
  void computeHomography_OPENCV();
  void computeHomography_SVD();
 
- void showFullscreenCheckerboard();
+ void projectFullscreenCheckerboard();
+ void projectSmallCheckerboard(cv::Point l1, cv::Point l2);
 
 
  Cloud visualizePointCloud();

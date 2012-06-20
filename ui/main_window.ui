@@ -43,6 +43,66 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout_2">
+    <item row="2" column="0">
+     <widget class="QLabel" name="lb_kinect_image">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="minimumSize">
+       <size>
+        <width>320</width>
+        <height>240</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>320</width>
+        <height>240</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>TextLabel</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="2">
+     <widget class="QLabel" name="lb_img_2">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>1000</width>
+        <height>1000</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>TextLabel</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="1" colspan="2">
+     <widget class="QListView" name="view_logging">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+     </widget>
+    </item>
     <item row="0" column="0">
      <widget class="QTabWidget" name="tab_manager">
       <property name="sizePolicy">
@@ -71,13 +131,13 @@
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
-        <string>Projector Pattern</string>
+        <string>Select Pattern</string>
        </attribute>
        <widget class="QPushButton" name="pushButton">
         <property name="geometry">
          <rect>
           <x>10</x>
-          <y>230</y>
+          <y>140</y>
           <width>191</width>
           <height>41</height>
          </rect>
@@ -90,7 +150,7 @@
         <property name="geometry">
          <rect>
           <x>10</x>
-          <y>180</y>
+          <y>90</y>
           <width>191</width>
           <height>41</height>
          </rect>
@@ -103,7 +163,7 @@
         <property name="geometry">
          <rect>
           <x>10</x>
-          <y>70</y>
+          <y>10</y>
           <width>461</width>
           <height>29</height>
          </rect>
@@ -188,9 +248,9 @@
         <property name="geometry">
          <rect>
           <x>10</x>
-          <y>120</y>
-          <width>403</width>
-          <height>29</height>
+          <y>50</y>
+          <width>461</width>
+          <height>31</height>
          </rect>
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout">
@@ -268,6 +328,92 @@
           </widget>
          </item>
         </layout>
+       </widget>
+       <widget class="QPushButton" name="pushButton_10">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>230</y>
+          <width>201</width>
+          <height>27</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>project white background</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="pushButton_11">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>260</y>
+          <width>201</width>
+          <height>27</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>project black background</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>200</y>
+          <width>141</width>
+          <height>21</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <pointsize>15</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>Printed Marker</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="ed_markersize">
+        <property name="geometry">
+         <rect>
+          <x>310</x>
+          <y>240</y>
+          <width>41</width>
+          <height>27</height>
+         </rect>
+        </property>
+        <property name="inputMask">
+         <string>00.0; </string>
+        </property>
+        <property name="text">
+         <string>0.</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_2">
+        <property name="geometry">
+         <rect>
+          <x>220</x>
+          <y>240</y>
+          <width>81</width>
+          <height>21</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Markersize: </string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_3">
+        <property name="geometry">
+         <rect>
+          <x>360</x>
+          <y>240</y>
+          <width>31</width>
+          <height>21</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>mm </string>
+        </property>
        </widget>
       </widget>
       <widget class="QWidget" name="tab_2">
@@ -373,66 +519,6 @@
       </widget>
      </widget>
     </item>
-    <item row="2" column="0">
-     <widget class="QLabel" name="lb_kinect_image">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>320</width>
-        <height>240</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>320</width>
-        <height>240</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>TextLabel</string>
-      </property>
-     </widget>
-    </item>
-    <item row="2" column="2">
-     <widget class="QLabel" name="lb_img_2">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>0</width>
-        <height>0</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>1000</width>
-        <height>1000</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>TextLabel</string>
-      </property>
-     </widget>
-    </item>
-    <item row="0" column="1" colspan="2">
-     <widget class="QListView" name="view_logging">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-     </widget>
-    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -485,15 +571,6 @@
    </property>
   </action>
  </widget>
- <tabstops>
-  <tabstop>line_edit_master</tabstop>
-  <tabstop>line_edit_host</tabstop>
-  <tabstop>line_edit_topic</tabstop>
-  <tabstop>checkbox_use_environment</tabstop>
-  <tabstop>checkbox_remember_settings</tabstop>
-  <tabstop>button_connect</tabstop>
-  <tabstop>quit_button</tabstop>
- </tabstops>
  <resources>
   <include location="../resources/images.qrc"/>
  </resources>
@@ -521,8 +598,8 @@
    <slot>show_fullscreen_pattern()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>172</x>
-     <y>366</y>
+     <x>183</x>
+     <y>282</y>
     </hint>
     <hint type="destinationlabel">
      <x>502</x>
@@ -537,8 +614,8 @@
    <slot>select_marker_area()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>121</x>
-     <y>307</y>
+     <x>132</x>
+     <y>232</y>
     </hint>
     <hint type="destinationlabel">
      <x>501</x>
@@ -553,8 +630,8 @@
    <slot>pattern_size_changed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>208</x>
-     <y>237</y>
+     <x>255</x>
+     <y>179</y>
     </hint>
     <hint type="destinationlabel">
      <x>561</x>
@@ -569,12 +646,60 @@
    <slot>pattern_size_changed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>315</x>
-     <y>240</y>
+     <x>422</x>
+     <y>179</y>
     </hint>
     <hint type="destinationlabel">
      <x>584</x>
      <y>392</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_10</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>project_white_background()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>99</x>
+     <y>348</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>103</x>
+     <y>441</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_11</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>project_black_background()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>58</x>
+     <y>387</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>56</x>
+     <y>450</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>ed_markersize</sender>
+   <signal>editingFinished()</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>marker_size_changed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>342</x>
+     <y>358</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>385</x>
+     <y>507</y>
     </hint>
    </hints>
   </connection>
@@ -583,5 +708,8 @@
   <slot>show_fullscreen_pattern()</slot>
   <slot>select_marker_area()</slot>
   <slot>pattern_size_changed()</slot>
+  <slot>project_white_background()</slot>
+  <slot>project_black_background()</slot>
+  <slot>marker_size_changed()</slot>
  </slots>
 </ui>

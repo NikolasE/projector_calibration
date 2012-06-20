@@ -11,33 +11,51 @@ using namespace std;
 #include "projector_calibration/projector_calibrator.h"
 
 Projector_Calibrator::Projector_Calibrator(){
-  kinect_orientation_valid = false;
-  kinect_trafo_valid = false;
+ kinect_orientation_valid = false;
+ kinect_trafo_valid = false;
 
 
-  checkboard_size = cv::Size(10,6);
-  proj_size = cv::Size(1024,768);
+// checkboard_size = cv::Size(10,6);
+// proj_size = cv::Size(1024,768);
+
+ // reading the number of corners from file
+ int check_width, check_height;
+ ros::param::param<int>("projector_calibration/checkerboard_internal_corners_x", check_width, 10);
+ ros::param::param<int>("projector_calibration/checkerboard_internal_corners_y", check_height, 6 );
+ checkboard_size = cv::Size(check_width, check_height);
+
+ // reading the projector's size from file
+ int proj_width, proj_height;
+ ros::param::param<int>("projector_calibration/projector_px_width", proj_width, 1024);
+ ros::param::param<int>("projector_calibration/projector_px_height", proj_height, 768 );
+ proj_size = cv::Size(proj_width, proj_height);
+
+ double marker_size;
+ ros::param::param<double>("projector_calibration/printed_marker_corners_dist_mm", marker_size, 22);
+ printed_marker_size_mm = marker_size;
 
 
-  projector_image = cv::Mat(proj_size, CV_8UC3);
 
-  hom_cv_filename = "homography_opencv";
-  hom_svd_filename = "homography_svd";
-  proj_matrix_filename = "projection_matrix";
-  kinect_trafo_filename = "kinect_trafo";
 
-  test_img = cv::imread("/work/home/engelhan/ros/Touchscreen/imgs/Testbild.png");
+ projector_image = cv::Mat(proj_size, CV_8UC3);
 
-  if (!test_img.data){
-   ROS_ERROR("Could not open test image at /work/home/engelhan/ros/Touchscreen/imgs/Testbild.png!");
-  }
+ hom_cv_filename = "homography_opencv";
+ hom_svd_filename = "homography_svd";
+ proj_matrix_filename = "projection_matrix";
+ kinect_trafo_filename = "kinect_trafo";
 
-  // creating fullscreen image (old syntax)
-  cvNamedWindow("fullscreen_ipl",0);
-  cvMoveWindow("fullscreen_ipl", 2000, 100);
-  cvSetWindowProperty("fullscreen_ipl", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+ test_img = cv::imread("/work/home/engelhan/ros/Touchscreen/imgs/Testbild.png");
 
-  // showFullscreenCheckerboard();
+ if (!test_img.data){
+  ROS_ERROR("Could not open test image at /work/home/engelhan/ros/Touchscreen/imgs/Testbild.png!");
+ }
+
+ // creating fullscreen image (old syntax)
+ cvNamedWindow("fullscreen_ipl",0);
+ cvMoveWindow("fullscreen_ipl", 2000, 100);
+ cvSetWindowProperty("fullscreen_ipl", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+
+ // showFullscreenCheckerboard();
 
 
 }
@@ -214,7 +232,7 @@ void Projector_Calibrator::drawCheckerboard(cv::Mat& img, const cv::Size size, v
  cv::cornerSubPix(gray, corners_2d, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 50, 0.01));
 }
 
-*/
+ */
 
 
 // set wall_region to same ratio as image
@@ -759,7 +777,7 @@ Cloud Projector_Calibrator::visualizePointCloud(){
 
    cv::circle(projector_image, px, 3, cv::Scalar((int(((z)/max_dist*1.5)*180))%180,255,255) ,-1);
 
-//   cv::circle(projector_image, px, 3, CV_RGB(255,0,0),-1);
+   //   cv::circle(projector_image, px, 3, CV_RGB(255,0,0),-1);
 
 
    //coled.push_back(p);
@@ -1145,6 +1163,18 @@ void Projector_Calibrator::projectSmallCheckerboard(cv::Point l1, cv::Point l2){
  IplImage proj_ipl = projector_image;
  cvShowImage("fullscreen_ipl", &proj_ipl);
 }
+
+
+
+void Projector_Calibrator::projectUniformBackground(bool white){
+
+  projector_image.setTo(white?255:0);
+  projector_corners.clear();
+  IplImage proj_ipl = projector_image;
+  cvShowImage("fullscreen_ipl", &proj_ipl);
+
+}
+
 
 
 void Projector_Calibrator::projectFullscreenCheckerboard(){

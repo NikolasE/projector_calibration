@@ -115,6 +115,9 @@ namespace projector_calibration {
  void foobar();
  void show_fullscreen_pattern();
  void select_marker_area();
+ void project_black_background();
+ void project_white_background();
+ void marker_size_changed();
 
  /******************************************
   ** Manual connections

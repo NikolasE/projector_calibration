@@ -55,17 +55,8 @@ namespace projector_calibration {
 
   ROS_WARN("INIT");
 
-  // reading the number of corners from file
-  int check_width, check_height;
-  ros::param::param<int>("projector_calibration/checkerboard_internal_corners_x", check_width, 10);
-  ros::param::param<int>("projector_calibration/checkerboard_internal_corners_y", check_height, 6 );
-  calibrator.checkboard_size = cv::Size(check_width, check_height);
 
-  // reading the projector's size from file
-  int proj_width, proj_height;
-  ros::param::param<int>("projector_calibration/projector_px_width", proj_width, 1024);
-  ros::param::param<int>("projector_calibration/projector_px_height", proj_height, 768 );
-  calibrator.proj_size = cv::Size(proj_width, proj_height);
+
 
   //  ros::param::param<double>("foo", bar, 42);
 

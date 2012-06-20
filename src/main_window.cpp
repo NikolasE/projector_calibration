@@ -46,7 +46,7 @@ namespace projector_calibration {
   QObject::connect(&qnode, SIGNAL(received_col_Image()), this, SLOT(sl_received_image()));
 
 
-//  QObject::connect(&ui.ed_corners_x, SINAL())
+  //  QObject::connect(&ui.ed_corners_x, SINAL())
 
 
 
@@ -79,6 +79,9 @@ namespace projector_calibration {
 
   ui.ed_corners_x->setText(QString::number(qnode.calibrator.checkboard_size.width));
   ui.ed_corners_y->setText(QString::number(qnode.calibrator.checkboard_size.height));
+  ui.ed_markersize->setText(QString::number(qnode.calibrator.printed_marker_size_mm));
+
+
 
  }
 
@@ -111,6 +114,38 @@ namespace projector_calibration {
 
  }
 
+
+ void MainWindow::marker_size_changed(){
+  // check if input is valid (positive) double
+  // if not reset edit to old value
+  double val;
+  bool ok;
+  val = ui.ed_markersize->text().toDouble(&ok);
+
+  std::stringstream ss;
+
+  if (ok && val > 0){
+   ss << "New length of printed marker square: " << val << "mm" << endl;
+   qnode.calibrator.printed_marker_size_mm = val;
+  }else{
+   // should not happen due to input mask
+   ss << val << "  is no valid double value, resetting to old value" << endl;
+   ui.ed_markersize->setText(QString::number(qnode.calibrator.printed_marker_size_mm));
+  }
+
+  qnode.writeToOutput(ss);
+ }
+
+
+ void MainWindow::project_black_background(){
+  // projects black background and removes position of last checkerboard detections
+  qnode.calibrator.projectUniformBackground(false);
+ }
+
+ void MainWindow::project_white_background(){
+  // projects white background and removes position of last checkerboard detections
+  qnode.calibrator.projectUniformBackground(true);
+ }
 
 
 
@@ -157,9 +192,9 @@ namespace projector_calibration {
    cv::resize(qnode.calibrator.projector_image, small2, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
 
    //if (mouse_selection_active){
-    //ROS_INFO("From %i %i", mouse_handler.down.x, mouse_handler.down.y);
-     cv::rectangle(small2,  mouse_handler.down, mouse_handler.move, mouse_handler.area_marked()?CV_RGB(0,255,0):CV_RGB(255,0,0),2);
-    //}
+   //ROS_INFO("From %i %i", mouse_handler.down.x, mouse_handler.down.y);
+   cv::rectangle(small2,  mouse_handler.down, mouse_handler.move, mouse_handler.area_marked()?CV_RGB(0,255,0):CV_RGB(255,0,0),2);
+   //}
 
    qimg = Mat2QImage(small2);
    ui.lb_img_2->setPixmap(pixmap.fromImage(qimg, 0));

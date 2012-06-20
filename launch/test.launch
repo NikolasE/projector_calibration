@@ -7,6 +7,12 @@
 <param name="projector_px_width" value="640" />
 <param name="projector_px_height" value="480" />
 
+<!-- adapt this parameters to use a different checkerboard. This values correspond to imgs/marker.pdf printed on DIN A4 Paper -->
+<param name="printed_marker_corners_x" value="8" />
+<param name="printed_marker_corners_y" value="6" />
+<param name="printed_marker_corners_dist_mm" value="35.0" />
+
+
 </node>
 
 </launch>

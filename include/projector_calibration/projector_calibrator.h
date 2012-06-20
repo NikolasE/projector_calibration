@@ -57,7 +57,6 @@ class Projector_Calibrator {
 // void drawCheckerboard(cv::Mat& img, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
  void drawCheckerboard(cv::Mat& img,cv::Point l1, const cv::Point l2, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
 
-
  // Position of internal checkerboard corners
  std:: vector<cv::Point2f> projector_corners;
 
@@ -70,6 +69,9 @@ class Projector_Calibrator {
 
 
 public:
+
+
+ float printed_marker_size_mm;
 
  // number of inner corners of the board
  cv::Size checkboard_size;
@@ -192,6 +194,7 @@ public:
 
  void projectFullscreenCheckerboard();
  void projectSmallCheckerboard(cv::Point l1, cv::Point l2);
+ void projectUniformBackground(bool white);
 
 
  Cloud visualizePointCloud();

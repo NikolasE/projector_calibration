@@ -23,6 +23,9 @@
  ** Namespace
  *****************************************************************************/
 
+typedef std::stringstream sstream;
+
+
 namespace projector_calibration {
 
 
@@ -38,10 +41,10 @@ namespace projector_calibration {
   cv::Point2i move;
   cv::Point2i up;
 
-  bool area_marked(){return up.x > 0;}
+  bool area_marked(){return move.x > 0;}
 
   void reset(){
-   up = cv::Point2i(-1,-1);
+   up = move = cv::Point2i(-1,-1);
   }
 
 //  bool active;
@@ -125,6 +128,9 @@ namespace projector_calibration {
  void save_kinect_trafo();
  void manual_z_changed(int z);
  void manual_yaw_changed(int yaw);
+
+
+ void add_new_observation();
 
  /******************************************
   ** Manual connections

@@ -147,12 +147,15 @@ namespace projector_calibration {
  void MainWindow::compute_trafo(){
   stringstream ss;
 
+  qnode.calibrator.setInputImage(qnode.current_col_img);
+  qnode.calibrator.setInputCloud(qnode.current_cloud);
+
+
   if(!qnode.calibrator.findCheckerboardCorners()){
    ss << "Could not detect Marker";
    qnode.writeToOutput(ss);
    return;
   }
-
 
   if (qnode.calibrator.computeKinectTransformation(ss)){
    ss << "Computation of Kinect Trafo successful";
@@ -161,6 +164,7 @@ namespace projector_calibration {
   }else{
    ss << "Computation of Kinect Trafo failed";
   }
+
 
   qnode.writeToOutput(ss);
  }
@@ -213,7 +217,6 @@ namespace projector_calibration {
 
 
  void MainWindow::pattern_size_changed(){
-
   ROS_INFO("Changing checkerboard size");
   qnode.calibrator.checkboard_size = cv::Size(ui.ed_corners_x->text().toInt(), ui.ed_corners_y->text().toInt());
  }
@@ -239,17 +242,13 @@ namespace projector_calibration {
 
   // draw kinect image on left label
   cv::Mat small;
-
-  //  if (qnode.calibrator.corners.size() > 0){
-  //   ROS_INFO("drawing corners");
-  //   cv::drawChessboardCorners(qnode.current_col_img, qnode.calibrator.checkboard_size, qnode.calibrator.corners, true);
-  //
-  //  }else
-  //   ROS_INFO("No corners");
+  cv::Mat cpy = qnode.current_col_img.clone();
+  if (qnode.calibrator.detected_corners.size() > 0){
+   cv::drawChessboardCorners(cpy, qnode.calibrator.checkboard_size, qnode.calibrator.detected_corners, true);
+  }
 
 
-
-  cv::resize(qnode.current_col_img, small, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
+  cv::resize(cpy, small, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
   QImage qimg = Mat2QImage(small);
   QPixmap pixmap;
   ui.lb_kinect_image->setPixmap(pixmap.fromImage(qimg, 0));
@@ -279,23 +278,69 @@ namespace projector_calibration {
 
 
  void MainWindow::manual_z_changed(int z){
-  //  std::stringstream ss;
-  //  ss << z;
-  //  qnode.writeToOutput(ss);
-
   assert(qnode.calibrator.isKinectTrafoSet());
   float diff = z-manual_z_change;
   qnode.calibrator.translateKinectTrafo(diff/100.0);
   manual_z_change = z;
   ui.lb_z->setText(QString::number(manual_z_change));
-
  }
 
 
  void MainWindow::show_fullscreen_pattern(){
-
   qnode.calibrator.projectFullscreenCheckerboard();
  }
+
+
+
+
+
+
+
+
+
+
+ /*****************************************************************************
+  ** Calibration Functions
+  *****************************************************************************/
+
+ void MainWindow::add_new_observation(){
+  sstream msg;
+
+  if (!qnode.calibrator.isKinectTrafoSet()){
+   qnode.writeToOutput(sstream("Can't add observation if coordinate system is not defined!"));
+   return;
+  }
+
+  if (qnode.calibrator.getProjectorCornerCnt() == 0){
+   qnode.writeToOutput(sstream("Can't add observation if no pattern is projected!"));
+   return;
+  }
+
+
+  // pass current images to the calibrator
+  qnode.calibrator.setInputImage(qnode.current_col_img);
+  qnode.calibrator.setInputCloud(qnode.current_cloud);
+
+  if(!qnode.calibrator.findCheckerboardCorners()){
+   qnode.writeToOutput(sstream("Could not detect Marker!"));
+   return;
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+ }
+
+
 
 
  // void MainWindow::on_checkbox_use_environment_stateChanged(int state) {

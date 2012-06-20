@@ -100,16 +100,14 @@ namespace projector_calibration {
   // ROS_INFO("GOT KINECT DATA");
 
   pcl::fromROSMsg(*cloud_ptr, current_cloud);
-
   calibrator.setInputCloud(current_cloud);
 
 
-  if (calibrator.isKinectTrafoSet()){
+  if (calibrator.isKinectTrafoSet() && pub_cloud_worldsystem.getNumSubscribers()>0){
    Cloud::Ptr msg = calibrator.cloud_moved.makeShared();
    msg->header.frame_id = "/openni_rgb_optical_frame";
    msg->header.stamp = ros::Time::now ();
    pub_cloud_worldsystem.publish(msg);
-//   ROS_INFO("Sending moved pointcloud");
   }
 
 
@@ -117,10 +115,7 @@ namespace projector_calibration {
   //  ROS_INFO("GOT cloud with %zu points", current_cloud.size());
   cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(img_ptr , sensor_msgs::image_encodings::BGR8);
 
-
   current_col_img = cv_ptr->image;
-
-  calibrator.setInputImage(current_col_img);
 
   Q_EMIT received_col_Image();
  }

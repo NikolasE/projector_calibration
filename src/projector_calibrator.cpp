@@ -355,7 +355,7 @@ void Projector_Calibrator::computeHomography_OPENCV(){
 
  ROS_WARN("COMPUTING HOMOGRAPHY WITH openCV");
 
- uint N = projector_corners.size();
+ uint N = current_projector_corners.size();
  if(observations_3d.size() < N){
   ROS_ERROR("computeHomography_OPENCV: less 3d-points than 2d-points, aborting");
   return;
@@ -377,11 +377,11 @@ void Projector_Calibrator::computeHomography_OPENCV(){
  cv::Mat T,U;
  vector<cv::Point2f> src_trafoed, d2_trafoed;
  scalePixels(src,  T, src_trafoed);
- scalePixels(projector_corners,  U, d2_trafoed);
+ scalePixels(current_projector_corners,  U, d2_trafoed);
  hom_CV = cv::findHomography(src_trafoed,d2_trafoed);
  hom_CV = U.inv()*hom_CV*T;
 #else
- hom_CV = cv::findHomography(src,projector_corners);
+ hom_CV = cv::findHomography(src,current_projector_corners);
 #endif
 
 
@@ -399,8 +399,8 @@ void Projector_Calibrator::computeHomography_OPENCV(){
  for (uint i=0; i<N; ++i){
   applyHomography(cv::Point2f(observations_3d.at(i).x,observations_3d.at(i).y),hom_CV, px);
 
-  e_x = abs((px.x-projector_corners.at(i).x));
-  e_y = abs((px.y-projector_corners.at(i).y));
+  e_x = abs((px.x-current_projector_corners.at(i).x));
+  e_y = abs((px.y-current_projector_corners.at(i).y));
 
   err_x += e_x/N; err_y += e_y/N  ;
   error += sqrt(e_x*e_x+e_y*e_y)/N;
@@ -421,7 +421,7 @@ void Projector_Calibrator::computeHomography_SVD(){
 
  ROS_WARN("COMPUTING HOMOGRAPHY WITH SVD");
 
- uint N = projector_corners.size();
+ uint N = current_projector_corners.size();
  if(observations_3d.size() < N){
   ROS_ERROR("computeHomography_SVD: less 3d-points than 2d-points, aborting");
   return;
@@ -436,9 +436,9 @@ void Projector_Calibrator::computeHomography_SVD(){
 #ifdef SCALE_SVD
  cv::Mat T;
  vector<cv::Point2f> d2_trafoed;
- scalePixels(projector_corners,  T, d2_trafoed);
+ scalePixels(current_projector_corners,  T, d2_trafoed);
 #else
- vector<cv::Point2f> d2_trafoed = projector_corners;
+ vector<cv::Point2f> d2_trafoed = current_projector_corners;
 #endif
 
 
@@ -517,8 +517,8 @@ void Projector_Calibrator::computeHomography_SVD(){
  for (uint i=0; i<N; ++i){
   applyHomography(src.at(i), hom_SVD, px);
 
-  a = abs(px.x-projector_corners.at(i).x);
-  b = abs(px.y-projector_corners.at(i).y);
+  a = abs(px.x-current_projector_corners.at(i).x);
+  b = abs(px.y-current_projector_corners.at(i).y);
 
   err_x += a/N; err_y += b/N;
 
@@ -537,7 +537,7 @@ void Projector_Calibrator::computeProjectionMatrix(){
 
 
  uint c_cnt = observations_3d.points.size();
- uint proj_cnt = projector_corners.size();
+ uint proj_cnt = current_projector_corners.size();
 
  if (c_cnt == 0){
   ROS_WARN("Can't compute projection matrix without 3d points");
@@ -560,7 +560,7 @@ void Projector_Calibrator::computeProjectionMatrix(){
  cv::Mat U,T;
 
  scaleCloud(observations_3d, U, trafoed_corners);
- scalePixels(projector_corners, T, trafoed_px);
+ scalePixels(current_projector_corners, T, trafoed_px);
 
  cv::Mat A = cv::Mat(2*c_cnt,12,CV_64FC1);
  A.setTo(0);
@@ -617,7 +617,7 @@ void Projector_Calibrator::computeProjectionMatrix(){
   //    ROS_INFO("projection %i", i);
 
   pcl_Point   p = observations_3d.points.at(i);
-  cv::Point2f p_ = projector_corners.at(i%proj_cnt); //
+  cv::Point2f p_ = current_projector_corners.at(i%proj_cnt); //
 
   applyPerspectiveTrafo(cv::Point3f(p.x,p.y,p.z),proj_Matrix,px);
 
@@ -638,24 +638,22 @@ void Projector_Calibrator::computeProjectionMatrix(){
 
 bool Projector_Calibrator::findCheckerboardCorners(){
  // #define SHOW_DETECTIONS
-
- corners.clear();
+ detected_corners.clear();
  if (input_image.rows == 0){  ROS_WARN("can't find corners on empty image!"); return false;  }
 
- // ROS_INFO("Looking for checkerboard with %i %i corners", checkboard_size.width, checkboard_size.height);
+// ROS_INFO("Looking for checkerboard with %i %i corners", checkboard_size.width, checkboard_size.height);
 
-
- if (!cv::findChessboardCorners(input_image, checkboard_size,corners, CV_CALIB_CB_ADAPTIVE_THRESH)) {
+ if (!cv::findChessboardCorners(input_image, checkboard_size,detected_corners, CV_CALIB_CB_ADAPTIVE_THRESH)) {
   ROS_WARN("Could not find a checkerboard!");
   return false;
  }
 
  cv::cvtColor(input_image, gray, CV_BGR2GRAY);
- cv::cornerSubPix(gray, corners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+ cv::cornerSubPix(gray, detected_corners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
 
 #ifdef SHOW_DETECTIONS
  cv::Mat cpy = input_image.clone();
- cv::drawChessboardCorners(cpy, checkboard_size, corners, true);
+ cv::drawChessboardCorners(cpy, checkboard_size, detected_corners, true);
  cv::namedWindow("search",1); cv::imshow("search", cpy);
  cv::waitKey(-1);
 #endif
@@ -674,7 +672,7 @@ bool Projector_Calibrator::storeCurrent3DObservations(){
   return false;
  }
 
- if (corners.size() == 0){
+ if (detected_corners.size() == 0){
   ROS_WARN("Can't add Observations since Corners havn't been detected");
   return false;
  }
@@ -686,8 +684,8 @@ bool Projector_Calibrator::storeCurrent3DObservations(){
 
 
  Cloud c_3d;
- for (uint i=0; i<corners.size(); ++i){
-  pcl_Point p = input_cloud.at(corners[i].x, corners[i].y);
+ for (uint i=0; i<detected_corners.size(); ++i){
+  pcl_Point p = input_cloud.at(detected_corners[i].x, detected_corners[i].y);
   if (!(p.x == p.x)){ROS_WARN("storeCurrent3DObservations: Found Corner without depth!"); return false;}
   c_3d.points.push_back(p);
   // ROS_INFO("new 3d point (kinect frame): %f %f %f", p.x, p.y,p.z);
@@ -838,7 +836,7 @@ bool  Projector_Calibrator::computeKinectTransformation(std::stringstream& msg){
   return false;
  }
 
- if (corners.size() == 0){
+ if (detected_corners.size() == 0){
   msg << "can't compute Kinect trafo without observed corners";
   // ROS_WARN("can't compute Kinect trafo without observed corners");
   return false;
@@ -853,8 +851,8 @@ bool  Projector_Calibrator::computeKinectTransformation(std::stringstream& msg){
 
  int m = (checkboard_size.height/2*checkboard_size.width)+(checkboard_size.width-1)/2;
 
- pcl_Point p  = input_cloud.at(corners[m].x, corners[m].y);
- pcl_Point p2 = input_cloud.at(corners[m].x+sin(-kinect_tilt_angle_deg/180*M_PI)*100, corners[m].y-cos(-kinect_tilt_angle_deg/180*M_PI)*100);
+ pcl_Point p  = input_cloud.at(detected_corners[m].x, detected_corners[m].y);
+ pcl_Point p2 = input_cloud.at(detected_corners[m].x+sin(-kinect_tilt_angle_deg/180*M_PI)*100, detected_corners[m].y-cos(-kinect_tilt_angle_deg/180*M_PI)*100);
 
  if ( p2.x != p2.x){
   msg << "NAN in pointcloud, no calculation of new wall-system" << endl;
@@ -891,7 +889,7 @@ bool  Projector_Calibrator::computeKinectTransformation(std::stringstream& msg){
 void Projector_Calibrator::getCheckerboardArea(vector<cv::Point2i>& pts){
 
  pts.clear();
- if (corners.size() == 0){
+ if (detected_corners.size() == 0){
   ROS_WARN("getCheckerboardArea: no corners!"); return;
  }
 
@@ -901,22 +899,22 @@ void Projector_Calibrator::getCheckerboardArea(vector<cv::Point2i>& pts){
  int h = checkboard_size.height;
 
 
- cv::Point2i p = corners[0]; // first corner in top row
- cv::Point2i q = corners[w+1]; // second corner in second row
+ cv::Point2i p = detected_corners[0]; // first corner in top row
+ cv::Point2i q = detected_corners[w+1]; // second corner in second row
  pts.push_back(cv::Point2i(2*p.x-q.x,2*p.y-q.y)); // extrapolation to find left upper corner
 
- p = corners[w-1];
- q = corners[2*w-2];
+ p = detected_corners[w-1];
+ q = detected_corners[2*w-2];
  pts.push_back(cv::Point2i(2*p.x-q.x,2*p.y-q.y));
 
 
- p = corners[w*h-1];
- q = corners[w*h-1-w-1];
+ p = detected_corners[w*h-1];
+ q = detected_corners[w*h-1-w-1];
  pts.push_back(cv::Point2i(2*p.x-q.x,2*p.y-q.y));
 
 
- p = corners[(h-1)*w];
- q = corners[(h-2)*w+1];
+ p = detected_corners[(h-1)*w];
+ q = detected_corners[(h-2)*w+1];
  pts.push_back(cv::Point2i(2*p.x-q.x,2*p.y-q.y));
 
  assert(pts.size() == 4);
@@ -932,7 +930,7 @@ bool Projector_Calibrator::findOptimalProjectionArea(float ratio, cv_RectF& rect
   ROS_WARN("findOptimalProjectionArea: no kinect trafo!"); return false;
  }
 
- if (corners.size() == 0){
+ if (detected_corners.size() == 0){
   ROS_WARN("findOptimalProjectionArea: no corners!"); return false;
  }
 
@@ -1094,7 +1092,7 @@ void Projector_Calibrator::setInputCloud(Cloud& cloud){
 void Projector_Calibrator::createMaskFromDetections(){
  // #define SHOW_MASK_IMAGE
 
- if (corners.size() != uint(checkboard_size.width*checkboard_size.height)){
+ if (detected_corners.size() != uint(checkboard_size.width*checkboard_size.height)){
   ROS_INFO("can't create mask if the corners were not detected!"); return; }
 
  mask = cv::Mat(cv::Size(640,480), CV_8UC1);  mask.setTo(0);
@@ -1179,7 +1177,7 @@ void showMarker(cv::Point l1, cv::Point l2){
 void Projector_Calibrator::projectSmallCheckerboard(cv::Point l1, cv::Point l2){
  drawCheckerboard(projector_image, l1,l2,
    checkboard_size,
-   projector_corners);
+   current_projector_corners);
 
  IplImage proj_ipl = projector_image;
  cvShowImage("fullscreen_ipl", &proj_ipl);
@@ -1189,8 +1187,8 @@ void Projector_Calibrator::projectSmallCheckerboard(cv::Point l1, cv::Point l2){
 
 void Projector_Calibrator::projectUniformBackground(bool white){
  projector_image.setTo(white?255:0);
- projector_corners.clear(); // no corners on projector
- corners.clear();           // and no detected corners anymore
+ current_projector_corners.clear(); // no corners on projector
+ detected_corners.clear();           // and no detected corners anymore
  IplImage proj_ipl = projector_image;
  cvShowImage("fullscreen_ipl", &proj_ipl);
 }
@@ -1202,7 +1200,7 @@ void Projector_Calibrator::projectFullscreenCheckerboard(){
  drawCheckerboard(projector_image, cv::Point(0,0),
    cv::Point(projector_image.cols, projector_image.rows),
    checkboard_size,
-   projector_corners);
+   current_projector_corners);
 
  IplImage proj_ipl = projector_image;
  cvShowImage("fullscreen_ipl", &proj_ipl);

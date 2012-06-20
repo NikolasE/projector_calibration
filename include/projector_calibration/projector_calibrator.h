@@ -54,7 +54,7 @@ class Projector_Calibrator {
  void drawCheckerboard(cv::Mat& img,cv::Point l1, const cv::Point l2, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
 
  // Position of internal checkerboard corners
- std:: vector<cv::Point2f> projector_corners;
+ std::vector<cv::Point2f> current_projector_corners;
 
 
  std::string hom_cv_filename, hom_svd_filename, proj_matrix_filename, kinect_trafo_filename;
@@ -67,6 +67,8 @@ class Projector_Calibrator {
 public:
 
 
+ int getProjectorCornerCnt(){ return int(current_projector_corners.size());}
+
  void translateKinectTrafo(float dz);
  void rotateKinectTrafo(float dyaw);
 
@@ -74,7 +76,7 @@ public:
  bool saveKinectTrafo(std::stringstream& msg);
 
  // pixel coordinates of the detected checkerboard corners
- std::vector<cv::Point2f> corners;
+ std::vector<cv::Point2f> detected_corners;
 
  bool loadKinectTrafo(std::stringstream& msg);
 
@@ -102,6 +104,10 @@ public:
  // list of 3d-observations (in the wall-frame) of the checkerboard corners
  // length is a multiple of the number of checkerboardcorners
  Cloud observations_3d;
+
+ // to the observations_3d corresponding projector-pixels
+ Cloud corners_2d;
+
 
  void getCheckerboardArea(std::vector<cv::Point2i>& pts);
 
@@ -179,7 +185,7 @@ public:
  // create the mask on the kinect image that shows the region where the checkerboard was detected
  void createMaskFromDetections();
 
- void setInputImage(cv::Mat& image){input_image = image; corners.clear();}
+ void setInputImage(cv::Mat& image){input_image = image; detected_corners.clear();}
  void setInputCloud(Cloud& cloud);
 
 

@@ -118,7 +118,7 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <property name="documentMode">
        <bool>false</bool>
@@ -269,7 +269,7 @@
             </size>
            </property>
            <property name="text">
-            <string>Pattern Size</string>
+            <string>Pattern Size      </string>
            </property>
           </widget>
          </item>
@@ -941,6 +941,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>pushButton_6</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>add_new_observation()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>171</x>
+     <y>157</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>413</x>
+     <y>455</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>show_fullscreen_pattern()</slot>
@@ -954,5 +970,6 @@
   <slot>save_kinect_trafo()</slot>
   <slot>manual_z_changed(int)</slot>
   <slot>manual_yaw_changed(int)</slot>
+  <slot>add_new_observation()</slot>
  </slots>
 </ui>

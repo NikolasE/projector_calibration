@@ -23,9 +23,6 @@ typedef cv::Rect_<float> cv_RectF;
 class Projector_Calibrator {
 
 
-
-
-
  // trafo cloud s.t. checkerboard is z=0,  middle of board at x=y=0
  // the first trafo is stored and used for all following frames
  Eigen::Affine3f kinect_trafo;
@@ -33,8 +30,6 @@ class Projector_Calibrator {
 
  cv::Mat input_image; // rgb image of kinect
  cv::Mat gray; // gray version of kinect image
-
-
 
 
  // point cloud from kinect (still in kinect frame)
@@ -68,7 +63,9 @@ public:
 
  bool removeLastObservations();
 
- int getProjectorCornerCnt(){ return int(current_projector_corners.size());}
+ int getCurrentProjectorCornerCnt(){ return int(current_projector_corners.size());}
+
+ int getNumPairs(){return int(observations_3d.size());}
 
  void translateKinectTrafo(float dz);
  void rotateKinectTrafo(float dyaw);
@@ -80,6 +77,9 @@ public:
  std::vector<cv::Point2f> detected_corners;
 
  bool loadKinectTrafo(std::stringstream& msg);
+ bool saveHomographyCV(std::stringstream& msg);
+ bool saveProjectionMatrix(std::stringstream& msg);
+
 
 
  float printed_marker_size_mm;
@@ -207,9 +207,9 @@ public:
 
 
  // pixel coordinates of checkerboard corners
- void computeProjectionMatrix();
- void computeHomography_OPENCV();
- void computeHomography_SVD();
+ bool computeProjectionMatrix(float& mean_error);
+ bool computeHomography_OPENCV(float& mean_error);
+ bool computeHomography_SVD();
 
 
 

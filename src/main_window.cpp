@@ -311,7 +311,7 @@ namespace projector_calibration {
    return;
   }
 
-  if (qnode.calibrator.getProjectorCornerCnt() == 0){
+  if (qnode.calibrator.getCurrentProjectorCornerCnt() == 0){
    qnode.writeToOutput(sstream("Can't add observation if no pattern is projected!"));
    return;
   }
@@ -326,22 +326,56 @@ namespace projector_calibration {
    return;
   }
 
+  qnode.calibrator.storeCurrentObservationPairs();
 
-
-
-
-
-
-
-
-
-
-
+  msg << "Now " << qnode.calibrator.getNumPairs() << " pairs for optimization";
+  qnode.writeToOutput(msg);
 
  }
 
+void MainWindow::compute_homography(){
+ sstream msg;
+ float mean_error;
+ if (qnode.calibrator.computeHomography_OPENCV(mean_error)){
+  msg << "Homography computed with mean reprojection error of " << mean_error << "pixels ";
+ }else{
+  msg << "Could not compute Homography (not enough points)";
+ }
+ qnode.writeToOutput(msg);
+
+}
+
+void MainWindow::compute_projection_matrix(){
+ sstream msg;
+ float mean_error;
+ if (qnode.calibrator.computeProjectionMatrix(mean_error)){
+  msg << "Projection Matrix computed with mean reprojection error of " << mean_error << "pixels ";
+ }else{
+  msg << "Could not compute Projection Matrix (not enough points)";
+ }
+ qnode.writeToOutput(msg);
+
+}
+
+void MainWindow::save_projection_matrix(){
+ sstream msg;
+ qnode.calibrator.saveProjectionMatrix(msg);
+ qnode.writeToOutput(msg);
+}
+
+void MainWindow::save_homography(){
+ sstream msg;
+ qnode.calibrator.saveHomographyCV(msg);
+ qnode.writeToOutput(msg);
+}
 
 
+void MainWindow::delete_last_img(){
+ if (qnode.calibrator.removeLastObservations())
+  qnode.writeToOutput(sstream("Removed last image"));
+ else
+  qnode.writeToOutput(sstream("No image to remove"));
+}
 
  // void MainWindow::on_checkbox_use_environment_stateChanged(int state) {
  //  //  bool enabled;

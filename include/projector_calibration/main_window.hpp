@@ -130,7 +130,13 @@ namespace projector_calibration {
  void manual_yaw_changed(int yaw);
 
 
+ // calibration
+ void compute_homography();
  void add_new_observation();
+ void compute_projection_matrix();
+ void save_projection_matrix();
+ void save_homography();
+ void delete_last_img();
 
  /******************************************
   ** Manual connections

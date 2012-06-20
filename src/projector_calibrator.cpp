@@ -350,45 +350,55 @@ void Projector_Calibrator::showUnWarpedImage(const cv::Mat& img){
 }
 
 
-void Projector_Calibrator::computeHomography_OPENCV(){
+bool Projector_Calibrator::computeHomography_OPENCV(float& mean_error){
 #define DO_SCALING
-
+ assert(observations_3d.size() == corners_2d.size());
  ROS_WARN("COMPUTING HOMOGRAPHY WITH openCV");
 
- uint N = current_projector_corners.size();
- if(observations_3d.size() < N){
-  ROS_ERROR("computeHomography_OPENCV: less 3d-points than 2d-points, aborting");
-  return;
+ if (number_of_features_in_images.size() > 1){
+  ROS_INFO("More than one image in list, but computing Homography only from first image!");
  }
+
+ if (number_of_features_in_images.size() == 0){
+  ROS_INFO("No observations to compute homography from!");
+  return false;
+ }
+
+
+ uint N = number_of_features_in_images[0];
+
  // count number of 3d points which are more than 2cm away from the z=0-plane
  float z_max = 0.03; int cnt = 0;
  for (uint i=0; i<N; ++i) { if (abs(observations_3d.at(i).z) > z_max) cnt++; }
  if (cnt>N*0.1) {  ROS_WARN("found %i of %i points with dist > 3cm", cnt,N); }
 
 
- // copy the 3d observations (x,y,~0) into 2d (x,y)
+ // copy the 3d observations (x,y,~0) into 2d (x,y) (z==0 by construction of coordinate system)
  vector<cv::Point2f> src; src.reserve(N);
  for (uint i=0; i<N; ++i){src.push_back(cv::Point2f(observations_3d.at(i).x,observations_3d.at(i).y));}
 
  // 2d = H*3d H*(x,y,1)
 
 
+ vector<cv::Point2f> first_proj_corners;
+ first_proj_corners.insert(first_proj_corners.begin(),corners_2d.begin(), corners_2d.begin()+N);
+
 #ifdef DO_SCALING
  cv::Mat T,U;
  vector<cv::Point2f> src_trafoed, d2_trafoed;
  scalePixels(src,  T, src_trafoed);
- scalePixels(current_projector_corners,  U, d2_trafoed);
+ scalePixels(first_proj_corners,  U, d2_trafoed);
  hom_CV = cv::findHomography(src_trafoed,d2_trafoed);
  hom_CV = U.inv()*hom_CV*T;
 #else
- hom_CV = cv::findHomography(src,current_projector_corners);
+ hom_CV = cv::findHomography(src,first_proj_corners);
 #endif
 
 
  // cout << "Homography with OpenCV: " << endl << hom_CV << endl;
 
  // compute error:
- float error = 0;
+ mean_error = 0;
 
  cv::Point2f px;
  float err_x = 0;
@@ -403,50 +413,69 @@ void Projector_Calibrator::computeHomography_OPENCV(){
   e_y = abs((px.y-current_projector_corners.at(i).y));
 
   err_x += e_x/N; err_y += e_y/N ;
-  error += sqrt(e_x*e_x+e_y*e_y)/N;
+  mean_error += sqrt(e_x*e_x+e_y*e_y)/N;
 
   //  ROS_INFO("Proj: %f %f, goal: %f %f (Error: %f)", px.x,px.y,corners_2d.at(i).x, corners_2d.at(i).y,err);
  }
 
 
- ROS_INFO("mean error: %f (x: %f, y: %f)", error, err_x, err_y);
+ ROS_INFO("mean error: %f (x: %f, y: %f)", mean_error, err_x, err_y);
 
- saveMat("Homography(OpenCV)", hom_cv_filename, hom_CV);
+ // saveMat("Homography(OpenCV)", hom_cv_filename, hom_CV);
 
+ return true;
 }
 
 
-void Projector_Calibrator::computeHomography_SVD(){
+bool Projector_Calibrator::computeHomography_SVD(){
 #define SCALE_SVD
 
  ROS_WARN("COMPUTING HOMOGRAPHY WITH SVD");
 
- uint N = current_projector_corners.size();
- if(observations_3d.size() < N){
-  ROS_ERROR("computeHomography_SVD: less 3d-points than 2d-points, aborting");
-  return;
+ assert(observations_3d.size() == corners_2d.size());
+
+ if (number_of_features_in_images.size() == 0){
+  ROS_INFO("No image with observations!");
+  return false;
  }
+
+
+ if (number_of_features_in_images.size() > 1){
+  ROS_INFO("More than one image in list, but computing Homography only from first image!");
+ }
+
+
+ // uint N = current_projector_corners.size();
+ // if(observations_3d.size() < N){
+ //  ROS_ERROR("computeHomography_SVD: less 3d-points than 2d-points, aborting");
+ //  return false;
+ // }
+
+ int N = number_of_features_in_images[0];
+
 
  // count number of 3d points which are more than 2cm away from the z=0-plane
  float z_max = 0.03; int cnt = 0;
- for (uint i=0; i<N; ++i) { if (abs(observations_3d.at(i).z) > z_max) cnt++; }
+ for (int i=0; i<N; ++i) { if (abs(observations_3d.at(i).z) > z_max) cnt++; }
  if (cnt>N*0.1) { ROS_WARN("found %i of %i points with dist > 3cm", cnt,N); }
 
+
+ vector<cv::Point2f> first_proj_corners;
+ first_proj_corners.insert(first_proj_corners.begin(),corners_2d.begin(), corners_2d.begin()+N);
 
 #ifdef SCALE_SVD
  cv::Mat T;
  vector<cv::Point2f> d2_trafoed;
- scalePixels(current_projector_corners,  T, d2_trafoed);
+ scalePixels(first_proj_corners,  T, d2_trafoed);
 #else
- vector<cv::Point2f> d2_trafoed = current_projector_corners;
+ vector<cv::Point2f> d2_trafoed = first_proj_corners;
 #endif
 
 
 
- // Pointcloud to 2d-points
+ // Pointcloud to 2d-points (z ==0, by construction of the coordinate system)
  vector<cv::Point2f> src, src_trafoed;
-
- for (uint i=0; i<N; ++i) src.push_back(cv::Point2f(observations_3d.at(i).x,observations_3d.at(i).y));
+ for (int i=0; i<N; ++i) src.push_back(cv::Point2f(observations_3d.at(i).x,observations_3d.at(i).y));
 
 #ifdef SCALE_SVD
  cv::Mat U;
@@ -460,7 +489,7 @@ void Projector_Calibrator::computeHomography_SVD(){
  A.setTo(0);
 
  // p_ cross H*p = 0
- for (uint i=0; i<N; ++i){
+ for (int i=0; i<N; ++i){
   cv::Point2f P = src_trafoed.at(i);
   cv::Point2f p = d2_trafoed.at(i);
 
@@ -514,7 +543,7 @@ void Projector_Calibrator::computeHomography_SVD(){
 
 
  cv::Point2f px;
- for (uint i=0; i<N; ++i){
+ for (int i=0; i<N; ++i){
   applyHomography(src.at(i), hom_SVD, px);
 
   a = abs(px.x-current_projector_corners.at(i).x);
@@ -529,30 +558,31 @@ void Projector_Calibrator::computeHomography_SVD(){
 
  ROS_INFO("mean error: %f (x: %f, y: %f)", error, err_x, err_y);
 
- saveMat("Homography(SVD)", hom_svd_filename, hom_SVD);
+  saveMat("Homography(SVD)", hom_svd_filename, hom_SVD);
+
+ return true;
 }
 
 
-void Projector_Calibrator::computeProjectionMatrix(){
+bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
+
+ ROS_WARN("COMPUTING Projection Matrix");
+ assert(observations_3d.size() == corners_2d.size());
 
 
- uint c_cnt = observations_3d.points.size();
- uint proj_cnt = current_projector_corners.size();
-
- if (c_cnt == 0){
-  ROS_WARN("Can't compute projection matrix without 3d points");
+ if (number_of_features_in_images.size() == 0){
+  ROS_WARN("Can't compute projection matrix without observations");
+  return false;
  }
 
- assert(c_cnt % proj_cnt == 0);
+ if (number_of_features_in_images.size() == 1){
+   ROS_WARN("Can't compute projection matrix from one image, 3d points must not lie in one plane");
+   return false;
+  }
 
- int img_cnt = c_cnt/proj_cnt;
 
-
- if (img_cnt == 0) {
-  ROS_WARN("computeProjectionMatrix: only %i images, aborting", img_cnt);
-  return;
- }else
-  ROS_INFO("Computing Projection matrix from %i images", img_cnt);
+ uint N = observations_3d.size();
+ ROS_INFO("Computing Projection matrix from %zu images and %u pairs", number_of_features_in_images.size(),N);
 
 
  Cloud trafoed_corners;
@@ -560,17 +590,18 @@ void Projector_Calibrator::computeProjectionMatrix(){
  cv::Mat U,T;
 
  scaleCloud(observations_3d, U, trafoed_corners);
- scalePixels(current_projector_corners, T, trafoed_px);
+ scalePixels(corners_2d, T, trafoed_px);
 
- cv::Mat A = cv::Mat(2*c_cnt,12,CV_64FC1);
+
+ cv::Mat A = cv::Mat(2*N,12,CV_64FC1);
  A.setTo(0);
 
  //ROS_ERROR("Projection:");
 
  // p_ cross H*p = 0
- for (uint i=0; i<c_cnt; ++i){
+ for (uint i=0; i<N; ++i){
   pcl_Point   P = trafoed_corners.points.at(i);
-  cv::Point2f p = trafoed_px.at(i%proj_cnt);
+  cv::Point2f p = trafoed_px.at(i);
 
   // ROS_INFO("from %f %f %f to %f %f", P.x,P.y,P.z,p.x,p.y);
 
@@ -605,7 +636,7 @@ void Projector_Calibrator::computeProjectionMatrix(){
 
 
  // compute reprojection error:
- double total = 0;
+ mean_error = 0;
  double total_x = 0;
  double total_y = 0;
 
@@ -613,26 +644,28 @@ void Projector_Calibrator::computeProjectionMatrix(){
 
 
 
- for (uint i=0; i<c_cnt; ++i){
+ for (uint i=0; i<N; ++i){
   //    ROS_INFO("projection %i", i);
 
   pcl_Point   p = observations_3d.points.at(i);
-  cv::Point2f p_ = current_projector_corners.at(i%proj_cnt); //
+  cv::Point2f p_ = trafoed_px.at(i);
 
   applyPerspectiveTrafo(cv::Point3f(p.x,p.y,p.z),proj_Matrix,px);
 
 
   // ROS_INFO("err: %f %f", (px.x-p_.x),(px.y-p_.y));
 
-  total_x += abs(px.x-p_.x)/c_cnt;
-  total_y += abs(px.y-p_.y)/c_cnt;
-  total += sqrt(pow(px.x-p_.x,2)+pow(px.y-p_.y,2))/c_cnt;
+  total_x += abs(px.x-p_.x)/N;
+  total_y += abs(px.y-p_.y)/N;
+  mean_error += sqrt(pow(px.x-p_.x,2)+pow(px.y-p_.y,2))/N;
 
  }
 
- ROS_INFO("Projection Matrix: mean error: %f (x: %f, y: %f)", total, total_x, total_y);
+ ROS_INFO("Projection Matrix: mean error: %f (x: %f, y: %f)", mean_error, total_x, total_y);
+// saveMat("Projection Matrix", proj_matrix_filename, proj_Matrix);
 
- saveMat("Projection Matrix", proj_matrix_filename, proj_Matrix);
+ return true;
+
 }
 
 
@@ -641,7 +674,7 @@ bool Projector_Calibrator::findCheckerboardCorners(){
  detected_corners.clear();
  if (input_image.rows == 0){  ROS_WARN("can't find corners on empty image!"); return false;  }
 
-// ROS_INFO("Looking for checkerboard with %i %i corners", checkboard_size.width, checkboard_size.height);
+ // ROS_INFO("Looking for checkerboard with %i %i corners", checkboard_size.width, checkboard_size.height);
 
  if (!cv::findChessboardCorners(input_image, checkboard_size,detected_corners, CV_CALIB_CB_ADAPTIVE_THRESH)) {
   ROS_WARN("Could not find a checkerboard!");
@@ -662,6 +695,41 @@ bool Projector_Calibrator::findCheckerboardCorners(){
 
  return true;
 }
+
+bool Projector_Calibrator::saveHomographyCV(std::stringstream& msg){
+ if (hom_CV.cols == 0){
+  msg << "Homography is not yet computed!";
+  return false;
+ }
+
+ if (saveMat("Homography(OpenCV)", hom_cv_filename, hom_CV)){
+  msg << "Homography was written to " << hom_cv_filename;
+  return true;
+ }else{
+  msg << "Problems writing Homography to " << hom_cv_filename;
+  return false;
+ }
+
+}
+
+
+bool Projector_Calibrator::saveProjectionMatrix(std::stringstream& msg){
+ if (proj_Matrix.cols == 0){
+  msg << "Projection matrix is not yet computed!";
+  return false;
+ }
+
+
+ if (saveMat("Projection Matrix", proj_matrix_filename, proj_Matrix)){
+  msg << "Projection Matrix was written to " << proj_matrix_filename;
+  return true;
+ }else{
+  msg << "Problems writing Projection Matrix to " << proj_matrix_filename;
+  return false;
+ }
+}
+
+
 
 
 bool Projector_Calibrator::storeCurrentObservationPairs(){
@@ -705,6 +773,10 @@ bool Projector_Calibrator::storeCurrentObservationPairs(){
 
  number_of_features_in_images.push_back(current_projector_corners.size());
 
+ ROS_INFO("last: %i ",*number_of_features_in_images.rbegin());
+ ROS_INFO("last2: %i ",number_of_features_in_images[number_of_features_in_images.size()-1]);
+
+
  return true;
 }
 
@@ -716,7 +788,7 @@ bool Projector_Calibrator::removeLastObservations(){
  if (number_of_features_in_images.size() == 0)
   return false;
 
- uint obs_in_last = *number_of_features_in_images.rend();
+ uint obs_in_last = *number_of_features_in_images.rbegin();
 
  ROS_INFO("removing %i features from last img", obs_in_last);
 
@@ -725,11 +797,12 @@ bool Projector_Calibrator::removeLastObservations(){
  uint old_size = observations_3d.size();
 
  // end() points 1 after the last, s.t. obs.end()-1 is last valid iterator
+
  observations_3d.erase (observations_3d.end()-obs_in_last-1,observations_3d.end()-1);
  corners_2d.erase(corners_2d.end()-obs_in_last-1,corners_2d.end()-1);
 
  // remove last entry in list
- number_of_features_in_images.erase(number_of_features_in_images.begin()+number_of_features_in_images.size());
+ number_of_features_in_images.erase(number_of_features_in_images.begin()+number_of_features_in_images.size()-1);
 
  assert(observations_3d.size() + obs_in_last == old_size);
  assert(observations_3d.size() == corners_2d.size());

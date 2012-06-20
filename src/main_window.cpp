@@ -32,6 +32,9 @@ namespace projector_calibration {
  : QMainWindow(parent)
  , qnode(argc,argv)
  {
+
+  manual_z_change = 0;
+
   image_scale = 0.5;
 
   ui.setupUi(this); // Calling this incidentally connects all ui's triggers to on_...() callbacks in this class.
@@ -102,7 +105,8 @@ namespace projector_calibration {
  void MainWindow::select_marker_area(){
 
   if (!mouse_handler.area_marked()){
-   ROS_INFO("Select area on the projector image!");
+   stringstream ss; ss << "Select area on the projector image!";
+   qnode.writeToOutput(ss);
    return;
   }
 
@@ -112,6 +116,53 @@ namespace projector_calibration {
 
   qnode.calibrator.projectSmallCheckerboard(l1,l2);
 
+ }
+
+
+ void MainWindow::save_kinect_trafo(){
+  stringstream ss;
+
+  if (!qnode.calibrator.isKinectTrafoSet()){
+   ss << "Kinect Trafo not yet computed!";
+   qnode.writeToOutput(ss);
+   return;
+  }
+
+  qnode.calibrator.saveKinectTrafo(ss);
+  qnode.writeToOutput(ss);
+ }
+
+
+ void MainWindow::activateSlider(){
+  ui.slider_z->setEnabled(true);
+  ui.slider_z->setValue(0);
+  manual_z_change = 0;
+
+  ui.slider_yaw->setEnabled(true);
+  ui.slider_yaw->setValue(0);
+  manual_yaw_change = 0;
+ }
+
+
+ void MainWindow::compute_trafo(){
+  stringstream ss;
+
+  if(!qnode.calibrator.findCheckerboardCorners()){
+   ss << "Could not detect Marker";
+   qnode.writeToOutput(ss);
+   return;
+  }
+
+
+  if (qnode.calibrator.computeKinectTransformation(ss)){
+   ss << "Computation of Kinect Trafo successful";
+   activateSlider();
+
+  }else{
+   ss << "Computation of Kinect Trafo failed";
+  }
+
+  qnode.writeToOutput(ss);
  }
 
 
@@ -125,15 +176,27 @@ namespace projector_calibration {
   std::stringstream ss;
 
   if (ok && val > 0){
-   ss << "New length of printed marker square: " << val << "mm" << endl;
+   ss << "New length of printed marker square: " << val << "mm";
    qnode.calibrator.printed_marker_size_mm = val;
   }else{
    // should not happen due to input mask
-   ss << val << "  is no valid double value, resetting to old value" << endl;
+   ss << val << "  is no valid double value, resetting to old value";
    ui.ed_markersize->setText(QString::number(qnode.calibrator.printed_marker_size_mm));
   }
 
   qnode.writeToOutput(ss);
+ }
+
+
+ void MainWindow::load_kinect_trafo_from_file(){
+  stringstream msg;
+  qnode.calibrator.loadKinectTrafo(msg);
+  qnode.writeToOutput(msg);
+
+  if (qnode.calibrator.isKinectTrafoSet()){
+   activateSlider();
+  }
+
  }
 
 
@@ -156,11 +219,6 @@ namespace projector_calibration {
  }
 
 
- void MainWindow::foobar(){
-  qnode.foo++;
-  qnode.writeFooToList();
- }
-
  QImage Mat2QImage(const cv::Mat3b &src) {
   QImage dest(src.cols, src.rows, QImage::Format_ARGB32);
   for (int y = 0; y < src.rows; ++y) {
@@ -178,8 +236,19 @@ namespace projector_calibration {
   if (qnode.current_col_img.cols == 0)
    return;
 
+
   // draw kinect image on left label
   cv::Mat small;
+
+  //  if (qnode.calibrator.corners.size() > 0){
+  //   ROS_INFO("drawing corners");
+  //   cv::drawChessboardCorners(qnode.current_col_img, qnode.calibrator.checkboard_size, qnode.calibrator.corners, true);
+  //
+  //  }else
+  //   ROS_INFO("No corners");
+
+
+
   cv::resize(qnode.current_col_img, small, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
   QImage qimg = Mat2QImage(small);
   QPixmap pixmap;
@@ -191,14 +260,35 @@ namespace projector_calibration {
    cv::Mat small2;
    cv::resize(qnode.calibrator.projector_image, small2, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
 
-   //if (mouse_selection_active){
-   //ROS_INFO("From %i %i", mouse_handler.down.x, mouse_handler.down.y);
-   cv::rectangle(small2,  mouse_handler.down, mouse_handler.move, mouse_handler.area_marked()?CV_RGB(0,255,0):CV_RGB(255,0,0),2);
-   //}
+   if (mouse_handler.area_marked())
+    cv::rectangle(small2,  mouse_handler.down, mouse_handler.move, mouse_handler.area_marked()?CV_RGB(0,255,0):CV_RGB(255,0,0),2);
 
    qimg = Mat2QImage(small2);
    ui.lb_img_2->setPixmap(pixmap.fromImage(qimg, 0));
   }
+ }
+
+
+ void MainWindow::manual_yaw_changed(int yaw){
+  assert(qnode.calibrator.isKinectTrafoSet());
+  float diff = yaw-manual_yaw_change;
+  qnode.calibrator.rotateKinectTrafo(diff/180.0*M_PI);
+  manual_yaw_change = yaw;
+  ui.lb_yaw->setText(QString::number(manual_yaw_change));
+ }
+
+
+ void MainWindow::manual_z_changed(int z){
+  //  std::stringstream ss;
+  //  ss << z;
+  //  qnode.writeToOutput(ss);
+
+  assert(qnode.calibrator.isKinectTrafoSet());
+  float diff = z-manual_z_change;
+  qnode.calibrator.translateKinectTrafo(diff/100.0);
+  manual_z_change = z;
+  ui.lb_z->setText(QString::number(manual_z_change));
+
  }
 
 

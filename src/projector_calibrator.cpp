@@ -15,12 +15,12 @@ Projector_Calibrator::Projector_Calibrator(){
  kinect_trafo_valid = false;
 
 
-// checkboard_size = cv::Size(10,6);
-// proj_size = cv::Size(1024,768);
+ // checkboard_size = cv::Size(10,6);
+ // proj_size = cv::Size(1024,768);
 
  // reading the number of corners from file
  int check_width, check_height;
- ros::param::param<int>("projector_calibration/checkerboard_internal_corners_x", check_width, 10);
+ ros::param::param<int>("projector_calibration/checkerboard_internal_corners_x", check_width, 8);
  ros::param::param<int>("projector_calibration/checkerboard_internal_corners_y", check_height, 6 );
  checkboard_size = cv::Size(check_width, check_height);
 
@@ -31,10 +31,10 @@ Projector_Calibrator::Projector_Calibrator(){
  proj_size = cv::Size(proj_width, proj_height);
 
  double marker_size;
- ros::param::param<double>("projector_calibration/printed_marker_corners_dist_mm", marker_size, 22);
+ ros::param::param<double>("projector_calibration/printed_marker_corners_dist_mm", marker_size, 25);
  printed_marker_size_mm = marker_size;
 
-
+ setKinectOrientation(0);
 
 
  projector_image = cv::Mat(proj_size, CV_8UC3);
@@ -104,11 +104,10 @@ void Projector_Calibrator::initFromFile(){
 
 
  // Check for Kinect trafo:
- char fn[100]; sprintf(fn, "data/%s.txt",kinect_trafo_filename.c_str());
- kinect_trafo_valid = loadAffineTrafo(kinect_trafo,fn);
- if (kinect_trafo_valid)  ROS_INFO("Found kinect trafo");
- else  ROS_WARN("Could not load Kinect Trafo from %s", fn);
 
+ std::stringstream msg;
+ loadKinectTrafo(msg);
+ ROS_INFO_STREAM(msg);
 
  // load Matrices
  loadMat("Projection Matrix", proj_matrix_filename, proj_Matrix);
@@ -117,6 +116,17 @@ void Projector_Calibrator::initFromFile(){
 }
 
 
+bool Projector_Calibrator::loadKinectTrafo(std::stringstream& msg){
+ char fn[100]; sprintf(fn, "data/%s.txt",kinect_trafo_filename.c_str());
+ kinect_trafo_valid = loadAffineTrafo(kinect_trafo,fn);
+
+ if (kinect_trafo_valid)
+  msg << "Loaded transformation from kinect to world frame";
+ else
+  msg << "Could not load transformation from kinect to world frame from " <<  fn;
+
+ return kinect_trafo_valid;
+}
 
 
 
@@ -331,7 +341,6 @@ void Projector_Calibrator::showUnWarpedImage(const cv::Mat& img){
 
  cv::warpPerspective(img, projector_image, warp_matrix, size, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
 
- // TODO: remove numbers
  cv::rectangle(projector_image, cv::Point(0,0),cv::Point(projector_image.cols-10,projector_image.rows-10), CV_RGB(255,0,0), 10);
 
 
@@ -633,6 +642,8 @@ bool Projector_Calibrator::findCheckerboardCorners(){
  corners.clear();
  if (input_image.rows == 0){  ROS_WARN("can't find corners on empty image!"); return false;  }
 
+ // ROS_INFO("Looking for checkerboard with %i %i corners", checkboard_size.width, checkboard_size.height);
+
 
  if (!cv::findChessboardCorners(input_image, checkboard_size,corners, CV_CALIB_CB_ADAPTIVE_THRESH)) {
   ROS_WARN("Could not find a checkerboard!");
@@ -641,7 +652,6 @@ bool Projector_Calibrator::findCheckerboardCorners(){
 
  cv::cvtColor(input_image, gray, CV_BGR2GRAY);
  cv::cornerSubPix(gray, corners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
-
 
 #ifdef SHOW_DETECTIONS
  cv::Mat cpy = input_image.clone();
@@ -821,13 +831,19 @@ void computeTransformationFromYZVectorsAndOrigin(const Eigen::Vector3f& y_direct
 
 
 
-void Projector_Calibrator::computeKinectTransformation(){
+bool  Projector_Calibrator::computeKinectTransformation(std::stringstream& msg){
 
  if (!kinect_orientation_valid){
-  ROS_INFO("Can't compute KinectTrafo without Kinect's orientation angle"); return;
+  ROS_INFO("Can't compute KinectTrafo without Kinect's orientation angle");
+  return false;
  }
 
- ROS_INFO("Computing Kinect Trafo");
+ if (corners.size() == 0){
+  msg << "can't compute Kinect trafo without observed corners";
+  // ROS_WARN("can't compute Kinect trafo without observed corners");
+  return false;
+ }
+
 
  Cloud filtered;
  applyMaskOnInputCloud(filtered);
@@ -841,8 +857,9 @@ void Projector_Calibrator::computeKinectTransformation(){
  pcl_Point p2 = input_cloud.at(corners[m].x+sin(-kinect_tilt_angle_deg/180*M_PI)*100, corners[m].y-cos(-kinect_tilt_angle_deg/180*M_PI)*100);
 
  if ( p2.x != p2.x){
+  msg << "NAN in pointcloud, no calculation of new wall-system" << endl;
   ROS_WARN("NAN in pointcloud, no calculation of new wall-system");
-  return;
+  return false;
  }
 
  Eigen::Vector3f pl_center = Eigen::Vector3f(p.x,p.y,p.z);
@@ -857,14 +874,16 @@ void Projector_Calibrator::computeKinectTransformation(){
 
 
  // save to file
- char fn[100]; sprintf(fn, "data/%s.txt",kinect_trafo_filename.c_str());
- if (saveAffineTrafo(kinect_trafo,fn))
-  ROS_INFO("Wrote kinect_trafo to %s", fn);
-
- printTrafo(kinect_trafo);
+ // char fn[100]; sprintf(fn, "data/%s.txt",kinect_trafo_filename.c_str());
+ // if (saveAffineTrafo(kinect_trafo,fn))
+ //  ROS_INFO("Wrote kinect_trafo to %s", fn);
+ //
+ // printTrafo(kinect_trafo);
 
  pcl::getTransformedPointCloud(input_cloud,kinect_trafo,cloud_moved);
  kinect_trafo_valid = true;
+
+ return true;
 }
 
 
@@ -1138,6 +1157,8 @@ float Projector_Calibrator::fitPlaneToCloud(const Cloud& cloud, Eigen::Vector4f&
 
 void Projector_Calibrator::applyMaskOnInputCloud(Cloud& out){
 
+ if (!mask_valid()) createMaskFromDetections();
+
  assert(mask_valid() && int(input_cloud.width) == mask.cols);
 
  for (int x=0; x<mask.cols; ++x)
@@ -1167,12 +1188,11 @@ void Projector_Calibrator::projectSmallCheckerboard(cv::Point l1, cv::Point l2){
 
 
 void Projector_Calibrator::projectUniformBackground(bool white){
-
-  projector_image.setTo(white?255:0);
-  projector_corners.clear();
-  IplImage proj_ipl = projector_image;
-  cvShowImage("fullscreen_ipl", &proj_ipl);
-
+ projector_image.setTo(white?255:0);
+ projector_corners.clear(); // no corners on projector
+ corners.clear();           // and no detected corners anymore
+ IplImage proj_ipl = projector_image;
+ cvShowImage("fullscreen_ipl", &proj_ipl);
 }
 
 
@@ -1187,4 +1207,109 @@ void Projector_Calibrator::projectFullscreenCheckerboard(){
  IplImage proj_ipl = projector_image;
  cvShowImage("fullscreen_ipl", &proj_ipl);
 }
+
+
+bool Projector_Calibrator::saveKinectTrafo(std::stringstream& msg){
+
+ if (!isKinectTrafoSet()){
+  msg << "Can't save kinect trafo since it is not computed";
+  return false;
+ }
+
+
+ char fn[100]; sprintf(fn, "data/%s.txt",kinect_trafo_filename.c_str());
+ if (saveAffineTrafo(kinect_trafo,fn))
+  msg << "Wrote kinect_trafo to " <<  fn;
+ else
+  msg << "Problems writing kinect trafo to " <<  fn;
+
+ return true;
+}
+
+void Projector_Calibrator::translateKinectTrafo(float dz){
+ assert(isKinectTrafoSet());
+ kinect_trafo(2,3) += dz;
+}
+
+//  apply yaw rotation matrix on kinect trafo
+void Projector_Calibrator::rotateKinectTrafo(float dyaw){
+
+ assert(isKinectTrafoSet());
+
+ Eigen::Affine3f t = Eigen::Affine3f::Identity();
+
+ t(0,0) = t(1,1) = cos(dyaw);
+ t(0,1) = sin(dyaw);
+ t(1,0) = -sin(dyaw);
+
+ kinect_trafo = t*kinect_trafo;
+}
+
+
+
+/*
+ * Create 3D position of checkerboardcorners in the xy-plane so that z-axis intersects in on of the center corners and corners are axis-aligned
+ * PROBLEM: synthetic markers are in 2d (z=0), so that input-matrix for SVD is rankdefficientMa
+ */
+/*
+void Projector_Calibrator::computeKinectTrafoFromMarkerobservations(std::stringstream& msg){
+
+ if (!corners.size() == checkboard_size.width*checkboard_size.height){
+  ROS_WARN("computeKinectTrafoFromMarkerobservations: number of observed corners does not correspond to corners on marker");
+  return;
+ }
+
+ if (!input_cloud.size() > 0){
+  ROS_WARN("computeKinectTrafoFromMarkerobservations called with empty input_cloud!");
+  return;
+ }
+
+ float w = printed_marker_size_mm/1000; // clouds are in m
+
+ // create pointcloud with positions for the printed markers:
+ int off_x = checkboard_size.width/2;
+ int off_y = checkboard_size.height/2;
+
+ pcl_Point p; p.z = 0;
+
+ Cloud marker_points_3d;
+ marker_points_3d.reserve(corners.size());
+ for (int j=0; j<checkboard_size.height; ++j){
+  for (int i=0; i<checkboard_size.width; ++i){
+
+   p.x = (i-off_x)*w;
+   p.y = (j-off_y)*w;
+   marker_points_3d.push_back(p);
+
+  // ROS_INFO("marker: %f %f %f", p.x,p.y,p.z);
+  }
+ }
+
+
+ // compute observations in 3d:
+ Cloud observations;
+ observations.reserve(corners.size());
+ for (uint i=0; i<corners.size(); ++i){
+  pcl_Point p3 = input_cloud.at(corners[i].x, corners[i].y);
+  // ROS_INFO("obs: %f %f %f", p3.x,p3.y,p3.z);
+
+  if (!(p3.x == p3.x)){ROS_WARN("computeKinectTrafoFromMarkerobservations: Found Corner without depth!"); return;}
+  observations.points.push_back(p3);
+ }
+
+ float max_dist = 2*w;
+
+ // returns false if mean error after trafo is larger than max_dist
+ kinect_trafo_valid = computeTransformationFromPointclouds(marker_points_3d, observations, kinect_trafo, max_dist);
+
+ if (kinect_trafo_valid)
+  msg << "Computed Transformation from Kinect to Marker-Frame";
+ else
+  msg << "Could not compute trafo, something happened...";
+
+
+}
+ */
+
+
 

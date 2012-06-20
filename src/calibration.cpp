@@ -13,6 +13,131 @@
 using namespace std;
 
 
+float dist(pcl_Point A, pcl_Point B){
+ return sqrt(pow(A.x-B.x,2)+pow(A.y-B.y,2)+pow(A.z-B.z,2));
+}
+
+
+// compute trafo, so that fixed = trafo*moved (mean distance between corresponding points is minimized)
+bool computeTransformationFromPointclouds(const Cloud& fixed, const Cloud& moved, Eigen::Affine3f& trafo, float max_dist){
+
+
+ assert(fixed.size() == moved.size());
+
+ cv::Mat M(3,3,CV_32FC1);
+ M.setTo(0);
+
+ cv::Mat r(3,1,CV_32FC1);
+ cv::Mat c(3,1,CV_32FC1);
+
+ cv::Mat mean_fixed, mean_moved;
+ Cloud fixed_centered, moved_centered;
+
+ // compute center of point clouds and centered pointclouds
+ centerPointCloud(fixed, mean_fixed, &fixed_centered);
+ centerPointCloud(moved, mean_moved, &moved_centered);
+
+
+ cout << "center fixed:" << endl << mean_fixed << endl << "center moved: " << endl << mean_moved << endl;
+
+
+ for (uint i=0; i<fixed_centered.size(); ++i){
+
+//  pcl_Point a = fixed[i];
+//  pcl_Point b = moved[i];
+//
+//  ROS_INFO("fixed: %f %f %f", a.x,a.y,a.z);
+//  ROS_INFO("moved: %f %f %f", b.x,b.y,b.z);
+
+
+  pcl_Point f = fixed_centered[i];
+  pcl_Point m = moved_centered[i];
+
+  // fixed cloud has column vector
+  c.at<float>(0) = f.x; c.at<float>(1) = f.y; c.at<float>(2) = f.z;
+  r.at<float>(0) = m.x; r.at<float>(1) = m.y; r.at<float>(2) = m.z;
+
+//  cout << "c "  << c << endl << "r "  << r << endl;
+//  cout << c*r.t() << endl;
+
+  M += c*r.t();
+ }
+
+
+
+
+ cout << "M " << endl << M << endl;
+
+
+ cv::Mat W,U,Vt;
+
+ cv::SVDecomp(M, W,U,Vt);
+
+ cout << "W " << endl << W << endl;
+ cout << "U " << endl << U << endl;
+ cout << "Vt " << endl << Vt << endl;
+
+
+ cv::Mat R = U*Vt;
+
+ cout << "R " << endl << R << endl;
+
+
+ cv::Mat t = mean_fixed - R*mean_moved;
+
+ cout << "t " << endl << t << endl;
+
+
+// return false;
+
+
+ for (uint i=0; i<3; ++i){
+  for (uint j=0; j<3; ++j){
+   trafo(i,j) = R.at<float>(i,j);
+  }
+  trafo(3,i) = 0; // lowest row
+  trafo(i,3) = t.at<float>(i); // right colum
+ }
+ trafo(3,3) = 1;
+
+ ROS_INFO("kinect trafo");
+ printTrafo(trafo);
+
+
+ // compute error before and after trafo:
+ double error_before = 0;
+ double error_after = 0;
+
+
+
+
+ Cloud moved_final;
+ pcl::getTransformedPointCloud(moved, trafo, moved_final);
+
+
+ for (uint i=0; i<fixed.size(); ++i){
+  pcl_Point f = fixed[i];
+  pcl_Point m_orig = moved[i];
+  pcl_Point m_trafoed = moved_final[i];
+
+  error_before += dist(f, m_orig);
+  error_before += dist(f, m_trafoed);
+ }
+
+ error_before /= fixed.size();
+ error_after /= fixed.size();
+
+
+
+ ROS_INFO("computeTransformationFromPointcloud: error before: %f cm, error after: %f cm", error_before*100, error_after*100);
+
+ return (error_after < max_dist);
+
+}
+
+
+
+
 void update_min_filtered_cloud(Cloud& min_cloud, const Cloud& current){
  for (uint x = 0; x<min_cloud.width; x++)
   for (uint y = 0; y<min_cloud.height; y++){
@@ -91,6 +216,44 @@ void scalePixels(const vector<cv::Point2f>& pxs, cv::Mat& T, vector<cv::Point2f>
 
 
 }
+
+void centerPointCloud(const Cloud& in, cv::Mat& mean, Cloud* out){
+
+ if (in.size() == 0){
+  ROS_WARN("centerPointCloud called with empty inputcloud");
+  return;
+ }
+
+ mean = cv::Mat(3,1,CV_32FC1);
+ mean.setTo(0);
+
+ for (uint i=0; i<in.size(); ++i){
+  pcl_Point p = in[i];
+  mean.at<float>(0) += p.x;
+  mean.at<float>(1) += p.y;
+  mean.at<float>(2) += p.z;
+ }
+
+ mean /= in.size();
+
+ if (!out) return;
+
+ // store so that the values aren"t read from mean for every point
+ float x = mean.at<float>(0);
+ float y = mean.at<float>(1);
+ float z = mean.at<float>(2);
+
+ out->reserve(in.size());
+
+ for (uint i=0; i<in.size(); ++i){
+  pcl_Point p = in[i];
+  p.x -= x;   p.y -= y;  p.z -= z;
+  out->push_back(p);
+ }
+
+}
+
+
 
 void scaleCloud(const Cloud& pts, cv::Mat& U, Cloud& transformed){
 

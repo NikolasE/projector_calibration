@@ -49,12 +49,12 @@ namespace projector_calibration {
   // the actual calibration object
   Projector_Calibrator calibrator;
 
-  int foo;
+
+  ros::Publisher pub_cloud_worldsystem;
 
   cv::Mat current_col_img;
   Cloud current_cloud;
   void imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_msgs::PointCloud2ConstPtr& cloud_ptr);
-  void writeFooToList();
   void writeToOutput(const std::stringstream& msg);
 
 

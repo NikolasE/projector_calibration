@@ -45,10 +45,6 @@ class Projector_Calibrator {
  float kinect_tilt_angle_deg;
  bool kinect_orientation_valid;
 
- // pixel coordinates of the detected checkerboard corners
- std::vector<cv::Point2f> corners;
-
-
  // fit a plane into the pointcloud
  float fitPlaneToCloud(const Cloud& cloud, Eigen::Vector4f& model);
 
@@ -69,6 +65,18 @@ class Projector_Calibrator {
 
 
 public:
+
+
+ void translateKinectTrafo(float dz);
+ void rotateKinectTrafo(float dyaw);
+
+
+ bool saveKinectTrafo(std::stringstream& msg);
+
+ // pixel coordinates of the detected checkerboard corners
+ std::vector<cv::Point2f> corners;
+
+ bool loadKinectTrafo(std::stringstream& msg);
 
 
  float printed_marker_size_mm;
@@ -132,6 +140,7 @@ public:
  bool homOpenCVSet(){ return hom_CV.cols > 0;}
  bool homSVDSet(){ return hom_SVD.cols > 0;}
  bool warpMatrixSet(){ return warp_matrix.cols > 0;}
+
  //   if (calibrator.imageProjectionSet()){
  //#ifdef SHOW_TEST_IMAGE
  //    calibrator.showUnWarpedImage(calibrator.test_img);
@@ -158,7 +167,7 @@ public:
  void setKinectOrientation(float angle_deg){kinect_tilt_angle_deg = angle_deg;kinect_orientation_valid = true;}
 
  // compute the transformation that transforms the point cloud from the kinect-frame to the wall frame
- void computeKinectTransformation();
+ bool computeKinectTransformation(std::stringstream& msg);
 
  bool isKinectTrafoSet(){return kinect_trafo_valid;}
 
@@ -192,10 +201,14 @@ public:
  void computeHomography_OPENCV();
  void computeHomography_SVD();
 
+
+
  void projectFullscreenCheckerboard();
  void projectSmallCheckerboard(cv::Point l1, cv::Point l2);
  void projectUniformBackground(bool white);
 
+
+ // void computeKinectTrafoFromMarkerobservations(std::stringstream& msg);
 
  Cloud visualizePointCloud();
 

@@ -30,8 +30,8 @@ namespace projector_calibration {
   *****************************************************************************/
 
  QNode::QNode(int argc, char** argv ) :
-	    init_argc(argc),
-	    init_argv(argv)
+	      init_argc(argc),
+	      init_argv(argv)
  {init();}
 
  QNode::~QNode() {
@@ -53,15 +53,11 @@ namespace projector_calibration {
   ros::start(); // explicitly needed since our nodehandle is going out of scope.
   ros::NodeHandle n;
 
-  ROS_WARN("INIT");
-
-
-
 
   //  ros::param::param<double>("foo", bar, 42);
 
   // Add your ros communications here.
-  chatter_publisher = n.advertise<std_msgs::String>("chatter", 1000);
+  //chatter_publisher = n.advertise<std_msgs::String>("chatter", 1000);
   start();
   return true;
  }
@@ -69,6 +65,9 @@ namespace projector_calibration {
 
 
  void QNode::writeToOutput(const std::stringstream& msg){
+
+  ROS_INFO_STREAM(msg.str());
+
   logging_model.insertRows(logging_model.rowCount(),1);
 
 
@@ -77,19 +76,7 @@ namespace projector_calibration {
   Q_EMIT loggingUpdated(); // used to readjust the scrollbar
  }
 
- void QNode::writeFooToList(){
-  // logging_model.insertRows(logging_model.rowCount(),1);
-  std::stringstream logging_model_msg;
 
-  logging_model_msg << "[" << foo << "] ";
-
-  writeToOutput(logging_model_msg);
-
-  // QVariant new_row(QString(logging_model_msg.str().c_str()));
-  // logging_model.setData(logging_model.index(logging_model.rowCount()-1),new_row);
-  // Q_EMIT loggingUpdated(); // used to readjust the scrollbar
-
- }
 
 
  bool QNode::init(const std::string &master_url, const std::string &host_url) {
@@ -110,16 +97,31 @@ namespace projector_calibration {
 
 
  void QNode::imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
- // ROS_INFO("GOT KINECT DATA");
+  // ROS_INFO("GOT KINECT DATA");
 
-  //  pcl::fromROSMsg(*cloud_ptr, current_cloud);
-  //
-  ////  ROS_INFO("GOT cloud with %zu points", current_cloud.size());
-  //
+  pcl::fromROSMsg(*cloud_ptr, current_cloud);
+
+  calibrator.setInputCloud(current_cloud);
+
+
+  if (calibrator.isKinectTrafoSet()){
+   Cloud::Ptr msg = calibrator.cloud_moved.makeShared();
+   msg->header.frame_id = "/openni_rgb_optical_frame";
+   msg->header.stamp = ros::Time::now ();
+   pub_cloud_worldsystem.publish(msg);
+//   ROS_INFO("Sending moved pointcloud");
+  }
+
+
+
+  //  ROS_INFO("GOT cloud with %zu points", current_cloud.size());
   cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(img_ptr , sensor_msgs::image_encodings::BGR8);
 
 
   current_col_img = cv_ptr->image;
+
+  calibrator.setInputImage(current_col_img);
+
   Q_EMIT received_col_Image();
  }
 
@@ -137,6 +139,10 @@ namespace projector_calibration {
   message_filters::Synchronizer<policy> sync(policy(2), image_sub, cloud_sub);
   sync.registerCallback(boost::bind(&QNode::imgCloudCB,this, _1, _2));
 
+  pub_cloud_worldsystem = nh.advertise<Cloud>("cloud_world", 1);
+
+
+
   //  ros::Subscriber sub = n.subscribe("chatter", 1000, &Listener::callback, &listener);
 
   while ( ros::ok() ) {
@@ -145,10 +151,10 @@ namespace projector_calibration {
 
 
 
-//   if (current_col_img.cols > 0){
-//    cv::imshow("kinect", current_col_img);
-//    cv::waitKey(1);
-//   }
+   //   if (current_col_img.cols > 0){
+   //    cv::imshow("kinect", current_col_img);
+   //    cv::waitKey(1);
+   //   }
 
    //   std_msgs::String msg;
    //   std::stringstream ss;

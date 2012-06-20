@@ -66,6 +66,7 @@ class Projector_Calibrator {
 
 public:
 
+ bool removeLastObservations();
 
  int getProjectorCornerCnt(){ return int(current_projector_corners.size());}
 
@@ -106,7 +107,7 @@ public:
  Cloud observations_3d;
 
  // to the observations_3d corresponding projector-pixels
- Cloud corners_2d;
+ std::vector<cv::Point2f> corners_2d;
 
 
  void getCheckerboardArea(std::vector<cv::Point2i>& pts);
@@ -167,7 +168,10 @@ public:
  bool imageProjectionSet() { return warp_matrix.cols > 0; }
 
  // save 3d positions (in wall-frame) of the last checkerboard detection
- bool storeCurrent3DObservations();
+ bool storeCurrentObservationPairs();
+
+ // stores the number of detected corners in each image to be able to remove images
+ std::vector<int> number_of_features_in_images;
 
  bool isKinectOrientationSet(){return kinect_orientation_valid;}
  void setKinectOrientation(float angle_deg){kinect_tilt_angle_deg = angle_deg;kinect_orientation_valid = true;}

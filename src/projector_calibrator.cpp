@@ -402,7 +402,7 @@ void Projector_Calibrator::computeHomography_OPENCV(){
   e_x = abs((px.x-current_projector_corners.at(i).x));
   e_y = abs((px.y-current_projector_corners.at(i).y));
 
-  err_x += e_x/N; err_y += e_y/N  ;
+  err_x += e_x/N; err_y += e_y/N ;
   error += sqrt(e_x*e_x+e_y*e_y)/N;
 
   //  ROS_INFO("Proj: %f %f, goal: %f %f (Error: %f)", px.x,px.y,corners_2d.at(i).x, corners_2d.at(i).y,err);
@@ -664,8 +664,14 @@ bool Projector_Calibrator::findCheckerboardCorners(){
 }
 
 
-bool Projector_Calibrator::storeCurrent3DObservations(){
+bool Projector_Calibrator::storeCurrentObservationPairs(){
 
+
+ // for each 3d observation, there is a projected pixel (summed over all images)
+ assert(observations_3d.size() == corners_2d.size());
+
+ // for each 3d observation, there is a projected pixel (in current image)
+ assert(current_projector_corners.size() == detected_corners.size());
 
  if (!kinect_trafo_valid){
   ROS_WARN("can't store Observations in global Frame since it is not defined!");
@@ -682,31 +688,54 @@ bool Projector_Calibrator::storeCurrent3DObservations(){
   return false;
  }
 
-
  Cloud c_3d;
  for (uint i=0; i<detected_corners.size(); ++i){
   pcl_Point p = input_cloud.at(detected_corners[i].x, detected_corners[i].y);
   if (!(p.x == p.x)){ROS_WARN("storeCurrent3DObservations: Found Corner without depth!"); return false;}
   c_3d.points.push_back(p);
-  // ROS_INFO("new 3d point (kinect frame): %f %f %f", p.x, p.y,p.z);
  }
+
  // transform from kinect-frame to wall-frame
-
- pcl_Point  p = c_3d.points[0];
- // ROS_INFO("before: c_3d(0): %f %f %f", p.x,p.y,p.z);
-
  pcl::getTransformedPointCloud(c_3d, kinect_trafo, c_3d);
 
- p = c_3d.points[0];
- // ROS_INFO("after: c_3d(0): %f %f %f", p.x,p.y,p.z);
 
+ corners_2d.insert(corners_2d.end(), current_projector_corners.begin(), current_projector_corners.end());
  observations_3d.points.insert(observations_3d.points.end(),c_3d.points.begin(), c_3d.points.end());
  ROS_INFO("Added %zu points, now %zu 3D-Observations",c_3d.size(), observations_3d.size());
 
- // p = observations_3d.points[0];
- // ROS_INFO("Observations_3d(0): %f %f %f", p.x,p.y,p.z);
+ number_of_features_in_images.push_back(current_projector_corners.size());
 
  return true;
+}
+
+
+bool Projector_Calibrator::removeLastObservations(){
+
+ assert(observations_3d.size() == corners_2d.size());
+
+ if (number_of_features_in_images.size() == 0)
+  return false;
+
+ uint obs_in_last = *number_of_features_in_images.rend();
+
+ ROS_INFO("removing %i features from last img", obs_in_last);
+
+ assert(observations_3d.size() >= obs_in_last);
+
+ uint old_size = observations_3d.size();
+
+ // end() points 1 after the last, s.t. obs.end()-1 is last valid iterator
+ observations_3d.erase (observations_3d.end()-obs_in_last-1,observations_3d.end()-1);
+ corners_2d.erase(corners_2d.end()-obs_in_last-1,corners_2d.end()-1);
+
+ // remove last entry in list
+ number_of_features_in_images.erase(number_of_features_in_images.begin()+number_of_features_in_images.size());
+
+ assert(observations_3d.size() + obs_in_last == old_size);
+ assert(observations_3d.size() == corners_2d.size());
+
+ return true;
+
 }
 
 

@@ -326,7 +326,17 @@ namespace projector_calibration {
    return;
   }
 
+
   qnode.calibrator.storeCurrentObservationPairs();
+
+
+  ROS_WARN("SENDING %zu 3d observations", qnode.calibrator.observations_3d.size());
+  // show observations in rviz
+  Cloud::Ptr cloud_msg = qnode.calibrator.observations_3d.makeShared();
+  cloud_msg->header.frame_id = "/openni_rgb_optical_frame";
+  cloud_msg->header.stamp = ros::Time::now ();
+  qnode.pub_3d_calib_points.publish(cloud_msg);
+
 
   msg << "Now " << qnode.calibrator.getNumPairs() << " pairs for optimization";
   qnode.writeToOutput(msg);

@@ -50,7 +50,8 @@ namespace projector_calibration {
   Projector_Calibrator calibrator;
 
 
-  ros::Publisher pub_cloud_worldsystem;
+  ros::Publisher pub_cloud_worldsystem; // kinect cloud in world frame
+  ros::Publisher pub_3d_calib_points; // detected corners in 3d
 
   cv::Mat current_col_img;
   Cloud current_cloud;

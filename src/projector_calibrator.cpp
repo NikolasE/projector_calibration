@@ -558,7 +558,7 @@ bool Projector_Calibrator::computeHomography_SVD(){
 
  ROS_INFO("mean error: %f (x: %f, y: %f)", error, err_x, err_y);
 
-  saveMat("Homography(SVD)", hom_svd_filename, hom_SVD);
+ saveMat("Homography(SVD)", hom_svd_filename, hom_SVD);
 
  return true;
 }
@@ -576,9 +576,10 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
  }
 
  if (number_of_features_in_images.size() == 1){
-   ROS_WARN("Can't compute projection matrix from one image, 3d points must not lie in one plane");
-   return false;
-  }
+  // TODO: check range of z-values to see if points are distributed
+  ROS_WARN("Can't compute projection matrix from one image, 3d points must not lie in one plane");
+  return false;
+ }
 
 
  uint N = observations_3d.size();
@@ -632,7 +633,7 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
  proj_Matrix = T.inv()*proj_Matrix*U;
 
 
- // cout << "Projection Matrix: " << endl <<  P << endl;
+// cout << "Projection Matrix: " << endl << proj_Matrix << endl;
 
 
  // compute reprojection error:
@@ -648,7 +649,7 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
   //    ROS_INFO("projection %i", i);
 
   pcl_Point   p = observations_3d.points.at(i);
-  cv::Point2f p_ = trafoed_px.at(i);
+  cv::Point2f p_ = corners_2d.at(i);
 
   applyPerspectiveTrafo(cv::Point3f(p.x,p.y,p.z),proj_Matrix,px);
 
@@ -662,7 +663,7 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
  }
 
  ROS_INFO("Projection Matrix: mean error: %f (x: %f, y: %f)", mean_error, total_x, total_y);
-// saveMat("Projection Matrix", proj_matrix_filename, proj_Matrix);
+ // saveMat("Projection Matrix", proj_matrix_filename, proj_Matrix);
 
  return true;
 
@@ -735,6 +736,7 @@ bool Projector_Calibrator::saveProjectionMatrix(std::stringstream& msg){
 bool Projector_Calibrator::storeCurrentObservationPairs(){
 
 
+
  // for each 3d observation, there is a projected pixel (summed over all images)
  assert(observations_3d.size() == corners_2d.size());
 
@@ -766,15 +768,16 @@ bool Projector_Calibrator::storeCurrentObservationPairs(){
  // transform from kinect-frame to wall-frame
  pcl::getTransformedPointCloud(c_3d, kinect_trafo, c_3d);
 
-
+ROS_INFO("Inserting: corners_2d.size: %zu, adding %zu points", corners_2d.size(), current_projector_corners.size());
  corners_2d.insert(corners_2d.end(), current_projector_corners.begin(), current_projector_corners.end());
+ ROS_INFO("Inserting 2");
+
  observations_3d.points.insert(observations_3d.points.end(),c_3d.points.begin(), c_3d.points.end());
  ROS_INFO("Added %zu points, now %zu 3D-Observations",c_3d.size(), observations_3d.size());
+ ROS_INFO("Inserting 3");
+
 
  number_of_features_in_images.push_back(current_projector_corners.size());
-
- ROS_INFO("last: %i ",*number_of_features_in_images.rbegin());
- ROS_INFO("last2: %i ",number_of_features_in_images[number_of_features_in_images.size()-1]);
 
 
  return true;

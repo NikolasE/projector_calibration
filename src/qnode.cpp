@@ -90,7 +90,8 @@ namespace projector_calibration {
   ros::start(); // explicitly needed since our nodehandle is going out of scope.
   ros::NodeHandle n;
   // Add your ros communications here.
-  chatter_publisher = n.advertise<std_msgs::String>("chatter", 1000);
+  //chatter_publisher = n.advertise<std_msgs::String>("chatter", 1000);
+
   start();
   return true;
  }
@@ -135,16 +136,13 @@ namespace projector_calibration {
   sync.registerCallback(boost::bind(&QNode::imgCloudCB,this, _1, _2));
 
   pub_cloud_worldsystem = nh.advertise<Cloud>("cloud_world", 1);
-
-
+  pub_3d_calib_points = nh.advertise<Cloud>("calibration_points_3d", 1);
 
   //  ros::Subscriber sub = n.subscribe("chatter", 1000, &Listener::callback, &listener);
 
   while ( ros::ok() ) {
 
    ros::spinOnce();
-
-
 
    //   if (current_col_img.cols > 0){
    //    cv::imshow("kinect", current_col_img);

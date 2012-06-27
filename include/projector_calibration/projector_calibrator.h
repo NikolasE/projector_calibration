@@ -57,9 +57,19 @@ class Projector_Calibrator {
  bool saveMat(const std::string name, const std::string filename, const cv::Mat& mat);
  bool loadMat(const std::string name, const std::string filename, cv::Mat& mat);
 
+ bool setupImageProjection(const cv_RectF& wall_area, const cv::Size& img_size);
+
+ bool setupImageProjection(float width_m, float height_m, float off_x_m, float off_y_m, const cv::Size& img_size);
+ bool setupImageProjection(float width_m, float off_x_m, float off_y_m, const cv::Size& img_size);
+
+ const static int unused_pixels_rows = 25;
 
 
 public:
+
+
+ bool load_everything_on_startup;
+
 
  bool removeLastObservations();
 
@@ -133,7 +143,9 @@ public:
  // apply on image
  cv::Mat warp_matrix;
 
- bool findOptimalProjectionArea(float ratio, cv_RectF& rect);
+ cv_RectF optimal_projection_area;
+ bool findOptimalProjectionArea(float ratio, cv_RectF& rect, std::stringstream& msg);
+ bool findOptimalProjectionArea2(cv::Mat::MSize img_px_size, std::stringstream& msg);
 
 
  bool projMatorHomSet(){return projMatrixSet() ||   homOpenCVSet() || homSVDSet();}
@@ -141,7 +153,7 @@ public:
 
  Cloud* getTransformedCloud(){return &cloud_moved;}
 
- void initFromFile();
+ void initFromFile(std::stringstream& msg);
 
  bool projMatrixSet(){ return proj_Matrix.cols > 0;}
  bool homOpenCVSet(){ return hom_CV.cols > 0;}
@@ -160,10 +172,6 @@ public:
  //#endif
  //   }
 
- bool setupImageProjection(const cv_RectF& wall_area, const cv::Size& img_size);
-
- bool setupImageProjection(float width_m, float height_m, float off_x_m, float off_y_m, const cv::Size& img_size);
- bool setupImageProjection(float width_m, float off_x_m, float off_y_m, const cv::Size& img_size);
 
  bool imageProjectionSet() { return warp_matrix.cols > 0; }
 

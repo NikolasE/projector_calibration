@@ -29,11 +29,14 @@ typedef std::stringstream sstream;
 namespace projector_calibration {
 
 
- class MouseHandler : public QObject
- {
+ class MouseHandler : public QObject{
+  Q_OBJECT
  public:
+
+
+
   MouseHandler( QObject *parent = 0 ) : QObject( parent ) {
-//   active = true;
+   //   active = true;
    up = cv::Point2i(-1,-1);
   }
 
@@ -47,37 +50,44 @@ namespace projector_calibration {
    up = move = cv::Point2i(-1,-1);
   }
 
-//  bool active;
+  //  bool active;
+  Q_SIGNALS:
+  void redraw_image();
+
 
  protected:
   bool eventFilter( QObject *dist, QEvent *event )
   {
-//   if (!active) return false;
+   //   if (!active) return false;
 
    if( event->type() == QMouseEvent::MouseButtonPress)
     {
     QMouseEvent *mouseEvent = static_cast<QMouseEvent*>( event );
-//    ROS_INFO("down at %i %i", mouseEvent->x(), mouseEvent->y());
+    //    ROS_INFO("down at %i %i", mouseEvent->x(), mouseEvent->y());
 
     down = cv::Point2i(mouseEvent->x(), mouseEvent->y());
     move = down;
     up = cv::Point2i(-1,-1);
 
+    Q_EMIT redraw_image();
+
     }
 
    if( event->type() == QMouseEvent::MouseButtonRelease)
     {
-//    ROS_INFO("release");
+    //    ROS_INFO("release");
 
     QMouseEvent *mouseEvent = static_cast<QMouseEvent*>( event );
     up = cv::Point2i(mouseEvent->x(), mouseEvent->y());
     move = up;
+    Q_EMIT redraw_image();
     }
 
    if( event->type() == QMouseEvent::MouseMove){
-//    ROS_INFO("move");
+    //    ROS_INFO("move");
     QMouseEvent *mouseEvent = static_cast<QMouseEvent*>( event );
     move = cv::Point2i(mouseEvent->x(), mouseEvent->y());
+    Q_EMIT redraw_image();
    }
 
 
@@ -128,6 +138,8 @@ namespace projector_calibration {
  void save_kinect_trafo();
  void manual_z_changed(int z);
  void manual_yaw_changed(int yaw);
+ void find_projection_area();
+ void update_proj_image();
 
 
  // calibration
@@ -153,7 +165,7 @@ namespace projector_calibration {
  QNode qnode;
 
  MouseHandler mouse_handler;
-// bool mouse_selection_active;
+ // bool mouse_selection_active;
 
  // only show smaller images on the gui:
  float image_scale;

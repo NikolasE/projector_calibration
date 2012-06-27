@@ -43,14 +43,28 @@ namespace projector_calibration {
   ReadSettings();
   setWindowIcon(QIcon(":/images/icon.png"));
   ui.tab_manager->setCurrentIndex(0); // ensure the first tab is showing - qt-designer should have this already hardwired, but often loses it (settings?).
+
   QObject::connect(&qnode, SIGNAL(rosShutdown()), this, SLOT(close()));
-
-
   QObject::connect(&qnode, SIGNAL(received_col_Image()), this, SLOT(sl_received_image()));
+  QObject::connect(&qnode, SIGNAL(update_projector_image()), this, SLOT(update_proj_image()));
+  QObject::connect(&mouse_handler, SIGNAL(redraw_image()), this, SLOT(update_proj_image()));
 
 
-  //  QObject::connect(&ui.ed_corners_x, SINAL())
 
+  // TODO: read bool from config and print infos about loaded stuff
+  if (qnode.calibrator.load_everything_on_startup){
+   sstream msg;
+   qnode.calibrator.initFromFile(msg);
+   qnode.writeToOutput(msg);
+   if (qnode.calibrator.isKinectTrafoSet()){
+    activateSlider();
+   }
+  }else
+   ROS_INFO("dont load nohing");
+
+
+  show_fullscreen_pattern();
+  update_proj_image();
 
 
   /*********************
@@ -58,20 +72,6 @@ namespace projector_calibration {
    **********************/
   ui.view_logging->setModel(qnode.loggingModel());
   QObject::connect(&qnode, SIGNAL(loggingUpdated()), this, SLOT(updateLoggingView()));
-
-  /*********************
-   ** Auto Start
-   **********************/
-
-
-  //  int a = 123465;//qnode.calibrator.checkboard_size.height;
-  //
-  //  ROS_INFO("Height: %i", a);
-  //
-  //
-  //  QString s = ui.ed_proj_size_y->text();
-  //
-  //  std::cout << s.toFloat() << std::endl;
 
 
   ui.lb_img_2->installEventFilter(&mouse_handler);
@@ -115,6 +115,7 @@ namespace projector_calibration {
   cv::Point l2(mouse_handler.up.x/image_scale,mouse_handler.up.y/image_scale);
 
   qnode.calibrator.projectSmallCheckerboard(l1,l2);
+  update_proj_image(); // update image on gui
 
  }
 
@@ -207,17 +208,19 @@ namespace projector_calibration {
  void MainWindow::project_black_background(){
   // projects black background and removes position of last checkerboard detections
   qnode.calibrator.projectUniformBackground(false);
+  update_proj_image(); // update image on gui
  }
 
  void MainWindow::project_white_background(){
   // projects white background and removes position of last checkerboard detections
   qnode.calibrator.projectUniformBackground(true);
+  update_proj_image(); // update image on gui
  }
 
 
 
  void MainWindow::pattern_size_changed(){
-  ROS_INFO("Changing checkerboard size");
+  // ROS_INFO("Changing checkerboard size");
   qnode.calibrator.checkboard_size = cv::Size(ui.ed_corners_x->text().toInt(), ui.ed_corners_y->text().toInt());
  }
 
@@ -232,6 +235,23 @@ namespace projector_calibration {
    }
   }
   return dest;
+ }
+
+
+ void MainWindow::update_proj_image(){
+
+  // draw projector image on right label
+  if (qnode.calibrator.projector_image.cols > 0){
+   cv::Mat small2;
+   cv::resize(qnode.calibrator.projector_image, small2, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
+
+   if (mouse_handler.area_marked())
+    cv::rectangle(small2,  mouse_handler.down, mouse_handler.move, mouse_handler.area_marked()?CV_RGB(0,255,0):CV_RGB(255,0,0),2);
+
+   QPixmap pixmap;
+   QImage  qimg = Mat2QImage(small2);
+   ui.lb_img_2->setPixmap(pixmap.fromImage(qimg, 0));
+  }
  }
 
 
@@ -253,18 +273,6 @@ namespace projector_calibration {
   QPixmap pixmap;
   ui.lb_kinect_image->setPixmap(pixmap.fromImage(qimg, 0));
 
-
-  // draw projector image on right label
-  if (qnode.calibrator.projector_image.cols > 0){
-   cv::Mat small2;
-   cv::resize(qnode.calibrator.projector_image, small2, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
-
-   if (mouse_handler.area_marked())
-    cv::rectangle(small2,  mouse_handler.down, mouse_handler.move, mouse_handler.area_marked()?CV_RGB(0,255,0):CV_RGB(255,0,0),2);
-
-   qimg = Mat2QImage(small2);
-   ui.lb_img_2->setPixmap(pixmap.fromImage(qimg, 0));
-  }
  }
 
 
@@ -288,15 +296,22 @@ namespace projector_calibration {
 
  void MainWindow::show_fullscreen_pattern(){
   qnode.calibrator.projectFullscreenCheckerboard();
+  update_proj_image(); // update image on gui
  }
 
 
 
+ void MainWindow::find_projection_area(){
+  sstream msg;
+  qnode.calibrator.findOptimalProjectionArea2(qnode.calibrator.test_img.size, msg);
 
+  if (qnode.calibrator.warpMatrixSet()){
+   qnode.calibrator.showUnWarpedImage(*qnode.calibrator.getTestImg());
+   update_proj_image();
+  }
+  qnode.writeToOutput(msg);
 
-
-
-
+ }
 
 
  /*****************************************************************************
@@ -343,49 +358,49 @@ namespace projector_calibration {
 
  }
 
-void MainWindow::compute_homography(){
- sstream msg;
- float mean_error;
- if (qnode.calibrator.computeHomography_OPENCV(mean_error)){
-  msg << "Homography computed with mean reprojection error of " << mean_error << "pixels ";
- }else{
-  msg << "Could not compute Homography (not enough points)";
+ void MainWindow::compute_homography(){
+  sstream msg;
+  float mean_error;
+  if (qnode.calibrator.computeHomography_OPENCV(mean_error)){
+   msg << "Homography computed with mean reprojection error of " << setprecision(3) << mean_error << " pixels ";
+  }else{
+   msg << "Could not compute Homography (not enough points)";
+  }
+  qnode.writeToOutput(msg);
+
  }
- qnode.writeToOutput(msg);
 
-}
+ void MainWindow::compute_projection_matrix(){
+  sstream msg;
+  float mean_error;
+  if (qnode.calibrator.computeProjectionMatrix(mean_error)){
+   msg << "Projection Matrix computed with mean reprojection error of " << mean_error << "pixels ";
+  }else{
+   msg << "Could not compute Projection Matrix (not enough points)";
+  }
+  qnode.writeToOutput(msg);
 
-void MainWindow::compute_projection_matrix(){
- sstream msg;
- float mean_error;
- if (qnode.calibrator.computeProjectionMatrix(mean_error)){
-  msg << "Projection Matrix computed with mean reprojection error of " << mean_error << "pixels ";
- }else{
-  msg << "Could not compute Projection Matrix (not enough points)";
  }
- qnode.writeToOutput(msg);
 
-}
+ void MainWindow::save_projection_matrix(){
+  sstream msg;
+  qnode.calibrator.saveProjectionMatrix(msg);
+  qnode.writeToOutput(msg);
+ }
 
-void MainWindow::save_projection_matrix(){
- sstream msg;
- qnode.calibrator.saveProjectionMatrix(msg);
- qnode.writeToOutput(msg);
-}
-
-void MainWindow::save_homography(){
- sstream msg;
- qnode.calibrator.saveHomographyCV(msg);
- qnode.writeToOutput(msg);
-}
+ void MainWindow::save_homography(){
+  sstream msg;
+  qnode.calibrator.saveHomographyCV(msg);
+  qnode.writeToOutput(msg);
+ }
 
 
-void MainWindow::delete_last_img(){
- if (qnode.calibrator.removeLastObservations())
-  qnode.writeToOutput(sstream("Removed last image"));
- else
-  qnode.writeToOutput(sstream("No image to remove"));
-}
+ void MainWindow::delete_last_img(){
+  if (qnode.calibrator.removeLastObservations())
+   qnode.writeToOutput(sstream("Removed last image"));
+  else
+   qnode.writeToOutput(sstream("No image to remove"));
+ }
 
  // void MainWindow::on_checkbox_use_environment_stateChanged(int state) {
  //  //  bool enabled;

@@ -83,6 +83,7 @@ namespace projector_calibration {
   void loggingUpdated();
   void rosShutdown();
   void received_col_Image();
+  void update_projector_image();
 
 
  private:

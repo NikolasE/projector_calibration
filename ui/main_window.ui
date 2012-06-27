@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1037</width>
-    <height>774</height>
+    <width>1004</width>
+    <height>746</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -118,7 +118,7 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>3</number>
       </property>
       <property name="documentMode">
        <bool>false</bool>
@@ -701,6 +701,24 @@
         </property>
        </widget>
       </widget>
+      <widget class="QWidget" name="tab_9">
+       <attribute name="title">
+        <string>Visualization</string>
+       </attribute>
+       <widget class="QPushButton" name="pushButton_14">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>70</y>
+          <width>231</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Find optimal projection area</string>
+        </property>
+       </widget>
+      </widget>
      </widget>
     </item>
    </layout>
@@ -710,7 +728,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1037</width>
+     <width>1004</width>
      <height>25</height>
     </rect>
    </property>
@@ -782,8 +800,8 @@
    <slot>show_fullscreen_pattern()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>183</x>
-     <y>282</y>
+     <x>194</x>
+     <y>273</y>
     </hint>
     <hint type="destinationlabel">
      <x>502</x>
@@ -798,8 +816,8 @@
    <slot>select_marker_area()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>372</x>
-     <y>282</y>
+     <x>383</x>
+     <y>273</y>
     </hint>
     <hint type="destinationlabel">
      <x>501</x>
@@ -814,8 +832,8 @@
    <slot>pattern_size_changed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>255</x>
-     <y>179</y>
+     <x>288</x>
+     <y>171</y>
     </hint>
     <hint type="destinationlabel">
      <x>561</x>
@@ -830,8 +848,8 @@
    <slot>pattern_size_changed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>422</x>
-     <y>179</y>
+     <x>471</x>
+     <y>171</y>
     </hint>
     <hint type="destinationlabel">
      <x>584</x>
@@ -862,8 +880,8 @@
    <slot>project_black_background()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>58</x>
-     <y>387</y>
+     <x>69</x>
+     <y>379</y>
     </hint>
     <hint type="destinationlabel">
      <x>56</x>
@@ -1063,6 +1081,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>pushButton_14</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>find_projection_area()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>139</x>
+     <y>244</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>514</x>
+     <y>414</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>show_fullscreen_pattern()</slot>
@@ -1082,5 +1116,6 @@
   <slot>save_homography()</slot>
   <slot>save_projection_matrix()</slot>
   <slot>delete_last_img()</slot>
+  <slot>find_projection_area()</slot>
  </slots>
 </ui>

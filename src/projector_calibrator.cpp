@@ -18,6 +18,13 @@ Projector_Calibrator::Projector_Calibrator(){
  // checkboard_size = cv::Size(10,6);
  // proj_size = cv::Size(1024,768);
 
+// char foo[100];
+// std::string cwd = getcwd(foo,100);
+//
+// cout << "cwd " << cwd << endl;
+
+ ros::param::param<bool>("projector_calibration/load_everything_on_startup", load_everything_on_startup, true);
+
  // reading the number of corners from file
  int check_width, check_height;
  ros::param::param<int>("projector_calibration/checkerboard_internal_corners_x", check_width, 8);
@@ -93,26 +100,30 @@ bool Projector_Calibrator::saveMat(const string name, const string filename, con
 }
 
 
-void Projector_Calibrator::initFromFile(){
+void Projector_Calibrator::initFromFile(std::stringstream& msg){
 
- mask = cv::imread("data/kinect_mask.png",0);
- if (mask.data){
-  ROS_INFO("Found mask (%i %i)", mask.cols, mask.rows);
- }else {
-  ROS_INFO("Could not find mask at data/kinect_mask.png");
- }
+// mask = cv::imread("data/kinect_mask.png",0);
+// if (mask.data){
+//  ROS_INFO("Found mask (%i %i)", mask.cols, mask.rows);
+// }else {
+//  ROS_INFO("Could not find mask at data/kinect_mask.png");
+// }
 
 
  // Check for Kinect trafo:
 
- std::stringstream msg;
  loadKinectTrafo(msg);
- ROS_INFO_STREAM(msg);
+
+ msg << endl;
 
  // load Matrices
- loadMat("Projection Matrix", proj_matrix_filename, proj_Matrix);
- loadMat("Homography (OpenCV)", hom_cv_filename, hom_CV);
- loadMat("Homography (SVD)", hom_svd_filename, hom_SVD);
+ if (loadMat("Projection Matrix", proj_matrix_filename, proj_Matrix))
+  msg << "Projection matrix was loaded" << endl;
+
+ if (loadMat("Homography (OpenCV)", hom_cv_filename, hom_CV))
+  msg << "Homography was loaded" << endl;
+
+// loadMat("Homography (SVD)", hom_svd_filename, hom_SVD);
 }
 
 
@@ -341,7 +352,9 @@ void Projector_Calibrator::showUnWarpedImage(const cv::Mat& img){
 
  cv::warpPerspective(img, projector_image, warp_matrix, size, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
 
- cv::rectangle(projector_image, cv::Point(0,0),cv::Point(projector_image.cols-10,projector_image.rows-10), CV_RGB(255,0,0), 10);
+
+ int l = unused_pixels_rows;
+ cv::rectangle(projector_image, cv::Point(1,l),cv::Point(projector_image.cols-2,projector_image.rows-l), CV_RGB(255,255,0), 1);
 
 
  IplImage img_ipl = projector_image;
@@ -577,8 +590,8 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
 
  if (number_of_features_in_images.size() == 1){
   // TODO: check range of z-values to see if points are distributed
-  ROS_WARN("Can't compute projection matrix from one image, 3d points must not lie in one plane");
-  return false;
+  ROS_WARN("You should not compute projection matrix from one image, 3d points must not lie in one plane");
+  //return false;
  }
 
 
@@ -633,7 +646,7 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
  proj_Matrix = T.inv()*proj_Matrix*U;
 
 
-// cout << "Projection Matrix: " << endl << proj_Matrix << endl;
+ // cout << "Projection Matrix: " << endl << proj_Matrix << endl;
 
 
  // compute reprojection error:
@@ -768,7 +781,7 @@ bool Projector_Calibrator::storeCurrentObservationPairs(){
  // transform from kinect-frame to wall-frame
  pcl::getTransformedPointCloud(c_3d, kinect_trafo, c_3d);
 
-ROS_INFO("Inserting: corners_2d.size: %zu, adding %zu points", corners_2d.size(), current_projector_corners.size());
+ ROS_INFO("Inserting: corners_2d.size: %zu, adding %zu points", corners_2d.size(), current_projector_corners.size());
  corners_2d.insert(corners_2d.end(), current_projector_corners.begin(), current_projector_corners.end());
  ROS_INFO("Inserting 2");
 
@@ -1026,8 +1039,151 @@ void Projector_Calibrator::getCheckerboardArea(vector<cv::Point2i>& pts){
 }
 
 
+bool Projector_Calibrator::findOptimalProjectionArea2(cv::Mat::MSize img_px_size, std::stringstream& msg){
 
-bool Projector_Calibrator::findOptimalProjectionArea(float ratio, cv_RectF& rect){
+ if (!homOpenCVSet()){
+  msg << "Homography is not set!"; return false;
+ }
+
+ float ratio = img_px_size[1]*1.0/img_px_size[0];
+
+
+ // get 3d Poses of the projector corners:
+ cv::Mat hom_inv = hom_CV.inv();
+
+// cout << "Hom: " << endl << hom_CV << endl;
+// cout << "Hom_inv: " << endl << hom_inv << endl;
+
+
+ vector<cv::Mat> Corners_3d;
+ cv::Mat p(3,1,CV_64FC1);
+ cv::Mat p_3d(3,1,CV_64FC1);
+
+
+ // projector does not show lowest n pixels and top n pixels are under the OS-bar
+
+
+ int space_vertical = unused_pixels_rows;
+ int space_horizontal = 10;
+
+
+ // for each projector corner, find the corresponding 3d point on the z=0 plane
+ p.at<double>(0) = space_horizontal; p.at<double>(1) = space_vertical; p.at<double>(2) = 1;
+ p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); Corners_3d.push_back(p_3d.clone());
+
+ p.at<double>(0) = proj_size.width-space_horizontal; p.at<double>(1) = space_vertical; p.at<double>(2) = 1;
+ p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); Corners_3d.push_back(p_3d.clone());
+
+ p.at<double>(0) = proj_size.width-space_horizontal; p.at<double>(1) = proj_size.height-space_vertical; p.at<double>(2) = 1;
+ p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); Corners_3d.push_back(p_3d.clone());
+
+ p.at<double>(0) = space_horizontal; p.at<double>(1) = proj_size.height-space_vertical; p.at<double>(2) = 1;
+ p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); Corners_3d.push_back(p_3d.clone());
+
+
+ double min_x = 1e10;
+ double min_y = 1e10;
+
+ assert(Corners_3d.size() == 4);
+
+ for (uint i=0; i<Corners_3d.size(); ++i){
+  min_x = min(min_x, Corners_3d[i].at<double>(0));
+  min_y = min(min_y, Corners_3d[i].at<double>(1));
+ }
+
+ vector<cv::Point2i> px_coordinates;
+ int max_x, max_y;
+ max_x = max_y = -1;
+
+ for (uint i=0; i<Corners_3d.size(); ++i){
+  px_coordinates.push_back(cv::Point2f((Corners_3d[i].at<double>(0)-min_x)*100,(Corners_3d[i].at<double>(1)-min_y)*100)); // in cm <=> 1px
+  max_x = max(max_x, int(px_coordinates[i].x));
+  max_y = max(max_y, int(px_coordinates[i].y));
+ }
+
+// ROS_INFO("max: %i %i",max_y,max_x);
+ cv::Mat search_img(max_y,max_x,CV_8UC1); search_img.setTo(0);
+ cv::fillConvexPoly(search_img,px_coordinates,CV_RGB(255,255,255));
+
+
+ cv::imwrite("data/search_img.jpg", search_img);
+
+//#ifdef SHOW_SEARCH_IMAGE
+// cv::namedWindow("search_img",1);
+// cv::imshow("search_img", search_img);
+// cv::waitKey(10);
+//#endif
+
+
+ // find largest rect in white area:
+
+ // ratio = width/height
+ bool finished = false;
+
+ float step = 0.02; // check every X m
+
+ float width, height; int x, y;
+ for (width = max_x; width > 0 && !finished; width -= step){
+  height = width/ratio;
+
+  // ROS_INFO("Width: %f, height: %f", width, height);
+
+  // find fitting left upper corner (sliding window)
+  for (x = 0; x < max_x-width && !finished; x+= step*100){
+   for (y = 0; y < max_y-height; y+=step*100){
+    // ROS_INFO("Checking x = %i, y = %i", x, y);
+
+    int x_w = x+width; int y_w = y+height;
+    assert(x >= 0 && y >= 0 && x_w < search_img.cols && y< search_img.rows);
+    // check if all corners are withing white area:
+    if (search_img.at<uchar>(y,x) == 0) continue;
+    if (search_img.at<uchar>(y,x_w) == 0) continue;
+    if (search_img.at<uchar>(y_w,x_w) == 0) continue;
+    if (search_img.at<uchar>(y_w,x) == 0) continue;
+    // ROS_INFO("Found fitting pose (w,h: %f %f)", width, height);
+//#ifdef SHOW_SEARCH_IMAGE
+    cv::rectangle(search_img, cv::Point(x,y), cv::Point(x_w, y_w), CV_RGB(125,125,125));
+//#endif
+
+    finished = true; // break outer loops
+    break;
+   } // for y
+  } // for x
+ } // for width
+
+#ifdef SHOW_SEARCH_IMAGE
+ cv::imshow("search_img", search_img);
+ cv::waitKey(10);
+#endif
+
+ if (!finished)
+  return false;
+
+
+ cv::imwrite("data/search_img_final.jpg", search_img);
+
+ // restore pose in wall_frame
+ optimal_projection_area.width = width/100;
+ optimal_projection_area.height = height/100;
+ optimal_projection_area.x = x/100.0+min_x;
+ optimal_projection_area.y = y/100.0+min_y;
+
+ // show area on input image:
+
+ ROS_INFO("Optimal rect: x,y: %f %f, w,h: %f %f", optimal_projection_area.x, optimal_projection_area.y, optimal_projection_area.width, optimal_projection_area.height);
+
+ setupImageProjection(optimal_projection_area, cv::Size(img_px_size[1],img_px_size[0]));
+
+ msg << "found optimal image region";
+
+ return true;
+
+}
+
+
+
+
+bool Projector_Calibrator::findOptimalProjectionArea(float ratio, cv_RectF& rect,std::stringstream& msg){
  // #define SHOW_SEARCH_IMAGE
 
 

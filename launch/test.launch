@@ -1,11 +1,15 @@
 <launch>
 
-<node pkg="projector_calibration" type="projector_calibration" name="projector_calibration" output="screen"> 
+<node pkg="projector_calibration" type="projector_calibration" name="projector_calibration" output="screen" cwd="node"> 
 
 <param name="checkerboard_internal_corners_x" value="10" />
 <param name="checkerboard_internal_corners_y" value="6" />
 <param name="projector_px_width" value="640" />
 <param name="projector_px_height" value="480" />
+
+
+<param name="load_everything_on_startup" value="true" />
+
 
 <!-- adapt this parameters to use a different checkerboard. This values correspond to imgs/marker.pdf printed on DIN A4 Paper -->
 <param name="printed_marker_corners_x" value="8" />

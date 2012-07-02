@@ -16,6 +16,10 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/core/core.hpp>
 #include <pcl/common/transform.h>
+#include <opencv2/calib3d/calib3d.hpp>
+#include "fstream"
+
+#include "stat_eval.h"
 
 typedef cv::Rect_<float> cv_RectF;
 
@@ -66,6 +70,11 @@ class Projector_Calibrator {
 
 
 public:
+
+
+ bool saveObservations();
+ bool loadObservations();
+
 
 
  bool load_everything_on_startup;
@@ -216,6 +225,9 @@ public:
 
  // pixel coordinates of checkerboard corners
  bool computeProjectionMatrix(float& mean_error);
+ bool computeProjectionMatrix_OPENCV(float& mean_error);
+
+
  bool computeHomography_OPENCV(float& mean_error);
  bool computeHomography_SVD();
 

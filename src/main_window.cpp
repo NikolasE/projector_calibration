@@ -372,12 +372,23 @@ namespace projector_calibration {
 
  void MainWindow::compute_projection_matrix(){
   sstream msg;
+
+  //qnode.calibrator.saveObservations();
+
+  qnode.calibrator.loadObservations();
+
+
   float mean_error;
   if (qnode.calibrator.computeProjectionMatrix(mean_error)){
    msg << "Projection Matrix computed with mean reprojection error of " << mean_error << "pixels ";
+   // qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error);
   }else{
    msg << "Could not compute Projection Matrix (not enough points)";
   }
+
+
+
+
   qnode.writeToOutput(msg);
 
  }

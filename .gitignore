@@ -12,3 +12,4 @@ srv_gen/
 *.pyc
 resources/images.qrc.depends
 *.*~
+lib/

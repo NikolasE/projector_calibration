@@ -172,6 +172,7 @@ void scalePixels(const vector<cv::Point2f>& pxs, cv::Mat& T, vector<cv::Point2f>
   mu[0] += px.x; mu[1] += px.y;
  }
  mu /= c_cnt;
+
  // get mean distance to center:
  double d = 0;
  for (uint i=0; i<c_cnt; ++i){

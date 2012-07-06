@@ -23,7 +23,7 @@ struct Normal_dist {
 
   uint N = values.size();
 
-  if (N == -1){
+  if (N == 0){
    std::cerr << "no values to compute statistic!" << std::endl;
    return false;
   }
@@ -34,7 +34,7 @@ struct Normal_dist {
   mean /= N;
   variance = 0;
 
-  for (uint i=0; i<values.size(); ++i)
+  for (uint i=0; i<N; ++i)
    variance += pow(values[i]-mean,2);
 
   variance /= N;

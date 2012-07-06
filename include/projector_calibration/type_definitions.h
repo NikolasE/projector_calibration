@@ -24,7 +24,7 @@ typedef pcl::Normal Normals;
 typedef pcl::PointXYZRGBNormal PointTypeNormal;
 typedef pcl::PointXYZRGB pcl_Point;
 typedef pcl::PointCloud<pcl_Point> Cloud;
-
+typedef pcl::PointCloud<pcl::Normal> Cloud_n;
 
 
 #endif /* CLOUD_PROCESSING_H_ */

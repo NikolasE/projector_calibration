@@ -9,7 +9,7 @@
 #define PROJECTOR_CALIBRATOR_H_
 
 #include "type_definitions.h"
-#include "calibration.h"
+#include "calibration_utils.h"
 
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
@@ -40,6 +40,8 @@ class Projector_Calibrator {
  Cloud input_cloud;
 
 
+ cv::Mat projector_position;
+
  // tilt of kinect (rotation around optical axis)
  float kinect_tilt_angle_deg;
  bool kinect_orientation_valid;
@@ -58,8 +60,8 @@ class Projector_Calibrator {
 
  std::string hom_cv_filename, hom_svd_filename, proj_matrix_filename, kinect_trafo_filename;
 
- bool saveMat(const std::string name, const std::string filename, const cv::Mat& mat);
- bool loadMat(const std::string name, const std::string filename, cv::Mat& mat);
+// bool saveMat(const std::string name, const std::string filename, const cv::Mat& mat);
+// bool loadMat(const std::string name, const std::string filename, cv::Mat& mat);
 
  bool setupImageProjection(const cv_RectF& wall_area, const cv::Size& img_size);
 

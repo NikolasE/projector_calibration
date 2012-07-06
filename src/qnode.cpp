@@ -90,7 +90,7 @@ namespace projector_calibration {
   ros::start(); // explicitly needed since our nodehandle is going out of scope.
   ros::NodeHandle n;
   // Add your ros communications here.
-  //chatter_publisher = n.advertise<std_msgs::String>("chatter", 1000);
+
 
   start();
   return true;

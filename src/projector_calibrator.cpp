@@ -28,8 +28,8 @@ bool Projector_Calibrator::saveObservations(){
   off << corners_2d[i].x << " " << corners_2d[i].y << endl;
  }
 
-
  return true;
+
 }
 
 bool Projector_Calibrator::loadObservations(){
@@ -106,7 +106,7 @@ Projector_Calibrator::Projector_Calibrator(){
  projector_image = cv::Mat(proj_size, CV_8UC3);
 
  hom_cv_filename = "homography_opencv";
- hom_svd_filename = "homography_svd";
+ hom_svd_filename = "homography_svd.yml";
  proj_matrix_filename = "projection_matrix";
  kinect_trafo_filename = "kinect_trafo";
 
@@ -128,35 +128,7 @@ Projector_Calibrator::Projector_Calibrator(){
 
 
 
-bool Projector_Calibrator::loadMat(const string name, const string filename, cv::Mat& mat){
- char fn[100]; sprintf(fn,"data/%s.yml", filename.c_str());
- ROS_INFO("Reading %s from %s", name.c_str(),fn);
 
- cv::FileStorage fs(fn, cv::FileStorage::READ);
- if (!fs.isOpened()){
-  ROS_WARN("Could not read %s", fn);
-  return false;
- }
-
- fs[filename] >> mat; fs.release();
- fs.release();
- return true;
-}
-
-
-bool Projector_Calibrator::saveMat(const string name, const string filename, const cv::Mat& mat){
- char fn[100]; sprintf(fn,"data/%s.yml", filename.c_str());
- ROS_INFO("Saving %s to %s", name.c_str(),fn);
- cv::FileStorage fs(fn, cv::FileStorage::WRITE);
- if (!fs.isOpened()){
-  ROS_WARN("Could not write to %s", fn);
-  return false;
- }
-
- fs << filename << mat;
- fs.release();
- return true;
-}
 
 
 void Projector_Calibrator::initFromFile(std::stringstream& msg){
@@ -170,23 +142,6 @@ void Projector_Calibrator::initFromFile(std::stringstream& msg){
 
 
  // Check for Kinect trafo:
-
- loadKinectTrafo(msg);
-
- msg << endl;
-
- // load Matrices
- if (loadMat("Projection Matrix", proj_matrix_filename, proj_Matrix))
-  msg << "Projection matrix was loaded" << endl;
-
- if (loadMat("Homography (OpenCV)", hom_cv_filename, hom_CV))
-  msg << "Homography was loaded" << endl;
-
- // loadMat("Homography (SVD)", hom_svd_filename, hom_SVD);
-}
-
-
-bool Projector_Calibrator::loadKinectTrafo(std::stringstream& msg){
  char fn[100]; sprintf(fn, "data/%s.txt",kinect_trafo_filename.c_str());
  kinect_trafo_valid = loadAffineTrafo(kinect_trafo,fn);
 
@@ -195,11 +150,34 @@ bool Projector_Calibrator::loadKinectTrafo(std::stringstream& msg){
  else
   msg << "Could not load transformation from kinect to world frame from " <<  fn;
 
- return kinect_trafo_valid;
+
+ msg << endl;
+
+ // load Matrices
+ if (loadMat("data/", proj_matrix_filename, proj_Matrix))
+  msg << "Projection matrix was loaded" << endl;
+
+ if (loadMat("data/", hom_cv_filename, hom_CV))
+  msg << "Homography was loaded" << endl;
+
+ // loadMat("Homography (SVD)", hom_svd_filename, hom_SVD);
 }
 
 
 
+bool Projector_Calibrator::loadKinectTrafo(std::stringstream& msg){
+
+
+char fn[100]; sprintf(fn, "data/%s.txt",kinect_trafo_filename.c_str());
+kinect_trafo_valid = loadAffineTrafo(kinect_trafo,fn);
+
+if (kinect_trafo_valid)
+ msg << "Loaded transformation from kinect to world frame";
+else
+ msg << "Could not load transformation from kinect to world frame from " <<  fn;
+
+ return kinect_trafo_valid;
+}
 
 void Projector_Calibrator::drawCheckerboard(cv::Mat& img,cv::Point l1, const cv::Point l2, const cv::Size size, vector<cv::Point2f>& corners_2d){
 
@@ -493,7 +471,7 @@ bool Projector_Calibrator::computeHomography_OPENCV(float& mean_error){
 
  ROS_INFO("mean error: %f (x: %f, y: %f)", mean_error, err_x, err_y);
 
- // saveMat("Homography(OpenCV)", hom_cv_filename, hom_CV);
+ saveMat("data/", hom_cv_filename, hom_CV);
 
  return true;
 }
@@ -632,7 +610,7 @@ bool Projector_Calibrator::computeHomography_SVD(){
 
  ROS_INFO("mean error: %f (x: %f, y: %f)", error, err_x, err_y);
 
- saveMat("Homography(SVD)", hom_svd_filename, hom_SVD);
+ saveMat("data/", hom_svd_filename, hom_SVD);
 
  return true;
 }
@@ -706,11 +684,11 @@ bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
  // cout << "camera (init): " << cameraMatrix << endl;
 
 
- cv::calibrateCamera(world_points, pixels, proj_size, cameraMatrix, distCoeffs, rvecs, tvecs,CV_CALIB_USE_INTRINSIC_GUESS);
+ double error = cv::calibrateCamera(world_points, pixels, proj_size, cameraMatrix, distCoeffs, rvecs, tvecs,CV_CALIB_USE_INTRINSIC_GUESS);
 
+ cout << "error " << error << endl;
  cout << "camera: " << cameraMatrix << endl;
  //cout << "distortion: " << distCoeffs << endl;
-
 
 
 
@@ -727,21 +705,16 @@ bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
 
 
   cout << "trafo " << i << endl;
-  //  cout << "tvec" << tvecs[i] << endl;
+  cout << "tvec" << tvecs[i] << endl;
 
-  //  cv::Mat T(3,1,CV_32FC1);
-  //  T.at<float>(0) = tvecs[i].at<float>(0)/tvecs[i].at<float>(3);
-  //  T.at<float>(1) = tvecs[i].at<float>(1)/tvecs[i].at<float>(3);
-  //  T.at<float>(2) = tvecs[i].at<float>(2)/tvecs[i].at<float>(3);
-  //  T.at<float>(3) = tvecs[i].at<float>(3)/tvecs[i].at<float>(3); // = 1
 
+//  undistortPoints
 
   // build projection matrix:
   cv::Mat rot_matrix;
   cv::Rodrigues(rvecs[i], rot_matrix);
   cv::Mat P;
   cv::hconcat(rot_matrix, tvecs[i], P);
-  //cout << "(r|t): " << endl << P << endl;
 
   P = cameraMatrix * P;
 
@@ -766,9 +739,9 @@ bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
    total_y += abs(px.y-p_.y)/N;
    mean_error += sqrt(pow(px.x-p_.x,2)+pow(px.y-p_.y,2))/N;
 
-   float err = sqrt(pow(px.x-p_.x,2)+pow(px.y-p_.y,2));
-   cout << "err " << err << endl;
-   ROS_INFO("dx dy: %f %f", abs(px.x-p_.x),abs(px.y-p_.y) );
+//   float err = sqrt(pow(px.x-p_.x,2)+pow(px.y-p_.y,2));
+//   cout << "err " << err << endl;
+//   ROS_INFO("dx dy: %f %f", abs(px.x-p_.x),abs(px.y-p_.y) );
 
   }
 
@@ -827,7 +800,7 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
   pcl_Point   P = trafoed_corners.points.at(i);
   cv::Point2f p = trafoed_px.at(i);
 
-  ROS_INFO("from %f %f %f to %f %f", P.x,P.y,P.z,p.x,p.y);
+//  ROS_INFO("from %f %f %f to %f %f", P.x,P.y,P.z,p.x,p.y);
 
   float f[12] = {0,0,0,0,-P.x,-P.y,-P.z,-1,p.y*P.x,p.y*P.y,p.y*P.z,p.y};
   for (uint j=0; j<12; ++j) A.at<double>(2*i,j) = f[j];
@@ -895,27 +868,33 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
 
  if (!eval_x.isProbablyZeroCentered() || abs(eval_x.mean) > 10){
   ROS_WARN("Projection matrix: check values of x-direction!");
-  ROS_INFO("Err in x: mu = %f, var: %f", eval_x.mean, eval_x.variance);
+  ROS_WARN("Err in x: mu = %f, var: %f", eval_x.mean, eval_x.variance);
  }
 
 
  if (!eval_y.isProbablyZeroCentered()|| abs(eval_y.mean) > 10){
   ROS_WARN("Projection matrix: check values of y-direction!");
-  ROS_INFO("Err in y: mu = %f, var: %f", eval_y.mean, eval_y.variance);
+  ROS_WARN("Err in y: mu = %f, var: %f", eval_y.mean, eval_y.variance);
  }
-
-
 
  ROS_INFO("Projection Matrix: mean error: %f (x: %f, y: %f)", mean_error, total_x, total_y);
  // saveMat("Projection Matrix", proj_matrix_filename, proj_Matrix);
 
+ saveMat("data/", proj_matrix_filename, proj_Matrix);
+
  cout << "Projection Matrix" << endl << proj_Matrix << endl;
 
- cv::Mat camera_matrix,rotMatrix, transVec;
+ cv::Mat rotMatrix, camera_matrix;
 
- cv::decomposeProjectionMatrix(proj_Matrix, camera_matrix,rotMatrix, transVec);
+ cv::decomposeProjectionMatrix(proj_Matrix, camera_matrix,rotMatrix, projector_position);
+
+ camera_matrix /= camera_matrix.at<double>(2,2);
+
+ projector_position /= projector_position.at<double>(3);
 
  cout << "camera_matrix" << endl << camera_matrix << endl;
+ cout << "Proj pose: " << endl << projector_position << endl;
+
 
  return true;
 
@@ -955,7 +934,7 @@ bool Projector_Calibrator::saveHomographyCV(std::stringstream& msg){
   return false;
  }
 
- if (saveMat("Homography(OpenCV)", hom_cv_filename, hom_CV)){
+ if (saveMat("data/", hom_cv_filename, hom_CV)){
   msg << "Homography was written to " << hom_cv_filename;
   return true;
  }else{
@@ -973,7 +952,7 @@ bool Projector_Calibrator::saveProjectionMatrix(std::stringstream& msg){
  }
 
 
- if (saveMat("Projection Matrix", proj_matrix_filename, proj_Matrix)){
+ if (saveMat("data/", proj_matrix_filename, proj_Matrix)){
   msg << "Projection Matrix was written to " << proj_matrix_filename;
   return true;
  }else{
@@ -1653,19 +1632,25 @@ float Projector_Calibrator::fitPlaneToCloud(const Cloud& cloud, Eigen::Vector4f&
 }
 
 
+
+
+
 void Projector_Calibrator::applyMaskOnInputCloud(Cloud& out){
 
  if (!mask_valid()) createMaskFromDetections();
 
  assert(mask_valid() && int(input_cloud.width) == mask.cols);
 
- for (int x=0; x<mask.cols; ++x)
+ applyMaskOnCloud(mask, input_cloud, out);
+
+ /*for (int x=0; x<mask.cols; ++x)
   for (int y=0; y<mask.rows; ++y){
    if (mask.at<uchar>(y,x) > 0){
     pcl_Point p = input_cloud.at(x,y);
     if (p.x == p.x) out.points.push_back(p);
    }
   }
+  */
 }
 
 void showMarker(cv::Point l1, cv::Point l2){

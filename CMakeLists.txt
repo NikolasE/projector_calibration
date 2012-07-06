@@ -69,4 +69,4 @@ file(GLOB_RECURSE QT_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} FOLLOW_SYMLINK
 rosbuild_add_executable(projector_calibration ${QT_SOURCES} ${QT_RESOURCES_CPP} ${QT_FORMS_HPP} ${QT_MOC_HPP})
 target_link_libraries(projector_calibration ${QT_LIBRARIES})
 
-rosbuild_add_library(projector src/calibration.cpp src/projector_calibrator.cpp)
+rosbuild_add_library(projector src/calibration_utils.cpp src/projector_calibrator.cpp)

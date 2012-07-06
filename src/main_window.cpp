@@ -195,7 +195,9 @@ namespace projector_calibration {
 
  void MainWindow::load_kinect_trafo_from_file(){
   stringstream msg;
+
   qnode.calibrator.loadKinectTrafo(msg);
+
   qnode.writeToOutput(msg);
 
   if (qnode.calibrator.isKinectTrafoSet()){
@@ -373,9 +375,9 @@ namespace projector_calibration {
  void MainWindow::compute_projection_matrix(){
   sstream msg;
 
-  //qnode.calibrator.saveObservations();
+  // qnode.calibrator.saveObservations();
 
-  qnode.calibrator.loadObservations();
+  // qnode.calibrator.loadObservations();
 
 
   float mean_error;

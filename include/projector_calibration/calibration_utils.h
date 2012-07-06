@@ -14,6 +14,9 @@
 
 float dist(pcl_Point A, pcl_Point B);
 
+void projectCloudIntoProjector(const Cloud& cloud, const cv::Mat& P, cv::Mat& img);
+
+
 bool loadMat(const std::string path, const std::string filename, cv::Mat& mat);
 bool saveMat(const std::string path, const std::string filename, const cv::Mat& mat);
 

@@ -30,8 +30,8 @@ namespace projector_calibration {
   *****************************************************************************/
 
  QNode::QNode(int argc, char** argv ) :
-	        init_argc(argc),
-	        init_argv(argv)
+	          init_argc(argc),
+	          init_argv(argv)
  {init();}
 
  QNode::~QNode() {
@@ -115,37 +115,25 @@ namespace projector_calibration {
   }
 
 
-  if (calibrator.projMatrixSet()){
+
+  if (user_interaction_active && calibrator.projMatrixSet()){
    Cloud area;
-
-
-   assert(calibrator.getProjectionAreain3D(area));
-
-   user_input->setCloud(calibrator.cloud_moved, area);
-   cv::Point3f tip;
-   if (user_input->getUserPositionTrivial(tip)){
-
-    cv::Point2f px = applyPerspectiveTrafo(tip, calibrator.proj_Matrix);
-
-    cv::circle(calibrator.projector_image, px, 10, CV_RGB(255,0,0), -1);
-
-//    cv::namedWindow("proj");
-//    cv::imshow("proj", calibrator.projector_image);
-//    cv::waitKey(10);
-
-    Q_EMIT update_projector_image();
-    //calibrator.updateProjectorImage();
-
-    IplImage proj_ipl = calibrator.projector_image;
-    cvShowImage("fullscreen_ipl", &proj_ipl);
-
-    ROS_INFO("Got new pose at %f %f", px.x, px.y);
-
+   if (calibrator.getProjectionAreain3D(area)) {
+    user_input->setCloud(calibrator.cloud_moved, area);
+    cv::Point3f tip;
+    if (user_input->getUserPositionTrivial(tip)){
+     cv::Point2f px = applyPerspectiveTrafo(tip, calibrator.proj_Matrix);
+     cv::circle(calibrator.projector_image, px, 10, CV_RGB(255,0,0), -1);
+     Q_EMIT update_projector_image();
+    }
    }
-
-
   }
 
+
+  if (depth_visualization_active && calibrator.projMatrixSet()){
+   projectCloudIntoProjector(calibrator.cloud_moved, calibrator.proj_Matrix, calibrator.projector_image);
+   Q_EMIT update_projector_image();
+  }
 
 
 

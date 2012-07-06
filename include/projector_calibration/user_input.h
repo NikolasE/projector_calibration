@@ -16,7 +16,6 @@
 #include <pcl/segmentation/extract_polygonal_prism_data.h>
 
 
-void projectCloudIntoProjector(const Cloud& cloud, const cv::Mat& P, cv::Mat& img);
 
 
 

@@ -33,6 +33,13 @@ namespace projector_calibration {
  , qnode(argc,argv)
  {
 
+
+  // open label fullscreen on secondary monitor
+  lb_img.setParent(NULL);
+  QRect screenres = QApplication::desktop()->screenGeometry(2);
+  lb_img.move(QPoint(screenres.x(), screenres.y()));
+  lb_img.showFullScreen();
+
   manual_z_change = 0;
 
   image_scale = 0.5;
@@ -84,7 +91,8 @@ namespace projector_calibration {
   ui.ed_corners_y->setText(QString::number(qnode.calibrator.checkboard_size.height));
   ui.ed_markersize->setText(QString::number(qnode.calibrator.printed_marker_size_mm));
 
-
+  qnode.user_interaction_active = ui.cb_user->isChecked();
+  qnode.depth_visualization_active = ui.cb_depth_visualization->isChecked();
 
  }
 
@@ -241,6 +249,12 @@ namespace projector_calibration {
 
  void MainWindow::update_proj_image(){
 
+
+  QPixmap pixmap;
+  QImage  qimg = Mat2QImage(qnode.calibrator.projector_image);
+  lb_img.setPixmap(pixmap.fromImage(qimg, 0));
+
+
   // draw projector image on right label
   if (qnode.calibrator.projector_image.cols > 0){
    cv::Mat small2;
@@ -249,9 +263,11 @@ namespace projector_calibration {
    if (mouse_handler.area_marked())
     cv::rectangle(small2,  mouse_handler.down, mouse_handler.move, mouse_handler.area_marked()?CV_RGB(0,255,0):CV_RGB(255,0,0),2);
 
-   QPixmap pixmap;
-   QImage  qimg = Mat2QImage(small2);
+
+   qimg = Mat2QImage(small2);
    ui.lb_img_2->setPixmap(pixmap.fromImage(qimg, 0));
+
+
   }
  }
 
@@ -404,6 +420,16 @@ namespace projector_calibration {
   sstream msg;
   qnode.calibrator.saveHomographyCV(msg);
   qnode.writeToOutput(msg);
+ }
+
+
+ void MainWindow::user_interaction_toggled(bool status){
+  qnode.user_interaction_active = status;
+ }
+
+ void MainWindow::depth_visualzation_toggled(bool status){
+  qnode.depth_visualization_active = status;
+
  }
 
 

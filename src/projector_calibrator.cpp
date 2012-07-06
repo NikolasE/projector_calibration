@@ -117,9 +117,9 @@ Projector_Calibrator::Projector_Calibrator(){
  }
 
  // creating fullscreen image (old syntax)
- cvNamedWindow("fullscreen_ipl",0);
- cvMoveWindow("fullscreen_ipl", 2000, 100);
- cvSetWindowProperty("fullscreen_ipl", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+// cvNamedWindow("fullscreen_ipl",0);
+// cvMoveWindow("fullscreen_ipl", 2000, 100);
+// cvSetWindowProperty("fullscreen_ipl", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 
  // showFullscreenCheckerboard();
 
@@ -394,8 +394,8 @@ void Projector_Calibrator::showUnWarpedImage(const cv::Mat& img){
  cv::rectangle(projector_image, cv::Point(1,l),cv::Point(projector_image.cols-2,projector_image.rows-l), CV_RGB(255,255,0), 1);
 
 
- IplImage img_ipl = projector_image;
- cvShowImage("fullscreen_ipl", &img_ipl);
+// IplImage img_ipl = projector_image;
+// cvShowImage("fullscreen_ipl", &img_ipl);
 
 }
 
@@ -1281,9 +1281,9 @@ bool Projector_Calibrator::getProjectionAreain3D(Cloud& corners){
 
 void Projector_Calibrator::updateProjectorImage(){
 
- ROS_INFO("Update projector image");
- IplImage proj_ipl = projector_image;
- cvShowImage("fullscreen_ipl", &proj_ipl);
+// ROS_INFO("Update projector image");
+// IplImage proj_ipl = projector_image;
+// cvShowImage("fullscreen_ipl", &proj_ipl);
 
 }
 
@@ -1346,7 +1346,6 @@ bool Projector_Calibrator::findOptimalProjectionArea2(cv::Mat::MSize img_px_size
  for (uint i=0; i<Corners_3d.size(); ++i){
   min_x = min(min_x, Corners_3d[i].at<double>(0));
   min_y = min(min_y, Corners_3d[i].at<double>(1));
-  ROS_INFO("topmal: %f %f %f", Corners_3d[i].at<double>(0), Corners_3d[i].at<double>(1), Corners_3d[i].at<double>(2));
  }
 
  vector<cv::Point2i> px_coordinates;
@@ -1707,8 +1706,8 @@ void Projector_Calibrator::projectSmallCheckerboard(cv::Point l1, cv::Point l2){
    checkboard_size,
    current_projector_corners);
 
- IplImage proj_ipl = projector_image;
- cvShowImage("fullscreen_ipl", &proj_ipl);
+// IplImage proj_ipl = projector_image;
+// cvShowImage("fullscreen_ipl", &proj_ipl);
 }
 
 
@@ -1717,8 +1716,8 @@ void Projector_Calibrator::projectUniformBackground(bool white){
  projector_image.setTo(white?255:0);
  current_projector_corners.clear(); // no corners on projector
  detected_corners.clear();           // and no detected corners anymore
- IplImage proj_ipl = projector_image;
- cvShowImage("fullscreen_ipl", &proj_ipl);
+// IplImage proj_ipl = projector_image;
+// cvShowImage("fullscreen_ipl", &proj_ipl);
 }
 
 
@@ -1730,8 +1729,8 @@ void Projector_Calibrator::projectFullscreenCheckerboard(){
    checkboard_size,
    current_projector_corners);
 
- IplImage proj_ipl = projector_image;
- cvShowImage("fullscreen_ipl", &proj_ipl);
+// IplImage proj_ipl = projector_image;
+// cvShowImage("fullscreen_ipl", &proj_ipl);
 }
 
 

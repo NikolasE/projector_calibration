@@ -83,11 +83,11 @@ bool User_Input::getUserPositionTrivial(cv::Point3f& position){
   // ROS_INFO("No finger");
  }
  else{
-  ROS_INFO("Found finger at %f %f %f", closest_point.x, closest_point.y, closest_point.z);
+  // ROS_INFO("Found finger at %f %f %f", closest_point.x, closest_point.y, closest_point.z);
 
   position.x = closest_point.x;
   position.y = closest_point.y;
-  position.z = closest_point.z;
+  position.z = 0;// closest_point.z; projection into plane, point of interaction should not depend on projetor pose
 
   user_found = true;
 
@@ -111,58 +111,4 @@ bool User_Input::getUserPositionTrivial(cv::Point3f& position){
 
 
 
-
-
-
-
-
-
-
-
-void projectCloudIntoProjector(const Cloud& cloud, const cv::Mat& P, cv::Mat& img){
-
- cv::Mat p(4,1,CV_64FC1);
- cv::Mat px(3,1,CV_64FC1);
-
- int w = img.cols;
- int h = img.rows;
-
- img.setTo(0);
-
- float z;
-
- for (uint i=0; i<cloud.points.size(); ++i){
-  p.at<double>(0) = cloud.points[i].x;
-  p.at<double>(1) = cloud.points[i].y;
-  p.at<double>(2) = cloud.points[i].z;
-  p.at<double>(3) = 1;
-
-  z = cloud.points[i].z;
-
-  if (! z == z) continue;
-
-  px = P*p;
-  px /= px.at<double>(2);
-  int x = px.at<double>(0);	int y = px.at<double>(1);
-  if (x<0 || x >= w || y < 0 || y >= h)
-   continue;
-
-  //HACK: rather change whole system
-  z = -z;
-
-  if (z<0.03) continue;
-
-
-  float z_max = 0.5;
-
-  cv::Scalar col(z/z_max*180,255,255);
-
-  cv::circle(img, cv::Point(x,y), 2, col,-1);
-
- }
-
- cv::cvtColor(img,img,CV_HSV2BGR);
-
-
-}
 

@@ -14,6 +14,7 @@
 
 #include <QtGui/QMainWindow>
 #include "ui_main_window.h"
+#include "ui_img_window.h"
 #include "qnode.hpp"
 #include <qevent.h>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -97,7 +98,6 @@ namespace projector_calibration {
 
 
 
-
  /*****************************************************************************
   ** Interface [MainWindow]
   *****************************************************************************/
@@ -122,6 +122,8 @@ namespace projector_calibration {
   float manual_z_change;
   float manual_yaw_change;
 
+  QLabel lb_img;
+
  public Q_SLOTS:
  /******************************************
   ** Auto-connections (connectQ_SLOTSByName())
@@ -140,7 +142,8 @@ namespace projector_calibration {
  void manual_yaw_changed(int yaw);
  void find_projection_area();
  void update_proj_image();
-
+ void user_interaction_toggled(bool);
+ void depth_visualzation_toggled(bool);
 
  // calibration
  void compute_homography();

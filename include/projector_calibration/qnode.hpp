@@ -60,6 +60,8 @@ namespace projector_calibration {
   Cloud current_cloud;
   void imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_msgs::PointCloud2ConstPtr& cloud_ptr);
   void writeToOutput(const std::stringstream& msg);
+  bool user_interaction_active;
+  bool depth_visualization_active;
 
 
   QNode(int argc, char** argv );

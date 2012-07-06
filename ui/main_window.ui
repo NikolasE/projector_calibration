@@ -718,6 +718,32 @@
          <string>Find optimal projection area</string>
         </property>
        </widget>
+       <widget class="QCheckBox" name="cb_user">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>170</y>
+          <width>181</width>
+          <height>22</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>User Interaction</string>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="cb_depth_visualization">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>140</y>
+          <width>171</width>
+          <height>22</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Depth Visualization</string>
+        </property>
+       </widget>
       </widget>
      </widget>
     </item>
@@ -1088,12 +1114,44 @@
    <slot>find_projection_area()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>139</x>
-     <y>244</y>
+     <x>150</x>
+     <y>203</y>
     </hint>
     <hint type="destinationlabel">
      <x>514</x>
      <y>414</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cb_user</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>user_interaction_toggled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>119</x>
+     <y>334</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>494</x>
+     <y>421</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cb_depth_visualization</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>depth_visualzation_toggled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>104</x>
+     <y>366</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>548</x>
+     <y>360</y>
     </hint>
    </hints>
   </connection>
@@ -1117,5 +1175,7 @@
   <slot>save_projection_matrix()</slot>
   <slot>delete_last_img()</slot>
   <slot>find_projection_area()</slot>
+  <slot>user_interaction_toggled(bool)</slot>
+  <slot>depth_visualzation_toggled(bool)</slot>
  </slots>
 </ui>

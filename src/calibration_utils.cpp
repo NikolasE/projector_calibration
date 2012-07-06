@@ -5,7 +5,7 @@
  *      Author: Nikolas Engelhard
  */
 
-#include "projector_calibration/calibration.h"
+#include "projector_calibration/calibration_utils.h"
 
 
 #include "fstream"
@@ -13,9 +13,116 @@
 using namespace std;
 
 
+
+bool loadMat(const string path, const string name, cv::Mat& mat){
+  char fn[100]; sprintf(fn,"%s%s.yml", path.c_str(), name.c_str());
+ ROS_INFO("Reading %s from %s", name.c_str(),fn);
+
+ cv::FileStorage fs(fn, cv::FileStorage::READ);
+ if (!fs.isOpened()){
+  ROS_WARN("Could not read %s", fn);
+  return false;
+ }
+
+ fs[name] >> mat; fs.release();
+ fs.release();
+ return true;
+}
+
+
+bool saveMat(const string path, const string name, const cv::Mat& mat){
+ char fn[100]; sprintf(fn,"%s%s.yml", path.c_str(), name.c_str());
+ ROS_INFO("Saving %s to %s", name.c_str(),fn);
+
+ cv::FileStorage fs(fn, cv::FileStorage::WRITE);
+ if (!fs.isOpened()){
+  ROS_WARN("Could not write to %s", fn);
+  return false;
+ }
+
+ fs << name << mat;
+ fs.release();
+ return true;
+}
+
+
 float dist(pcl_Point A, pcl_Point B){
  return sqrt(pow(A.x-B.x,2)+pow(A.y-B.y,2)+pow(A.z-B.z,2));
 }
+
+
+void sampleCloudWithNormals(const Cloud& points, const Cloud_n& normals, Cloud& points_out,Cloud_n& normals_out, uint step, cv::Mat* mask){
+
+ assert(points.size() == normals.size());
+ if (mask) assert(mask->cols == int(points.width));
+ points_out.clear();
+ normals_out.clear();
+ points_out.reserve(points.size());
+ normals_out.reserve(normals.size());
+
+
+ for (uint x=0; x<points.width; x += step)
+  for (uint y=0; y<points.height; y += step){
+
+   if (mask && mask->at<uchar>(y,x) == 0) continue;
+
+   pcl_Point p = points.at(x,y);
+   if (!(p.x == p.x)) continue;
+
+   points_out.push_back(p);
+   normals_out.push_back(normals.at(x,y));
+  }
+
+
+ assert(points_out.size() == normals_out.size());
+
+ ROS_INFO("Downsampling of image: from %zu points and %zu normales to %zu points", points.size(), normals.size(), points_out.size() );
+
+
+}
+
+void applyMaskOnCloud(const cv::Mat& mask, const pcl::PointCloud<pcl::Normal>& in, pcl::PointCloud<pcl::Normal>& out){
+ assert(mask.cols == int(in.width));
+ out.clear();
+
+// int nan_cnt = 0;
+
+ for (int x=0; x<mask.cols; ++x)
+  for (int y=0; y<mask.rows; ++y){
+   if (mask.at<uchar>(y,x) > 0){
+    pcl::Normal p = in.at(x,y);
+
+//    if (p.x == p.x)
+     out.push_back(p);
+//    else nan_cnt++;
+   }
+  }
+
+
+}
+
+
+
+void applyMaskOnCloud(const cv::Mat& mask, const Cloud& in, Cloud& out){
+
+ assert(mask.cols == int(in.width));
+ out.clear();
+
+// int nan_cnt = 0;
+
+ for (int x=0; x<mask.cols; ++x)
+  for (int y=0; y<mask.rows; ++y){
+   if (mask.at<uchar>(y,x) > 0){
+    pcl_Point p = in.at(x,y);
+    if (p.x == p.x) out.push_back(p);
+//    else nan_cnt++;
+   }
+  }
+
+// ROS_INFO("start: %i, nan: %i, out: %i", in.size(), nan_cnt, out.size());
+
+}
+
 
 
 // compute trafo, so that fixed = trafo*moved (mean distance between corresponding points is minimized)

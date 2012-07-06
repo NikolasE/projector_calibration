@@ -14,6 +14,16 @@
 
 float dist(pcl_Point A, pcl_Point B);
 
+bool loadMat(const std::string path, const std::string filename, cv::Mat& mat);
+bool saveMat(const std::string path, const std::string filename, const cv::Mat& mat);
+
+void applyMaskOnCloud(const cv::Mat& mask, const Cloud& in, Cloud& out);
+void applyMaskOnCloud(const cv::Mat& mask, const pcl::PointCloud<pcl::Normal>& in, pcl::PointCloud<pcl::Normal>& out);
+
+
+void sampleCloudWithNormals(const Cloud& points, const Cloud_n& normals, Cloud& points_out,Cloud_n& normals_out, uint step, cv::Mat* mask = NULL);
+
+
 // p_ = H*p
 void applyHomography(const cv::Point2f& p,const cv::Mat& H, cv::Point2f& p_);
 

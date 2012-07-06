@@ -197,7 +197,6 @@ namespace projector_calibration {
   stringstream msg;
 
   qnode.calibrator.loadKinectTrafo(msg);
-
   qnode.writeToOutput(msg);
 
   if (qnode.calibrator.isKinectTrafoSet()){

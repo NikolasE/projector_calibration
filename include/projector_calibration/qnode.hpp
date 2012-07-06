@@ -23,6 +23,8 @@
 
 #include "projector_calibration/projector_calibrator.h"
 #include "projector_calibration/type_definitions.h"
+#include "projector_calibration/user_input.h"
+
 
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/subscriber.h>
@@ -48,6 +50,7 @@ namespace projector_calibration {
 
   // the actual calibration object
   Projector_Calibrator calibrator;
+  User_Input* user_input;
 
 
   ros::Publisher pub_cloud_worldsystem; // kinect cloud in world frame
@@ -89,7 +92,6 @@ namespace projector_calibration {
  private:
   int init_argc;
   char** init_argv;
-  ros::Publisher chatter_publisher;
   QStringListModel logging_model;
 
 

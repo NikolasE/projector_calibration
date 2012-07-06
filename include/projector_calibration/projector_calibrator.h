@@ -71,8 +71,16 @@ class Projector_Calibrator {
  const static int unused_pixels_rows = 25;
 
 
+
+
 public:
 
+
+ void updateProjectorImage();
+
+// Cloud projectionAreaCorners;
+ bool getProjectionAreain3D(std::vector<cv::Mat>& corners);
+ bool getProjectionAreain3D(Cloud& corners);
 
  bool saveObservations();
  bool loadObservations();

@@ -168,13 +168,13 @@ void Projector_Calibrator::initFromFile(std::stringstream& msg){
 bool Projector_Calibrator::loadKinectTrafo(std::stringstream& msg){
 
 
-char fn[100]; sprintf(fn, "data/%s.txt",kinect_trafo_filename.c_str());
-kinect_trafo_valid = loadAffineTrafo(kinect_trafo,fn);
+ char fn[100]; sprintf(fn, "data/%s.txt",kinect_trafo_filename.c_str());
+ kinect_trafo_valid = loadAffineTrafo(kinect_trafo,fn);
 
-if (kinect_trafo_valid)
- msg << "Loaded transformation from kinect to world frame";
-else
- msg << "Could not load transformation from kinect to world frame from " <<  fn;
+ if (kinect_trafo_valid)
+  msg << "Loaded transformation from kinect to world frame";
+ else
+  msg << "Could not load transformation from kinect to world frame from " <<  fn;
 
  return kinect_trafo_valid;
 }
@@ -708,7 +708,7 @@ bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
   cout << "tvec" << tvecs[i] << endl;
 
 
-//  undistortPoints
+  //  undistortPoints
 
   // build projection matrix:
   cv::Mat rot_matrix;
@@ -739,9 +739,9 @@ bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
    total_y += abs(px.y-p_.y)/N;
    mean_error += sqrt(pow(px.x-p_.x,2)+pow(px.y-p_.y,2))/N;
 
-//   float err = sqrt(pow(px.x-p_.x,2)+pow(px.y-p_.y,2));
-//   cout << "err " << err << endl;
-//   ROS_INFO("dx dy: %f %f", abs(px.x-p_.x),abs(px.y-p_.y) );
+   //   float err = sqrt(pow(px.x-p_.x,2)+pow(px.y-p_.y,2));
+   //   cout << "err " << err << endl;
+   //   ROS_INFO("dx dy: %f %f", abs(px.x-p_.x),abs(px.y-p_.y) );
 
   }
 
@@ -800,7 +800,7 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
   pcl_Point   P = trafoed_corners.points.at(i);
   cv::Point2f p = trafoed_px.at(i);
 
-//  ROS_INFO("from %f %f %f to %f %f", P.x,P.y,P.z,p.x,p.y);
+  //  ROS_INFO("from %f %f %f to %f %f", P.x,P.y,P.z,p.x,p.y);
 
   float f[12] = {0,0,0,0,-P.x,-P.y,-P.z,-1,p.y*P.x,p.y*P.y,p.y*P.z,p.y};
   for (uint j=0; j<12; ++j) A.at<double>(2*i,j) = f[j];
@@ -1257,23 +1257,44 @@ void Projector_Calibrator::getCheckerboardArea(vector<cv::Point2i>& pts){
 }
 
 
-bool Projector_Calibrator::findOptimalProjectionArea2(cv::Mat::MSize img_px_size, std::stringstream& msg){
-
- if (!homOpenCVSet()){
-  msg << "Homography is not set!"; return false;
- }
-
- float ratio = img_px_size[1]*1.0/img_px_size[0];
-
-
- // get 3d Poses of the projector corners:
- cv::Mat hom_inv = hom_CV.inv();
-
- // cout << "Hom: " << endl << hom_CV << endl;
- // cout << "Hom_inv: " << endl << hom_inv << endl;
-
+bool Projector_Calibrator::getProjectionAreain3D(Cloud& corners){
 
  vector<cv::Mat> Corners_3d;
+
+ if (!getProjectionAreain3D(Corners_3d)) return false;
+
+ pcl_Point p;
+
+ for (uint i=0;i<Corners_3d.size(); ++i){
+  p.x = Corners_3d[i].at<double>(0);
+  p.y = Corners_3d[i].at<double>(1);
+  p.z = Corners_3d[i].at<double>(2);
+
+  //  ROS_INFO("corner: %f %f %f", p.x,p.y,p.z);
+  corners.push_back(p);
+ }
+
+ return true;
+
+
+}
+
+void Projector_Calibrator::updateProjectorImage(){
+
+ ROS_INFO("Update projector image");
+ IplImage proj_ipl = projector_image;
+ cvShowImage("fullscreen_ipl", &proj_ipl);
+
+}
+
+
+bool Projector_Calibrator::getProjectionAreain3D(vector<cv::Mat>& corners){
+
+
+ if (!homOpenCVSet()){ return false;}
+
+ cv::Mat hom_inv = hom_CV.inv();
+
  cv::Mat p(3,1,CV_64FC1);
  cv::Mat p_3d(3,1,CV_64FC1);
 
@@ -1287,16 +1308,34 @@ bool Projector_Calibrator::findOptimalProjectionArea2(cv::Mat::MSize img_px_size
 
  // for each projector corner, find the corresponding 3d point on the z=0 plane
  p.at<double>(0) = space_horizontal; p.at<double>(1) = space_vertical; p.at<double>(2) = 1;
- p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); Corners_3d.push_back(p_3d.clone());
+ p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); p_3d.at<double>(2) = 0; corners.push_back(p_3d.clone());
 
  p.at<double>(0) = proj_size.width-space_horizontal; p.at<double>(1) = space_vertical; p.at<double>(2) = 1;
- p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); Corners_3d.push_back(p_3d.clone());
+ p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); p_3d.at<double>(2) = 0; corners.push_back(p_3d.clone());
 
  p.at<double>(0) = proj_size.width-space_horizontal; p.at<double>(1) = proj_size.height-space_vertical; p.at<double>(2) = 1;
- p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); Corners_3d.push_back(p_3d.clone());
+ p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); p_3d.at<double>(2) = 0; corners.push_back(p_3d.clone());
 
  p.at<double>(0) = space_horizontal; p.at<double>(1) = proj_size.height-space_vertical; p.at<double>(2) = 1;
- p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); Corners_3d.push_back(p_3d.clone());
+ p_3d = hom_inv*p; p_3d/=p_3d.at<double>(2); p_3d.at<double>(2) = 0; corners.push_back(p_3d.clone());
+
+ return true;
+
+}
+
+
+bool Projector_Calibrator::findOptimalProjectionArea2(cv::Mat::MSize img_px_size, std::stringstream& msg){
+
+ if (!homOpenCVSet()){
+  msg << "Homography is not set!"; return false;
+ }
+
+ float ratio = img_px_size[1]*1.0/img_px_size[0];
+
+
+ // get 3d Poses of the projector corners:
+ vector<cv::Mat> Corners_3d;
+ getProjectionAreain3D(Corners_3d);
 
 
  double min_x = 1e10;
@@ -1307,6 +1346,7 @@ bool Projector_Calibrator::findOptimalProjectionArea2(cv::Mat::MSize img_px_size
  for (uint i=0; i<Corners_3d.size(); ++i){
   min_x = min(min_x, Corners_3d[i].at<double>(0));
   min_y = min(min_y, Corners_3d[i].at<double>(1));
+  ROS_INFO("topmal: %f %f %f", Corners_3d[i].at<double>(0), Corners_3d[i].at<double>(1), Corners_3d[i].at<double>(2));
  }
 
  vector<cv::Point2i> px_coordinates;
@@ -1558,7 +1598,10 @@ void Projector_Calibrator::setInputCloud(Cloud& cloud){
   }
 #endif
 
+ }else{
+  cloud_moved.clear();
  }
+
 
 #ifdef COMPUTE_NANS
  ROS_INFO("NAN: input: %i, output: %i", input_nan, output_nan);

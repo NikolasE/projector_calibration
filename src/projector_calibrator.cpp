@@ -671,26 +671,25 @@ bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
  }
 
  cv::Mat cameraMatrix = cv::Mat(3,3,CV_32FC1);
- cv::Mat distCoeffs;
+ cv::Mat distCoeffs = cv::Mat(1,5,CV_32FC1);
+ distCoeffs.setTo(0);
 
 
  cameraMatrix.setTo(0);
  cameraMatrix.at<float>(0,2) = proj_size.width/2;
  cameraMatrix.at<float>(1,2) = proj_size.height/2;
- cameraMatrix.at<float>(0,0) = 500;
- cameraMatrix.at<float>(1,1) = 500;
+ cameraMatrix.at<float>(0,0) = 1000;
+ cameraMatrix.at<float>(1,1) = 1000;
  cameraMatrix.at<float>(2,2) = 1;
 
- // cout << "camera (init): " << cameraMatrix << endl;
+  cout << "camera (init): " << cameraMatrix << endl;
 
 
- double error = cv::calibrateCamera(world_points, pixels, proj_size, cameraMatrix, distCoeffs, rvecs, tvecs,CV_CALIB_USE_INTRINSIC_GUESS);
+ double error = cv::calibrateCamera(world_points, pixels, proj_size, cameraMatrix, distCoeffs, rvecs, tvecs,CV_CALIB_USE_INTRINSIC_GUESS || CV_CALIB_ZERO_TANGENT_DIST || CV_CALIB_FIX_K1 || CV_CALIB_FIX_K2 || CV_CALIB_FIX_K3 );
 
  cout << "error " << error << endl;
  cout << "camera: " << cameraMatrix << endl;
- //cout << "distortion: " << distCoeffs << endl;
-
-
+ cout << "distortion: " << distCoeffs << endl;
 
  //int N = observations_3d.size();
 
@@ -888,12 +887,39 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
 
  cv::decomposeProjectionMatrix(proj_Matrix, camera_matrix,rotMatrix, projector_position);
 
- camera_matrix /= camera_matrix.at<double>(2,2);
+ //camera_matrix /= camera_matrix.at<double>(2,2);
 
  projector_position /= projector_position.at<double>(3);
 
  cout << "camera_matrix" << endl << camera_matrix << endl;
  cout << "Proj pose: " << endl << projector_position << endl;
+ cout << "rotMatrix: " << endl << rotMatrix << endl;
+
+/*
+ cv::Mat P_(proj_Matrix.colRange(0,3));
+ P_ = proj_Matrix.colRange(cv::Range(0,3));
+// proj_Matrix.copyTo(P_);
+
+ cout << "sub matrix: " << P_ << endl;
+
+ cv::Mat F_(proj_Matrix.colRange(3,4));
+ F_ = proj_Matrix.colRange(cv::Range(3,4));
+ cout << "F_ matrix: " << F_ << endl;
+
+cv::Mat new_pose = P_.inv()*F_;
+
+cout << "new_pose " << new_pose << endl;
+*/
+
+
+
+ // do some testing:
+// cv::Point3f out;
+// project3D(cv::Point2f(0,0), proj_Matrix,1, out);
+// project3D(cv::Point2f(100,100), proj_Matrix,1, out);
+// project3D(cv::Point2f(400,123), proj_Matrix,1, out);
+
+
 
 
  return true;

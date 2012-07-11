@@ -14,8 +14,47 @@ using namespace std;
 
 
 
+void project3D(const cv::Point2f px, const cv::Mat P, float W,  cv::Point3f& out){
+
+ /*
+  * [px.x,px.y,1] = P [out.x,out.y,out.z,W]
+  */
+
+ float a = px.x;
+ float b = px.y;
+
+
+ double p[3][4];
+
+ for (uint i=0; i<3; i++)
+  for (uint j=0; j<4; j++)
+   p[i][j] = P.at<double>(i,j);
+
+ // in Maple:
+ // solve({b = p[2, 1]*X+p[2, 2]*Y+p[2, 3]*Z+p[2, 4]*W, a = p[1, 1]*X+p[1, 2]*Y+p[1, 3]*Z+p[1, 4]*W, 1 = p[3, 1]*X+p[3, 2]*Y+p[3, 3]*Z+W}, [X, Y, Z])
+ // language conversion to C
+
+ double sub = p[0][1] * p[1][0] * p[2][2] - p[2][0] * p[0][1] * p[1][2] - p[1][0] * p[2][1] * p[0][2] - p[1][1] * p[0][0] * p[2][2] + p[2][0] * p[1][1] * p[0][2] + p[0][0] * p[2][1] * p[1][2];
+
+ out.x =  ( p[1][1] * p[0][2] - p[2][1] * p[1][2] * p[0][3] * W + p[2][1] * p[1][2] * a - p[2][1] * b * p[0][2] + p[2][2] * p[0][1] * b - p[2][2] * p[1][1] * a + p[2][1] * p[1][3] * W * p[0][2] + p[2][2] * p[1][1] * p[0][3] * W - p[2][2] * p[0][1] * p[1][3] * W + W * p[0][1] * p[1][2] - W * p[1][1] * p[0][2] - p[0][1] * p[1][2])   / sub;
+ out.y = -(-p[1][0] * p[2][2] * a - p[1][0] * W * p[0][2] + p[1][0] * p[2][2] * p[0][3] * W + p[1][0] * p[0][2] + p[2][2] * p[0][0] * b - p[2][0] * p[1][2] * p[0][3] * W + p[2][0] * p[1][2] * a - p[2][2] * p[0][0] * p[1][3] * W + p[2][0] * p[1][3] * W * p[0][2] + W * p[0][0] * p[1][2] - p[2][0] * b * p[0][2] - p[0][0] * p[1][2]) / sub;
+ out.z = -( p[2][0] * p[1][1] * p[0][3] * W - p[2][0] * p[0][1] * p[1][3] * W + p[2][0] * p[0][1] * b - p[0][1] * p[1][0] - p[0][0] * p[2][1] * b - p[2][0] * p[1][1] * a - p[1][0] * p[2][1] * p[0][3] * W + p[0][1] * p[1][0] * W + p[1][0] * p[2][1] * a + p[1][1] * p[0][0] - p[1][1] * p[0][0] * W + p[0][0] * p[2][1] * p[1][3] * W)  / sub;
+
+
+ // test: reproject into image
+ cv::Point2f px_test = applyPerspectiveTrafo(out,P);
+ if (abs(px.x-px_test.x) > 5 || abs(px.y-px_test.y) > 5 ){
+  ROS_INFO("Input: %f %f, 3d: %f %f %f, projected: %f %f", px.x,px.y, out.x, out.y, out.z, px_test.x, px_test.y);
+  assert(1==0);
+ }
+
+}
+
+
+
+
 bool loadMat(const string path, const string name, cv::Mat& mat){
-  char fn[100]; sprintf(fn,"%s%s.yml", path.c_str(), name.c_str());
+ char fn[100]; sprintf(fn,"%s%s.yml", path.c_str(), name.c_str());
  ROS_INFO("Reading %s from %s", name.c_str(),fn);
 
  cv::FileStorage fs(fn, cv::FileStorage::READ);
@@ -85,16 +124,16 @@ void applyMaskOnCloud(const cv::Mat& mask, const pcl::PointCloud<pcl::Normal>& i
  assert(mask.cols == int(in.width));
  out.clear();
 
-// int nan_cnt = 0;
+ // int nan_cnt = 0;
 
  for (int x=0; x<mask.cols; ++x)
   for (int y=0; y<mask.rows; ++y){
    if (mask.at<uchar>(y,x) > 0){
     pcl::Normal p = in.at(x,y);
 
-//    if (p.x == p.x)
-     out.push_back(p);
-//    else nan_cnt++;
+    //    if (p.x == p.x)
+    out.push_back(p);
+    //    else nan_cnt++;
    }
   }
 
@@ -108,18 +147,18 @@ void applyMaskOnCloud(const cv::Mat& mask, const Cloud& in, Cloud& out){
  assert(mask.cols == int(in.width));
  out.clear();
 
-// int nan_cnt = 0;
+ // int nan_cnt = 0;
 
  for (int x=0; x<mask.cols; ++x)
   for (int y=0; y<mask.rows; ++y){
    if (mask.at<uchar>(y,x) > 0){
     pcl_Point p = in.at(x,y);
     if (p.x == p.x) out.push_back(p);
-//    else nan_cnt++;
+    //    else nan_cnt++;
    }
   }
 
-// ROS_INFO("start: %i, nan: %i, out: %i", in.size(), nan_cnt, out.size());
+ // ROS_INFO("start: %i, nan: %i, out: %i", in.size(), nan_cnt, out.size());
 
 }
 
@@ -150,11 +189,11 @@ bool computeTransformationFromPointclouds(const Cloud& fixed, const Cloud& moved
 
  for (uint i=0; i<fixed_centered.size(); ++i){
 
-//  pcl_Point a = fixed[i];
-//  pcl_Point b = moved[i];
-//
-//  ROS_INFO("fixed: %f %f %f", a.x,a.y,a.z);
-//  ROS_INFO("moved: %f %f %f", b.x,b.y,b.z);
+  //  pcl_Point a = fixed[i];
+  //  pcl_Point b = moved[i];
+  //
+  //  ROS_INFO("fixed: %f %f %f", a.x,a.y,a.z);
+  //  ROS_INFO("moved: %f %f %f", b.x,b.y,b.z);
 
 
   pcl_Point f = fixed_centered[i];
@@ -164,8 +203,8 @@ bool computeTransformationFromPointclouds(const Cloud& fixed, const Cloud& moved
   c.at<float>(0) = f.x; c.at<float>(1) = f.y; c.at<float>(2) = f.z;
   r.at<float>(0) = m.x; r.at<float>(1) = m.y; r.at<float>(2) = m.z;
 
-//  cout << "c "  << c << endl << "r "  << r << endl;
-//  cout << c*r.t() << endl;
+  //  cout << "c "  << c << endl << "r "  << r << endl;
+  //  cout << c*r.t() << endl;
 
   M += c*r.t();
  }
@@ -195,7 +234,7 @@ bool computeTransformationFromPointclouds(const Cloud& fixed, const Cloud& moved
  cout << "t " << endl << t << endl;
 
 
-// return false;
+ // return false;
 
 
  for (uint i=0; i<3; ++i){
@@ -540,7 +579,7 @@ void projectCloudIntoProjector(const Cloud& cloud, const cv::Mat& P, cv::Mat& im
   if (z<0.03) continue;
 
 
-  float z_max = 0.5;
+  float z_max = 1;
 
   cv::Scalar col(z/z_max*180,255,255);
 

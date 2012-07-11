@@ -40,8 +40,6 @@ class Projector_Calibrator {
  Cloud input_cloud;
 
 
- cv::Mat projector_position;
-
  // tilt of kinect (rotation around optical axis)
  float kinect_tilt_angle_deg;
  bool kinect_orientation_valid;
@@ -72,9 +70,9 @@ class Projector_Calibrator {
 
 
 
-
 public:
 
+ cv::Mat projector_position;
 
  void updateProjectorImage();
 

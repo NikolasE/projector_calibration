@@ -12,6 +12,10 @@
 #include <opencv/cv.h>
 #include <pcl/common/transform.h>
 
+
+
+void project3D(const cv::Point2f px, const cv::Mat P, float W,  cv::Point3f& out);
+
 float dist(pcl_Point A, pcl_Point B);
 
 void projectCloudIntoProjector(const Cloud& cloud, const cv::Mat& P, cv::Mat& img);

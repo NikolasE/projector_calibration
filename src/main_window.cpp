@@ -57,26 +57,20 @@ namespace projector_calibration {
   QObject::connect(&mouse_handler, SIGNAL(redraw_image()), this, SLOT(update_proj_image()));
 
 
-
-  // TODO: read bool from config and print infos about loaded stuff
-  if (qnode.calibrator.load_everything_on_startup){
+ if (qnode.calibrator.load_everything_on_startup){
    sstream msg;
    qnode.calibrator.initFromFile(msg);
    qnode.writeToOutput(msg);
    if (qnode.calibrator.isKinectTrafoSet()){
     activateSlider();
    }
-  }else
-   ROS_INFO("dont load nohing");
+  }
 
 
   show_fullscreen_pattern();
   update_proj_image();
 
-
-  /*********************
-   ** Logging
-   **********************/
+  // Logging
   ui.view_logging->setModel(qnode.loggingModel());
   QObject::connect(&qnode, SIGNAL(loggingUpdated()), this, SLOT(updateLoggingView()));
 
@@ -392,13 +386,14 @@ namespace projector_calibration {
 
   // qnode.calibrator.saveObservations();
 
-  // qnode.calibrator.loadObservations();
+//  qnode.calibrator.loadObservations();
 
 
   float mean_error;
   if (qnode.calibrator.computeProjectionMatrix(mean_error)){
    msg << "Projection Matrix computed with mean reprojection error of " << mean_error << "pixels ";
    // qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error);
+   // cout << "opencv calib: mean of " << mean_error << endl;
   }else{
    msg << "Could not compute Projection Matrix (not enough points)";
   }

@@ -9,7 +9,7 @@
 using namespace std;
 
 #include "projector_calibration/projector_calibrator.h"
-
+#include "rgbd_utils/calibration_utils.h"
 
 bool Projector_Calibrator::saveObservations(){
 
@@ -85,7 +85,7 @@ Projector_Calibrator::Projector_Calibrator(){
  ros::param::param<bool>("projector_calibration/load_everything_on_startup", load_everything_on_startup, true);
 
  // reading the number of corners from file
- int check_width, check_height;
+ // int check_width, check_height;
  ros::param::param<int>("projector_calibration/checkerboard_internal_corners_x", max_checkerboard_width, 8);
  ros::param::param<int>("projector_calibration/checkerboard_internal_corners_y", max_checkerboard_height, 6 );
  checkboard_size = cv::Size(max_checkerboard_width, max_checkerboard_height);

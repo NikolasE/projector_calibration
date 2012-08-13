@@ -8,8 +8,8 @@
 #ifndef PROJECTOR_CALIBRATOR_H_
 #define PROJECTOR_CALIBRATOR_H_
 
-#include "type_definitions.h"
-#include "calibration_utils.h"
+#include "rgbd_utils/type_definitions.h"
+//#include "calibration_utils.h"
 
 #include <opencv/cv.h>
 #include <opencv/highgui.h>

@@ -21,8 +21,9 @@
 #include <QThread>
 #include <QStringListModel>
 
+#include "rgbd_utils/type_definitions.h"
+
 #include "projector_calibration/projector_calibrator.h"
-#include "projector_calibration/type_definitions.h"
 #include "projector_calibration/user_input.h"
 
 

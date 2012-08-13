@@ -10,6 +10,9 @@
   <url>http://ros.org/wiki/projector_calibration</url>
 
 
+  <depend package="rgbd_utils"/>
+  
+
   <depend package="sensor_msgs"/>
   <depend package="pcl_ros"/>
   <depend package="opencv2"/>
@@ -21,9 +24,15 @@
   <depend package="qt_build"/>
   <depend package="roscpp"/>
   
+  
   <rosbuild2>
     <depend package="qt_build"/>
     <depend package="roscpp"/>
   </rosbuild2>
+  
+    <export>
+    <cpp cflags="-I${prefix}/include" lflags="-L${prefix}/lib "/>
+  </export>
+  
   
 </package>

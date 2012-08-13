@@ -9,7 +9,7 @@
 #define USER_INPUT_H_
 
 
-#include "projector_calibration/calibration_utils.h"
+#include "rgbd_utils/calibration_utils.h"
 #include <pcl/point_types.h>
 #include <pcl/filters/passthrough.h>
 #include "projector_calibrator.h"

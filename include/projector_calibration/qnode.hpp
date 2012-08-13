@@ -47,6 +47,7 @@ namespace projector_calibration {
   Q_OBJECT
  public:
 
+  cv_bridge::CvImagePtr cv_ptr;
 
   // the actual calibration object
   Projector_Calibrator calibrator;

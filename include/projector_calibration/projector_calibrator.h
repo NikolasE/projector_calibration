@@ -68,9 +68,11 @@ class Projector_Calibrator {
 
  const static int unused_pixels_rows = 25;
 
+ int max_checkerboard_width,max_checkerboard_height;
 
 
 public:
+
 
  cv::Mat projector_position;
 

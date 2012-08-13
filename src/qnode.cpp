@@ -57,10 +57,6 @@ namespace projector_calibration {
   user_input->init();
 
 
-  //  ros::param::param<double>("foo", bar, 42);
-
-  // Add your ros communications here.
-  //chatter_publisher = n.advertise<std_msgs::String>("chatter", 1000);
   start();
   return true;
  }
@@ -101,9 +97,12 @@ namespace projector_calibration {
 
 
  void QNode::imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
-  // ROS_INFO("GOT KINECT DATA");
+//   ROS_INFO("GOT KINECT DATA");
 
   pcl::fromROSMsg(*cloud_ptr, current_cloud);
+
+  if (current_cloud.size() == 0) return;
+
   calibrator.setInputCloud(current_cloud);
 
 
@@ -139,15 +138,18 @@ namespace projector_calibration {
 
 
   //  ROS_INFO("GOT cloud with %zu points", current_cloud.size());
-  cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(img_ptr , sensor_msgs::image_encodings::BGR8);
+  cv_ptr = cv_bridge::toCvCopy(img_ptr , sensor_msgs::image_encodings::BGR8);
 
   current_col_img = cv_ptr->image;
 
   Q_EMIT received_col_Image();
+
+//  ROS_INFO("Leaving CB");
+
  }
 
  void QNode::run() {
-  ros::Rate loop_rate(30);
+  ros::Rate loop_rate(10);
 
 
   ROS_INFO("Starting to run");
@@ -166,26 +168,8 @@ namespace projector_calibration {
   //  ros::Subscriber sub = n.subscribe("chatter", 1000, &Listener::callback, &listener);
 
   while ( ros::ok() ) {
-
    ros::spinOnce();
-
-   //   if (current_col_img.cols > 0){
-   //    cv::imshow("kinect", current_col_img);
-   //    cv::waitKey(1);
-   //   }
-
-   //   std_msgs::String msg;
-   //   std::stringstream ss;
-   //   ss << "hello world " << count;
-   //   msg.data = ss.str();
-   //   chatter_publisher.publish(msg);
-   //   log(Info,std::string("I sent: ")+msg.data);
-   //   ros::spinOnce();
-   //   loop_rate.sleep();
-   //   ++count;
-
    loop_rate.sleep();
-
   }
   std::cout << "Ros shutdown, proceeding to close the gui." << std::endl;
   Q_EMIT rosShutdown(); // used to signal the gui for a shutdown (useful to roslaunch)

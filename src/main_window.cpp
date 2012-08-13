@@ -57,7 +57,7 @@ namespace projector_calibration {
   QObject::connect(&mouse_handler, SIGNAL(redraw_image()), this, SLOT(update_proj_image()));
 
 
- if (qnode.calibrator.load_everything_on_startup){
+  if (qnode.calibrator.load_everything_on_startup){
    sstream msg;
    qnode.calibrator.initFromFile(msg);
    qnode.writeToOutput(msg);
@@ -73,6 +73,7 @@ namespace projector_calibration {
   // Logging
   ui.view_logging->setModel(qnode.loggingModel());
   QObject::connect(&qnode, SIGNAL(loggingUpdated()), this, SLOT(updateLoggingView()));
+  QObject::connect(&mouse_handler, SIGNAL(marker_area_changed()), this, SLOT(select_marker_area()));
 
 
   ui.lb_img_2->installEventFilter(&mouse_handler);
@@ -87,6 +88,8 @@ namespace projector_calibration {
 
   qnode.user_interaction_active = ui.cb_user->isChecked();
   qnode.depth_visualization_active = ui.cb_depth_visualization->isChecked();
+
+  pattern_size_auto = ui.cb_autosize->isChecked();
 
  }
 
@@ -112,9 +115,32 @@ namespace projector_calibration {
    return;
   }
 
+
+
   // undo shrinking!
   cv::Point l1(mouse_handler.down.x/image_scale,mouse_handler.down.y/image_scale);
   cv::Point l2(mouse_handler.up.x/image_scale,mouse_handler.up.y/image_scale);
+
+  if (pattern_size_auto){
+   // set new pattern_size
+   float dx = abs(l1.x-l2.x);
+   float dy = abs(l1.y-l2.y);
+
+
+   qnode.calibrator.checkboard_size.width = int(fmax(dx/100,3.0));
+   qnode.calibrator.checkboard_size.height = int(fmax(dy/100,3.0));
+
+   if (qnode.calibrator.checkboard_size.width == qnode.calibrator.checkboard_size.height)
+    qnode.calibrator.checkboard_size.width++;
+
+   ui.ed_corners_x->setText(QString::number(qnode.calibrator.checkboard_size.width));
+   ui.ed_corners_y->setText(QString::number(qnode.calibrator.checkboard_size.height));
+
+   //   ROS_INFO("new size: %i %i", qnode.calibrator.checkboard_size.width, qnode.calibrator.checkboard_size.height);
+
+
+  }
+
 
   qnode.calibrator.projectSmallCheckerboard(l1,l2);
   update_proj_image(); // update image on gui
@@ -244,9 +270,9 @@ namespace projector_calibration {
  void MainWindow::update_proj_image(){
 
 
-  QPixmap pixmap;
-  QImage  qimg = Mat2QImage(qnode.calibrator.projector_image);
-  lb_img.setPixmap(pixmap.fromImage(qimg, 0));
+  assert(qnode.calibrator.projector_image.cols > 0);
+  qimg_proj = Mat2QImage(qnode.calibrator.projector_image);
+  lb_img.setPixmap(pixmap_proj.fromImage(qimg_proj, 0));
 
 
   // draw projector image on right label
@@ -258,11 +284,12 @@ namespace projector_calibration {
     cv::rectangle(small2,  mouse_handler.down, mouse_handler.move, mouse_handler.area_marked()?CV_RGB(0,255,0):CV_RGB(255,0,0),2);
 
 
-   qimg = Mat2QImage(small2);
-   ui.lb_img_2->setPixmap(pixmap.fromImage(qimg, 0));
-
-
+   qimg_p = Mat2QImage(small2);
+   ui.lb_img_2->setPixmap(pixmap_p.fromImage(qimg_p, 0));
   }
+
+
+
  }
 
 
@@ -272,26 +299,27 @@ namespace projector_calibration {
 
 
   // draw kinect image on left label
-  cv::Mat small;
-  cv::Mat cpy = qnode.current_col_img.clone();
+
+  cpy = qnode.current_col_img.clone();
   if (qnode.calibrator.detected_corners.size() > 0){
    cv::drawChessboardCorners(cpy, qnode.calibrator.checkboard_size, qnode.calibrator.detected_corners, true);
   }
 
-
   cv::resize(cpy, small, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
-  QImage qimg = Mat2QImage(small);
-  QPixmap pixmap;
-  ui.lb_kinect_image->setPixmap(pixmap.fromImage(qimg, 0));
+  qimg_col = Mat2QImage(small);
+  ui.lb_kinect_image->setPixmap(pixmap_col.fromImage(qimg_col, 0));
 
  }
 
 
  void MainWindow::manual_yaw_changed(int yaw){
+  float y = yaw/2.0;
+  ROS_INFO("y: %f", y);
   assert(qnode.calibrator.isKinectTrafoSet());
-  float diff = yaw-manual_yaw_change;
+  float diff = y-manual_yaw_change;
   qnode.calibrator.rotateKinectTrafo(diff/180.0*M_PI);
-  manual_yaw_change = yaw;
+  manual_yaw_change = y;
+  ROS_INFO("Manual yaw: %f", manual_yaw_change);
   ui.lb_yaw->setText(QString::number(manual_yaw_change));
  }
 
@@ -306,7 +334,12 @@ namespace projector_calibration {
 
 
  void MainWindow::show_fullscreen_pattern(){
+
   qnode.calibrator.projectFullscreenCheckerboard();
+
+  ui.ed_corners_x->setText(QString::number(qnode.calibrator.checkboard_size.width));
+  ui.ed_corners_y->setText(QString::number(qnode.calibrator.checkboard_size.height));
+
   update_proj_image(); // update image on gui
  }
 
@@ -353,16 +386,18 @@ namespace projector_calibration {
   }
 
 
+
   qnode.calibrator.storeCurrentObservationPairs();
 
 
-  ROS_WARN("SENDING %zu 3d observations", qnode.calibrator.observations_3d.size());
-  // show observations in rviz
-  Cloud::Ptr cloud_msg = qnode.calibrator.observations_3d.makeShared();
-  cloud_msg->header.frame_id = "/openni_rgb_optical_frame";
-  cloud_msg->header.stamp = ros::Time::now ();
-  qnode.pub_3d_calib_points.publish(cloud_msg);
-
+  if (qnode.pub_3d_calib_points.getNumSubscribers() > 0){
+   ROS_WARN("SENDING %zu 3d observations", qnode.calibrator.observations_3d.size());
+   // show observations in rviz
+   Cloud::Ptr cloud_msg = qnode.calibrator.observations_3d.makeShared();
+   cloud_msg->header.frame_id = "/openni_rgb_optical_frame";
+   cloud_msg->header.stamp = ros::Time::now ();
+   qnode.pub_3d_calib_points.publish(cloud_msg);
+  }
 
   msg << "Now " << qnode.calibrator.getNumPairs() << " pairs for optimization";
   qnode.writeToOutput(msg);
@@ -385,9 +420,7 @@ namespace projector_calibration {
   sstream msg;
 
   // qnode.calibrator.saveObservations();
-
-//  qnode.calibrator.loadObservations();
-
+  //  qnode.calibrator.loadObservations();
 
   float mean_error;
   if (qnode.calibrator.computeProjectionMatrix(mean_error)){
@@ -395,7 +428,7 @@ namespace projector_calibration {
    // qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error);
    // cout << "opencv calib: mean of " << mean_error << endl;
   }else{
-   msg << "Could not compute Projection Matrix (not enough points)";
+   msg << "Could not compute Projection Matrix (not enough points or to little variation in z-direction)";
   }
 
 
@@ -420,6 +453,16 @@ namespace projector_calibration {
 
  void MainWindow::user_interaction_toggled(bool status){
   qnode.user_interaction_active = status;
+ }
+
+ void MainWindow::pattern_auto_size_toggled(bool status){
+  pattern_size_auto = status;
+
+  if (pattern_size_auto)
+   qnode.writeToOutput(sstream("Pattern Size: auto"));
+  else
+   qnode.writeToOutput(sstream("Pattern Size: user defined"));
+
  }
 
  void MainWindow::depth_visualzation_toggled(bool status){

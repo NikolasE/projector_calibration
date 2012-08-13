@@ -13,6 +13,131 @@
 using namespace std;
 
 
+void add(pcl_Point& a,const pcl_Point& b){
+ a.x+=b.x; a.y+=b.y; a.z += b.z;
+}
+
+void div(pcl_Point& a, float d){
+ a.x /= d; a.y /= d; a.z /= d;
+}
+
+
+float norm(const pcl_Point& p){
+ return sqrt(p.x*p.x+p.y*p.y+p.z*p.z);
+}
+
+
+pcl_Point setLength(const pcl_Point& p, float s){
+ float l = norm(p);
+ pcl_Point out;
+
+ out.x = p.x/l*s;
+ out.y = p.y/l*s;
+ out.z = p.z/l*s;
+
+ if (abs(norm(out)-s)> 0.01){
+  ROS_INFO("old; %f %f %f", p.x,p.y,p.z);
+  ROS_INFO("new; %f %f %f", out.x,out.y,out.z);
+  ROS_INFO("dist: %f", abs(norm(out)-s));
+
+ }
+
+ return out;
+}
+
+
+
+Cloud removeMean(const Cloud& reference, const Cloud cloud, float max_dist, std::vector<cv::Point2i>* valids){
+
+ Cloud result;
+ assert(cloud.size() == reference.size());
+
+// for (uint i=0; i<cloud.size(); ++i){
+
+ for (uint x=0; x<cloud.width; ++x)
+  for (uint y=0; y<cloud.height; ++y){
+
+  pcl_Point c = cloud.at(x,y);
+  pcl_Point r = reference.at(x,y);
+
+  if (c.x != c.x) continue;
+
+  if (((r.x != r.x) || norm(c) < norm(r) - max_dist)){
+   result.push_back(c);
+
+   if (valids) valids->push_back(cv::Point2i(x,y));
+  }
+
+ }
+
+ return result;
+
+}
+
+
+
+
+
+Cloud computeMean(const std::vector<Cloud>& clouds){
+
+ assert(clouds.size() > 1);
+
+ Cloud out = clouds[0];
+
+ // ROS_INFO("W.H: %i %i", out.width, out.height);
+
+ for (uint i=0; i<clouds.size(); ++i){
+//  assert(clouds[i].is_dense);
+  assert(clouds[i].width == out.width && clouds[i].height == out.height);
+//  ROS_INFO("CLoud %i: w: %i, h: %i, s: %i", i, clouds[i].width, clouds[i].height, clouds[i].size());
+
+ }
+
+
+ uint total_valid = 0;
+
+ // compute mean of distances in every pixel:
+ // could also be done on the distance images
+ for (uint x=0; x<out.width; ++x)
+  for (uint y=0; y<out.height; ++y){
+   pcl_Point mean; mean.x = mean.y = mean.z = 0;
+   int cnt = 0;// number of clouds that have a measurement at this position
+
+//   ROS_INFO("%i %i", x,y);
+
+
+   for (uint i=0; i<clouds.size(); ++i){
+//    cout << "i" << i << endl;
+     pcl_Point p = clouds[i].at(x,y);
+//     cout << "b" << endl;
+     if (p.x != p.x) continue; // NaN value
+     add(mean, p);
+     cnt++;
+   }
+
+
+   if (cnt == 0){
+//    cout << "nan" << endl;
+    out.at(x,y) = clouds[0](x,y); // copy a nan-point at this position
+   }else{
+
+    div(mean,cnt);
+//    cout << "mean n=" << cnt << endl;
+    out.at(x,y) = mean;
+//    cout << "out" << cnt << endl;
+    total_valid++;
+   }
+  }
+
+
+// ROS_INFO("Computed mean of %zu cloud, resulting cloud has %i valid points",clouds.size(),total_valid);
+
+ return out;
+
+}
+
+
+
 
 void project3D(const cv::Point2f px, const cv::Mat P, float W,  cv::Point3f& out){
 
@@ -43,7 +168,7 @@ void project3D(const cv::Point2f px, const cv::Mat P, float W,  cv::Point3f& out
 
  // test: reproject into image
  cv::Point2f px_test = applyPerspectiveTrafo(out,P);
- if (abs(px.x-px_test.x) > 5 || abs(px.y-px_test.y) > 5 ){
+ if (abs(px.x-px_test.x) > 0.1 || abs(px.y-px_test.y) > 0.1 ){
   ROS_INFO("Input: %f %f, 3d: %f %f %f, projected: %f %f", px.x,px.y, out.x, out.y, out.z, px_test.x, px_test.y);
   assert(1==0);
  }
@@ -590,4 +715,26 @@ void projectCloudIntoProjector(const Cloud& cloud, const cv::Mat& P, cv::Mat& im
  cv::cvtColor(img,img,CV_HSV2BGR);
 
 
+}
+
+
+void computeTransformationFromYZVectorsAndOrigin(const Eigen::Vector3f& y_direction, const Eigen::Vector3f& z_axis,
+  const Eigen::Vector3f& origin, Eigen::Affine3f& transformation){
+
+ Eigen::Vector3f x = (y_direction.cross(z_axis)).normalized();
+ Eigen::Vector3f y = y_direction.normalized();
+ Eigen::Vector3f z = z_axis.normalized();
+
+ Eigen::Affine3f sub = Eigen::Affine3f::Identity();
+ sub(0,3) = -origin[0];
+ sub(1,3) = -origin[1];
+ sub(2,3) = -origin[2];
+
+
+ transformation = Eigen::Affine3f::Identity();
+ transformation(0,0)=x[0]; transformation(0,1)=x[1]; transformation(0,2)=x[2]; // x^t
+ transformation(1,0)=y[0]; transformation(1,1)=y[1]; transformation(1,2)=y[2]; // y^t
+ transformation(2,0)=z[0]; transformation(2,1)=z[1]; transformation(2,2)=z[2]; // z^t
+
+ transformation = transformation*sub;
 }

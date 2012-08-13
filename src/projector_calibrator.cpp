@@ -86,9 +86,9 @@ Projector_Calibrator::Projector_Calibrator(){
 
  // reading the number of corners from file
  int check_width, check_height;
- ros::param::param<int>("projector_calibration/checkerboard_internal_corners_x", check_width, 8);
- ros::param::param<int>("projector_calibration/checkerboard_internal_corners_y", check_height, 6 );
- checkboard_size = cv::Size(check_width, check_height);
+ ros::param::param<int>("projector_calibration/checkerboard_internal_corners_x", max_checkerboard_width, 8);
+ ros::param::param<int>("projector_calibration/checkerboard_internal_corners_y", max_checkerboard_height, 6 );
+ checkboard_size = cv::Size(max_checkerboard_width, max_checkerboard_height);
 
  // reading the projector's size from file
  int proj_width, proj_height;
@@ -117,18 +117,14 @@ Projector_Calibrator::Projector_Calibrator(){
  }
 
  // creating fullscreen image (old syntax)
-// cvNamedWindow("fullscreen_ipl",0);
-// cvMoveWindow("fullscreen_ipl", 2000, 100);
-// cvSetWindowProperty("fullscreen_ipl", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+ // cvNamedWindow("fullscreen_ipl",0);
+ // cvMoveWindow("fullscreen_ipl", 2000, 100);
+ // cvSetWindowProperty("fullscreen_ipl", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 
  // showFullscreenCheckerboard();
 
 
 }
-
-
-
-
 
 
 void Projector_Calibrator::initFromFile(std::stringstream& msg){
@@ -163,8 +159,6 @@ void Projector_Calibrator::initFromFile(std::stringstream& msg){
  // loadMat("Homography (SVD)", hom_svd_filename, hom_SVD);
 }
 
-
-
 bool Projector_Calibrator::loadKinectTrafo(std::stringstream& msg){
 
 
@@ -182,6 +176,7 @@ bool Projector_Calibrator::loadKinectTrafo(std::stringstream& msg){
 void Projector_Calibrator::drawCheckerboard(cv::Mat& img,cv::Point l1, const cv::Point l2, const cv::Size size, vector<cv::Point2f>& corners_2d){
 
  corners_2d.clear();
+ detected_corners.clear();
 
  float min_x = min(l1.x,l2.x);
  float min_y = min(l1.y,l2.y);
@@ -394,8 +389,8 @@ void Projector_Calibrator::showUnWarpedImage(const cv::Mat& img){
  cv::rectangle(projector_image, cv::Point(1,l),cv::Point(projector_image.cols-2,projector_image.rows-l), CV_RGB(255,255,0), 1);
 
 
-// IplImage img_ipl = projector_image;
-// cvShowImage("fullscreen_ipl", &img_ipl);
+ // IplImage img_ipl = projector_image;
+ // cvShowImage("fullscreen_ipl", &img_ipl);
 
 }
 
@@ -682,7 +677,7 @@ bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
  cameraMatrix.at<float>(1,1) = 1000;
  cameraMatrix.at<float>(2,2) = 1;
 
-  cout << "camera (init): " << cameraMatrix << endl;
+ cout << "camera (init): " << cameraMatrix << endl;
 
 
  double error = cv::calibrateCamera(world_points, pixels, proj_size, cameraMatrix, distCoeffs, rvecs, tvecs,CV_CALIB_USE_INTRINSIC_GUESS || CV_CALIB_ZERO_TANGENT_DIST || CV_CALIB_FIX_K1 || CV_CALIB_FIX_K2 || CV_CALIB_FIX_K3 );
@@ -770,10 +765,16 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
   return false;
  }
 
- if (number_of_features_in_images.size() == 1){
-  // TODO: check range of z-values to see if points are distributed
-  ROS_WARN("You should not compute projection matrix from one image, 3d points must not lie in one plane");
-  //return false;
+ // get range in z:
+ float z_min = 1e5; float z_max = -1e5;
+ for (uint i=0; i<observations_3d.size(); ++i){
+  pcl_Point p = observations_3d[i]; if (p.x!=p.x) continue;
+  z_min = min(z_min,p.z); z_max = max(z_max,p.z);
+ }
+
+ if (abs(z_max-z_min) < 0.1){
+  ROS_WARN("computeProjectionMatrix: Observations have to little variation in z!");
+  return false;
  }
 
 
@@ -895,7 +896,7 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
  cout << "Proj pose: " << endl << projector_position << endl;
  cout << "rotMatrix: " << endl << rotMatrix << endl;
 
-/*
+ /*
  cv::Mat P_(proj_Matrix.colRange(0,3));
  P_ = proj_Matrix.colRange(cv::Range(0,3));
 // proj_Matrix.copyTo(P_);
@@ -909,15 +910,15 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
 cv::Mat new_pose = P_.inv()*F_;
 
 cout << "new_pose " << new_pose << endl;
-*/
+  */
 
 
 
  // do some testing:
-// cv::Point3f out;
-// project3D(cv::Point2f(0,0), proj_Matrix,1, out);
-// project3D(cv::Point2f(100,100), proj_Matrix,1, out);
-// project3D(cv::Point2f(400,123), proj_Matrix,1, out);
+ // cv::Point3f out;
+ // project3D(cv::Point2f(0,0), proj_Matrix,1, out);
+ // project3D(cv::Point2f(100,100), proj_Matrix,1, out);
+ // project3D(cv::Point2f(400,123), proj_Matrix,1, out);
 
 
 
@@ -929,10 +930,10 @@ cout << "new_pose " << new_pose << endl;
 
 bool Projector_Calibrator::findCheckerboardCorners(){
  // #define SHOW_DETECTIONS
- detected_corners.clear();
+ // detected_corners.clear();
  if (input_image.rows == 0){  ROS_WARN("can't find corners on empty image!"); return false;  }
 
- // ROS_INFO("Looking for checkerboard with %i %i corners", checkboard_size.width, checkboard_size.height);
+ ROS_INFO("Looking for checkerboard with %i %i corners img: %i %i", checkboard_size.width, checkboard_size.height, input_image.cols, input_image.rows);
 
  if (!cv::findChessboardCorners(input_image, checkboard_size,detected_corners, CV_CALIB_CB_ADAPTIVE_THRESH)) {
   ROS_WARN("Could not find a checkerboard!");
@@ -993,12 +994,9 @@ bool Projector_Calibrator::saveProjectionMatrix(std::stringstream& msg){
 bool Projector_Calibrator::storeCurrentObservationPairs(){
 
 
-
- // for each 3d observation, there is a projected pixel (summed over all images)
- assert(observations_3d.size() == corners_2d.size());
-
  // for each 3d observation, there is a projected pixel (in current image)
  assert(current_projector_corners.size() == detected_corners.size());
+ assert(current_projector_corners.size() > 0);
 
  if (!kinect_trafo_valid){
   ROS_WARN("can't store Observations in global Frame since it is not defined!");
@@ -1018,24 +1016,47 @@ bool Projector_Calibrator::storeCurrentObservationPairs(){
  Cloud c_3d;
  for (uint i=0; i<detected_corners.size(); ++i){
   pcl_Point p = input_cloud.at(detected_corners[i].x, detected_corners[i].y);
-  if (!(p.x == p.x)){ROS_WARN("storeCurrent3DObservations: Found Corner without depth!"); return false;}
+  if (!(p.x == p.x)){
+   ROS_WARN("storeCurrent3DObservations: Found Corner without depth!");
+   return false;
+  }
   c_3d.points.push_back(p);
  }
+
+ // TODO
 
  // transform from kinect-frame to wall-frame
  pcl::getTransformedPointCloud(c_3d, kinect_trafo, c_3d);
 
+ assert(corners_2d.size() == observations_3d.size());
+
+ std::vector<cv::Point2f> foo;
+
+ foo.insert(foo.begin(),current_projector_corners.begin(), current_projector_corners.end() );
+
+ assert(current_projector_corners.size() > 0);
  ROS_INFO("Inserting: corners_2d.size: %zu, adding %zu points", corners_2d.size(), current_projector_corners.size());
- corners_2d.insert(corners_2d.end(), current_projector_corners.begin(), current_projector_corners.end());
+ for (uint i=0; i< foo.size(); ++i){
+  cout << "size: " << i << " / " << foo.size() << " corners_2d.size: " << corners_2d.size() << endl;
+  corners_2d.push_back(foo[i]);
+ }
+
+ // corners_2d.insert(corners_2d.end(), current_projector_corners.begin(), current_projector_corners.end());
  ROS_INFO("Inserting 2");
 
- observations_3d.points.insert(observations_3d.points.end(),c_3d.points.begin(), c_3d.points.end());
+ for (uint i=0; i<c_3d.points.size(); ++i){
+  observations_3d.push_back(c_3d[i]);
+ }
+
+// observations_3d.points.insert(observations_3d.points.end(),c_3d.points.begin(), c_3d.points.end());
  ROS_INFO("Added %zu points, now %zu 3D-Observations",c_3d.size(), observations_3d.size());
  ROS_INFO("Inserting 3");
 
 
+ assert(current_projector_corners.size() == c_3d.size());
  number_of_features_in_images.push_back(current_projector_corners.size());
 
+ ROS_INFO("Image cnt: %zu", number_of_features_in_images.size());
 
  return true;
 }
@@ -1043,14 +1064,18 @@ bool Projector_Calibrator::storeCurrentObservationPairs(){
 
 bool Projector_Calibrator::removeLastObservations(){
 
- assert(observations_3d.size() == corners_2d.size());
+ ROS_INFO("Remove!");
+
+ ROS_INFO("imgs: %zu", number_of_features_in_images.size());
+
 
  if (number_of_features_in_images.size() == 0)
   return false;
 
+
  uint obs_in_last = *number_of_features_in_images.rbegin();
 
- ROS_INFO("removing %i features from last img", obs_in_last);
+ ROS_INFO("removing %i features from last img, obs_3d: %zu", obs_in_last,observations_3d.size());
 
  assert(observations_3d.size() >= obs_in_last);
 
@@ -1061,11 +1086,15 @@ bool Projector_Calibrator::removeLastObservations(){
  observations_3d.erase (observations_3d.end()-obs_in_last-1,observations_3d.end()-1);
  corners_2d.erase(corners_2d.end()-obs_in_last-1,corners_2d.end()-1);
 
+ ROS_INFO("erased, now: 2d: %zu 3d: %zu", corners_2d.size(), observations_3d.size());
+
  // remove last entry in list
  number_of_features_in_images.erase(number_of_features_in_images.begin()+number_of_features_in_images.size()-1);
 
  assert(observations_3d.size() + obs_in_last == old_size);
  assert(observations_3d.size() == corners_2d.size());
+
+ ROS_INFO("removal successful");
 
  return true;
 
@@ -1167,26 +1196,26 @@ Cloud Projector_Calibrator::visualizePointCloud(){
 
 
 
-void computeTransformationFromYZVectorsAndOrigin(const Eigen::Vector3f& y_direction, const Eigen::Vector3f& z_axis,
-  const Eigen::Vector3f& origin, Eigen::Affine3f& transformation){
-
- Eigen::Vector3f x = (y_direction.cross(z_axis)).normalized();
- Eigen::Vector3f y = y_direction.normalized();
- Eigen::Vector3f z = z_axis.normalized();
-
- Eigen::Affine3f sub = Eigen::Affine3f::Identity();
- sub(0,3) = -origin[0];
- sub(1,3) = -origin[1];
- sub(2,3) = -origin[2];
-
-
- transformation = Eigen::Affine3f::Identity();
- transformation(0,0)=x[0]; transformation(0,1)=x[1]; transformation(0,2)=x[2]; // x^t
- transformation(1,0)=y[0]; transformation(1,1)=y[1]; transformation(1,2)=y[2]; // y^t
- transformation(2,0)=z[0]; transformation(2,1)=z[1]; transformation(2,2)=z[2]; // z^t
-
- transformation = transformation*sub;
-}
+//void computeTransformationFromYZVectorsAndOrigin(const Eigen::Vector3f& y_direction, const Eigen::Vector3f& z_axis,
+//  const Eigen::Vector3f& origin, Eigen::Affine3f& transformation){
+//
+// Eigen::Vector3f x = (y_direction.cross(z_axis)).normalized();
+// Eigen::Vector3f y = y_direction.normalized();
+// Eigen::Vector3f z = z_axis.normalized();
+//
+// Eigen::Affine3f sub = Eigen::Affine3f::Identity();
+// sub(0,3) = -origin[0];
+// sub(1,3) = -origin[1];
+// sub(2,3) = -origin[2];
+//
+//
+// transformation = Eigen::Affine3f::Identity();
+// transformation(0,0)=x[0]; transformation(0,1)=x[1]; transformation(0,2)=x[2]; // x^t
+// transformation(1,0)=y[0]; transformation(1,1)=y[1]; transformation(1,2)=y[2]; // y^t
+// transformation(2,0)=z[0]; transformation(2,1)=z[1]; transformation(2,2)=z[2]; // z^t
+//
+// transformation = transformation*sub;
+//}
 
 
 
@@ -1307,9 +1336,9 @@ bool Projector_Calibrator::getProjectionAreain3D(Cloud& corners){
 
 void Projector_Calibrator::updateProjectorImage(){
 
-// ROS_INFO("Update projector image");
-// IplImage proj_ipl = projector_image;
-// cvShowImage("fullscreen_ipl", &proj_ipl);
+ // ROS_INFO("Update projector image");
+ // IplImage proj_ipl = projector_image;
+ // cvShowImage("fullscreen_ipl", &proj_ipl);
 
 }
 
@@ -1600,6 +1629,11 @@ bool Projector_Calibrator::findOptimalProjectionArea(float ratio, cv_RectF& rect
 void Projector_Calibrator::setInputCloud(Cloud& cloud){
  // #define COMPUTE_NANS
 
+ if (cloud.size() == 0){
+  ROS_WARN("Tried to set new cloud to empty cloud!");
+  return;
+ }
+
  input_cloud = cloud;
 
 #ifdef COMPUTE_NANS
@@ -1721,10 +1755,7 @@ void Projector_Calibrator::applyMaskOnInputCloud(Cloud& out){
   */
 }
 
-void showMarker(cv::Point l1, cv::Point l2){
 
-
-}
 
 
 void Projector_Calibrator::projectSmallCheckerboard(cv::Point l1, cv::Point l2){
@@ -1732,8 +1763,8 @@ void Projector_Calibrator::projectSmallCheckerboard(cv::Point l1, cv::Point l2){
    checkboard_size,
    current_projector_corners);
 
-// IplImage proj_ipl = projector_image;
-// cvShowImage("fullscreen_ipl", &proj_ipl);
+ // IplImage proj_ipl = projector_image;
+ // cvShowImage("fullscreen_ipl", &proj_ipl);
 }
 
 
@@ -1742,21 +1773,25 @@ void Projector_Calibrator::projectUniformBackground(bool white){
  projector_image.setTo(white?255:0);
  current_projector_corners.clear(); // no corners on projector
  detected_corners.clear();           // and no detected corners anymore
-// IplImage proj_ipl = projector_image;
-// cvShowImage("fullscreen_ipl", &proj_ipl);
+ // IplImage proj_ipl = projector_image;
+ // cvShowImage("fullscreen_ipl", &proj_ipl);
 }
 
 
 
 void Projector_Calibrator::projectFullscreenCheckerboard(){
 
+ checkboard_size.width = max_checkerboard_width;
+ checkboard_size.height = max_checkerboard_height;
+
+
  drawCheckerboard(projector_image, cv::Point(0,0),
    cv::Point(projector_image.cols, projector_image.rows),
    checkboard_size,
    current_projector_corners);
 
-// IplImage proj_ipl = projector_image;
-// cvShowImage("fullscreen_ipl", &proj_ipl);
+ // IplImage proj_ipl = projector_image;
+ // cvShowImage("fullscreen_ipl", &proj_ipl);
 }
 
 

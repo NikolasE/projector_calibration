@@ -54,6 +54,7 @@ namespace projector_calibration {
   //  bool active;
   Q_SIGNALS:
   void redraw_image();
+  void marker_area_changed();
 
 
  protected:
@@ -82,6 +83,11 @@ namespace projector_calibration {
     up = cv::Point2i(mouseEvent->x(), mouseEvent->y());
     move = up;
     Q_EMIT redraw_image();
+
+
+    if (abs(down.x-up.x) > 10 && abs(down.y-up.y) > 10)
+      Q_EMIT marker_area_changed();
+
     }
 
    if( event->type() == QMouseEvent::MouseMove){
@@ -122,7 +128,12 @@ namespace projector_calibration {
   float manual_z_change;
   float manual_yaw_change;
 
+  QPixmap pixmap_proj, pixmap_col, pixmap_p;
+  QImage qimg_proj, qimg_col, qimg_p;
+
+
   QLabel lb_img;
+  bool pattern_size_auto;
 
  public Q_SLOTS:
  /******************************************
@@ -144,6 +155,7 @@ namespace projector_calibration {
  void update_proj_image();
  void user_interaction_toggled(bool);
  void depth_visualzation_toggled(bool);
+ void pattern_auto_size_toggled(bool);
 
  // calibration
  void compute_homography();
@@ -162,8 +174,10 @@ namespace projector_calibration {
 
 
 
-
  private:
+
+ cv::Mat small, cpy;
+
  Ui::MainWindowDesign ui;
  QNode qnode;
 

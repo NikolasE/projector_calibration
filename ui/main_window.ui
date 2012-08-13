@@ -118,7 +118,7 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>3</number>
+       <number>1</number>
       </property>
       <property name="documentMode">
        <bool>false</bool>
@@ -137,7 +137,7 @@
         <property name="geometry">
          <rect>
           <x>30</x>
-          <y>140</y>
+          <y>160</y>
           <width>191</width>
           <height>41</height>
          </rect>
@@ -150,7 +150,7 @@
         <property name="geometry">
          <rect>
           <x>250</x>
-          <y>140</y>
+          <y>160</y>
           <width>191</width>
           <height>41</height>
          </rect>
@@ -333,7 +333,7 @@
         <property name="geometry">
          <rect>
           <x>30</x>
-          <y>230</y>
+          <y>250</y>
           <width>201</width>
           <height>27</height>
          </rect>
@@ -346,7 +346,7 @@
         <property name="geometry">
          <rect>
           <x>30</x>
-          <y>260</y>
+          <y>280</y>
           <width>201</width>
           <height>27</height>
          </rect>
@@ -359,7 +359,7 @@
         <property name="geometry">
          <rect>
           <x>10</x>
-          <y>200</y>
+          <y>220</y>
           <width>141</width>
           <height>21</height>
          </rect>
@@ -377,7 +377,7 @@
         <property name="geometry">
          <rect>
           <x>330</x>
-          <y>240</y>
+          <y>260</y>
           <width>41</width>
           <height>27</height>
          </rect>
@@ -393,7 +393,7 @@
         <property name="geometry">
          <rect>
           <x>240</x>
-          <y>240</y>
+          <y>260</y>
           <width>81</width>
           <height>21</height>
          </rect>
@@ -406,7 +406,7 @@
         <property name="geometry">
          <rect>
           <x>380</x>
-          <y>240</y>
+          <y>260</y>
           <width>31</width>
           <height>21</height>
          </rect>
@@ -419,7 +419,7 @@
         <property name="geometry">
          <rect>
           <x>10</x>
-          <y>110</y>
+          <y>130</y>
           <width>161</width>
           <height>21</height>
          </rect>
@@ -431,6 +431,22 @@
         </property>
         <property name="text">
          <string>Projected Marker</string>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="cb_autosize">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>95</y>
+          <width>151</width>
+          <height>22</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>pattern auto-size</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </widget>
@@ -560,10 +576,10 @@
          </rect>
         </property>
         <property name="minimum">
-         <number>-180</number>
+         <number>-20</number>
         </property>
         <property name="maximum">
-         <number>180</number>
+         <number>20</number>
         </property>
         <property name="orientation">
          <enum>Qt::Vertical</enum>
@@ -578,7 +594,7 @@
          <enum>QSlider::TicksBelow</enum>
         </property>
         <property name="tickInterval">
-         <number>30</number>
+         <number>5</number>
         </property>
        </widget>
        <widget class="QLabel" name="lb_z">
@@ -1012,14 +1028,14 @@
    </hints>
   </connection>
   <connection>
-   <sender>pushButton_6</sender>
-   <signal>clicked(bool)</signal>
+   <sender>cb_autosize</sender>
+   <signal>toggled(bool)</signal>
    <receiver>MainWindowDesign</receiver>
-   <slot>add_new_observation()</slot>
+   <slot>pattern_auto_size_toggled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
      <x>171</x>
-     <y>157</y>
+     <y>209</y>
     </hint>
     <hint type="destinationlabel">
      <x>413</x>
@@ -1130,12 +1146,12 @@
    <slot>user_interaction_toggled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>119</x>
-     <y>334</y>
+     <x>130</x>
+     <y>284</y>
     </hint>
     <hint type="destinationlabel">
-     <x>494</x>
-     <y>421</y>
+     <x>512</x>
+     <y>455</y>
     </hint>
    </hints>
   </connection>
@@ -1146,12 +1162,28 @@
    <slot>depth_visualzation_toggled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>104</x>
-     <y>366</y>
+     <x>115</x>
+     <y>254</y>
     </hint>
     <hint type="destinationlabel">
      <x>548</x>
      <y>360</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_6</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>add_new_observation()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>198</x>
+     <y>136</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>732</x>
+     <y>424</y>
     </hint>
    </hints>
   </connection>
@@ -1177,5 +1209,6 @@
   <slot>find_projection_area()</slot>
   <slot>user_interaction_toggled(bool)</slot>
   <slot>depth_visualzation_toggled(bool)</slot>
+  <slot>pattern_auto_size_toggled(bool)</slot>
  </slots>
 </ui>

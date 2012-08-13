@@ -13,6 +13,24 @@
 #include <pcl/common/transform.h>
 
 
+Cloud computeMean(const std::vector<Cloud>& clouds);
+
+/*
+ * returns all points the new cloud that have a smaller z-value than the corresponding pixel in the refernce cloud
+ *
+ */
+Cloud removeMean(const Cloud& reference, const Cloud cloud, float max_dist, std::vector<cv::Point2i>* valids = NULL);
+
+
+void add(pcl_Point& a,const pcl_Point& b);
+void div(pcl_Point& a, float d);
+float norm(const pcl_Point& p);
+pcl_Point setLength(const pcl_Point& p, float s);
+
+void computeTransformationFromYZVectorsAndOrigin(const Eigen::Vector3f& y_direction, const Eigen::Vector3f& z_axis,
+  const Eigen::Vector3f& origin, Eigen::Affine3f& transformation);
+
+
 
 void project3D(const cv::Point2f px, const cv::Mat P, float W,  cv::Point3f& out);
 

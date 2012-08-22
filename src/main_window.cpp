@@ -34,11 +34,23 @@ namespace projector_calibration {
  {
 
 
+
   // open label fullscreen on secondary monitor
   lb_img.setParent(NULL);
   QRect screenres = QApplication::desktop()->screenGeometry(2);
+
+  //  cout << "foo" << endl;
+  //  ROS_INFO("screenres 1: %i %i", screenres.x(), screenres.y());
+
+
+  // z_max_changed(ui.slider_z_max->value());
+
+  // min_dist_changed(ui.slider_mindist->value());
+
+
   lb_img.move(QPoint(screenres.x(), screenres.y()));
   lb_img.showFullScreen();
+
 
   manual_z_change = 0;
 
@@ -54,7 +66,8 @@ namespace projector_calibration {
   QObject::connect(&qnode, SIGNAL(rosShutdown()), this, SLOT(close()));
   QObject::connect(&qnode, SIGNAL(received_col_Image()), this, SLOT(sl_received_image()));
   QObject::connect(&qnode, SIGNAL(update_projector_image()), this, SLOT(update_proj_image()));
-  QObject::connect(&mouse_handler, SIGNAL(redraw_image()), this, SLOT(update_proj_image()));
+  QObject::connect(&mousehandler_projector, SIGNAL(redraw_image()), this, SLOT(update_proj_image()));
+
 
 
   if (qnode.calibrator.load_everything_on_startup){
@@ -73,10 +86,15 @@ namespace projector_calibration {
   // Logging
   ui.view_logging->setModel(qnode.loggingModel());
   QObject::connect(&qnode, SIGNAL(loggingUpdated()), this, SLOT(updateLoggingView()));
-  QObject::connect(&mouse_handler, SIGNAL(marker_area_changed()), this, SLOT(select_marker_area()));
+  QObject::connect(&mousehandler_projector, SIGNAL(marker_area_changed()), this, SLOT(select_marker_area()));
+  QObject::connect(&mousehandler_points, SIGNAL(new_point()), this, SLOT(mouse_new_points()));
+  QObject::connect(&mousehandler_points, SIGNAL(new_point()), this, SLOT( sl_received_image()));
 
 
-  ui.lb_img_2->installEventFilter(&mouse_handler);
+
+
+  ui.lb_img_2->installEventFilter(&mousehandler_projector);
+  ui.lb_kinect_image->installEventFilter(&mousehandler_points);
 
 
   ui.ed_proj_size_x->setText(QString::number(qnode.calibrator.proj_size.width));
@@ -88,12 +106,14 @@ namespace projector_calibration {
 
   qnode.user_interaction_active = ui.cb_user->isChecked();
   qnode.depth_visualization_active = ui.cb_depth_visualization->isChecked();
-
+  qnode.foreGroundVisualizationActive = ui.cb_foreground->isChecked();
   pattern_size_auto = ui.cb_autosize->isChecked();
 
  }
 
- MainWindow::~MainWindow() {}
+ MainWindow::~MainWindow() {
+
+ }
 
  /*****************************************************************************
   ** Implementation [Slots]
@@ -109,7 +129,7 @@ namespace projector_calibration {
 
  void MainWindow::select_marker_area(){
 
-  if (!mouse_handler.area_marked()){
+  if (!mousehandler_projector.area_marked()){
    stringstream ss; ss << "Select area on the projector image!";
    qnode.writeToOutput(ss);
    return;
@@ -118,8 +138,8 @@ namespace projector_calibration {
 
 
   // undo shrinking!
-  cv::Point l1(mouse_handler.down.x/image_scale,mouse_handler.down.y/image_scale);
-  cv::Point l2(mouse_handler.up.x/image_scale,mouse_handler.up.y/image_scale);
+  cv::Point l1(mousehandler_projector.down.x/image_scale,mousehandler_projector.down.y/image_scale);
+  cv::Point l2(mousehandler_projector.up.x/image_scale,mousehandler_projector.up.y/image_scale);
 
   if (pattern_size_auto){
    // set new pattern_size
@@ -145,6 +165,11 @@ namespace projector_calibration {
   qnode.calibrator.projectSmallCheckerboard(l1,l2);
   update_proj_image(); // update image on gui
 
+ }
+
+ void MainWindow::learn_environment(){
+  qnode.detector.reset();
+  qnode.train_background = true;
  }
 
 
@@ -234,6 +259,8 @@ namespace projector_calibration {
  }
 
 
+
+
  void MainWindow::project_black_background(){
   // projects black background and removes position of last checkerboard detections
   qnode.calibrator.projectUniformBackground(false);
@@ -280,8 +307,8 @@ namespace projector_calibration {
    cv::Mat small2;
    cv::resize(qnode.calibrator.projector_image, small2, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
 
-   if (mouse_handler.area_marked())
-    cv::rectangle(small2,  mouse_handler.down, mouse_handler.move, mouse_handler.area_marked()?CV_RGB(0,255,0):CV_RGB(255,0,0),2);
+   if (mousehandler_projector.area_marked())
+    cv::rectangle(small2,  mousehandler_projector.down, mousehandler_projector.move, mousehandler_projector.area_marked()?CV_RGB(0,255,0):CV_RGB(255,0,0),2);
 
 
    qimg_p = Mat2QImage(small2);
@@ -293,9 +320,50 @@ namespace projector_calibration {
  }
 
 
+ // Calibration Evaluation
+ void MainWindow::sl_threshold_changed(int threshold){
+  qnode.calibrator.eval_brightness_threshold = threshold;
+  ui.lb_brightness->setText( QString::number(threshold));
+  ui.lb_brightness->repaint();
+ }
+
+ void MainWindow::detect_disc(){  qnode.eval_projection();  }
+
+
+
+ void MainWindow::mouse_new_points(){
+
+  if (mousehandler_points.pts.size() < 4) return;
+
+  vector<cv::Point> normal_sized;
+
+  for (uint i=0; i<mousehandler_points.pts.size(); ++i){
+   cv::Point pi = mousehandler_points.pts[i];
+   normal_sized.push_back( cv::Point(pi.x/image_scale, pi.y/image_scale));
+  }
+
+  if (qnode.current_col_img.rows == 0) return;
+
+  qnode.area_mask = cv::Mat(qnode.current_col_img.rows, qnode.current_col_img.cols, CV_8UC1);
+  ROS_INFO("mask: %i %i", qnode.area_mask.rows, qnode.area_mask.cols);
+  qnode.area_mask.setTo(0);
+  cv::fillConvexPoly(qnode.area_mask, normal_sized, cv::Scalar::all(255));
+
+  mousehandler_points.pts.clear();
+
+//  cv::imwrite("mask.jpg", qnode.area_mask);
+//  cv::namedWindow("bar");
+//  cv::imshow("bar", qnode.area_mask);
+//  cv::waitKey(10);
+
+ }
+
+
  void MainWindow::sl_received_image(){
-  if (qnode.current_col_img.cols == 0)
+
+  if (qnode.current_col_img.cols == 0){
    return;
+  }
 
 
   // draw kinect image on left label
@@ -305,12 +373,45 @@ namespace projector_calibration {
    cv::drawChessboardCorners(cpy, qnode.calibrator.checkboard_size, qnode.calibrator.detected_corners, true);
   }
 
+
+  /*
+   * Draw region not withing the marked region darker
+   */
+  if (qnode.area_mask.cols == cpy.cols){
+   cv::Mat darker = cpy*0.5;
+   cv::Mat inv = 255- qnode.area_mask;
+    darker.copyTo(cpy,inv);
+  }
+
+
+
   cv::resize(cpy, small, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
+
+  for (uint i=0; i< mousehandler_points.pts.size(); ++i){
+     cv::Point2f p = cv::Point2f(mousehandler_points.pts[i].x,mousehandler_points.pts[i].y);
+     cv::circle(small, p, 10, CV_RGB(255,0,0),3);
+    }
+
+
   qimg_col = Mat2QImage(small);
   ui.lb_kinect_image->setPixmap(pixmap_col.fromImage(qimg_col, 0));
 
+  //    cv::namedWindow("foo");
+  //    cv::imshow("foo",cpy);
+  //    cv::waitKey(100);
+
  }
 
+
+ void MainWindow::min_dist_changed(int min_dist){
+  qnode.min_dist = min_dist/1000.0;
+  ui.lb_mindist->setText(QString::number(min_dist));
+ }
+
+ void MainWindow::z_max_changed(int z_max){
+  qnode.visual_z_max = z_max/100.0; // given in cm
+  ui.lb_z->setText(QString::number(z_max));
+ }
 
  void MainWindow::manual_yaw_changed(int yaw){
   float y = yaw/2.0;
@@ -328,6 +429,19 @@ namespace projector_calibration {
   assert(qnode.calibrator.isKinectTrafoSet());
   float diff = z-manual_z_change;
   qnode.calibrator.translateKinectTrafo(diff/100.0);
+
+
+  if (qnode.calibrator.projMatrixSet()){
+   // TODO: just adapt matrices to new coordinate system if already defined
+   qnode.calibrator.proj_Matrix = cv::Mat(0,0,CV_32FC1);
+   qnode.calibrator.hom_CV = cv::Mat(0,0,CV_32FC1);
+
+   stringstream ss; ss << "Matrices are now invalid! (TODO!)";
+   qnode.writeToOutput(ss);
+  }
+
+
+
   manual_z_change = z;
   ui.lb_z->setText(QString::number(manual_z_change));
  }
@@ -455,6 +569,10 @@ namespace projector_calibration {
   qnode.user_interaction_active = status;
  }
 
+ void MainWindow::foreGroundVisualizationToggled(bool status){
+  qnode.foreGroundVisualizationActive = status;
+ }
+
  void MainWindow::pattern_auto_size_toggled(bool status){
   pattern_size_auto = status;
 
@@ -515,33 +633,9 @@ namespace projector_calibration {
   QSettings settings("Qt-Ros Package", "projector_calibration");
   restoreGeometry(settings.value("geometry").toByteArray());
   restoreState(settings.value("windowState").toByteArray());
-  //  QString master_url = settings.value("master_url",QString("http://192.168.1.2:11311/")).toString();
-  //  QString host_url = settings.value("host_url", QString("192.168.1.3")).toString();
-  //  //QString topic_name = settings.value("topic_name", QString("/chatter")).toString();
-  //  ui.line_edit_master->setText(master_url);
-  //  ui.line_edit_host->setText(host_url);
-  //  //ui.line_edit_topic->setText(topic_name);
-  //  bool remember = settings.value("remember_settings", false).toBool();
-  //  ui.checkbox_remember_settings->setChecked(remember);
-  //  bool checked = settings.value("use_environment_variables", false).toBool();
-  //  ui.checkbox_use_environment->setChecked(checked);
-  //  if ( checked ) {
-  //   ui.line_edit_master->setEnabled(false);
-  //   ui.line_edit_host->setEnabled(false);
-  //   //ui.line_edit_topic->setEnabled(false);
-  //  }
  }
 
  void MainWindow::WriteSettings() {
-  QSettings settings("Qt-Ros Package", "projector_calibration");
-  //  settings.setValue("master_url",ui.line_edit_master->text());
-  //  settings.setValue("host_url",ui.line_edit_host->text());
-  //settings.setValue("topic_name",ui.line_edit_topic->text());
-  //  settings.setValue("use_environment_variables",QVariant(ui.checkbox_use_environment->isChecked()));
-  settings.setValue("geometry", saveGeometry());
-  settings.setValue("windowState", saveState());
-  //  settings.setValue("remember_settings",QVariant(ui.checkbox_remember_settings->isChecked()));
-
  }
 
  void MainWindow::closeEvent(QCloseEvent *event)

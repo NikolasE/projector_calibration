@@ -20,6 +20,9 @@
   
   <rosdep name="qt4"/>
 
+
+  <depend package="pinch_recognition"/>
+  
   <!-- rosbuild1 -->
   <depend package="qt_build"/>
   <depend package="roscpp"/>

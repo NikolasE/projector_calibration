@@ -23,15 +23,19 @@
 
 #include "rgbd_utils/type_definitions.h"
 
+
 #include "projector_calibration/projector_calibrator.h"
 #include "projector_calibration/user_input.h"
 
+#include "projector_calibration/calib_eval.h"
 
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/subscriber.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
 #include <opencv/cv.h>
+
+#include "pinch_recognition/pinch_detection.h"
 
 
 /*****************************************************************************
@@ -52,11 +56,18 @@ namespace projector_calibration {
 
   // the actual calibration object
   Projector_Calibrator calibrator;
-  User_Input* user_input;
 
+  Pinch_detector detector;
+  const static uint train_frame_cnt = 20;
+  bool train_background;
+  bool foreGroundVisualizationActive;
+
+  User_Input* user_input;
+  float visual_z_max;
 
   ros::Publisher pub_cloud_worldsystem; // kinect cloud in world frame
   ros::Publisher pub_3d_calib_points; // detected corners in 3d
+  ros::Publisher pub_colored_cloud; // detected corners in 3d
 
   cv::Mat current_col_img;
   Cloud current_cloud;
@@ -64,6 +75,10 @@ namespace projector_calibration {
   void writeToOutput(const std::stringstream& msg);
   bool user_interaction_active;
   bool depth_visualization_active;
+  float min_dist;
+
+
+  cv::Mat area_mask;
 
 
   QNode(int argc, char** argv );
@@ -71,6 +86,10 @@ namespace projector_calibration {
   bool init();
   bool init(const std::string &master_url, const std::string &host_url);
   void run();
+
+
+
+  void eval_projection();
 
   /*********************
    ** Logging

@@ -74,6 +74,8 @@ class Projector_Calibrator {
 public:
 
 
+ int eval_brightness_threshold;
+
  cv::Mat projector_position;
 
  void updateProjectorImage();

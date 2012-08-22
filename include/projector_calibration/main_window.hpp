@@ -20,6 +20,9 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/core/core.hpp>
 
+
+#include "projector_calibration/calib_eval.h"
+
 /*****************************************************************************
  ** Namespace
  *****************************************************************************/
@@ -28,6 +31,33 @@ typedef std::stringstream sstream;
 
 
 namespace projector_calibration {
+
+
+ class MouseHandler_points : public QObject{
+  Q_OBJECT
+ public:
+
+  std::vector<cv::Point2i> pts;
+
+  MouseHandler_points( QObject *parent = 0 ) : QObject( parent ) {}
+
+  Q_SIGNALS:
+  void new_point();
+
+ protected:
+  bool eventFilter( QObject *dist, QEvent *event )
+  {
+   if( event->type() == QMouseEvent::MouseButtonRelease)
+    {
+    QMouseEvent *mouseEvent = static_cast<QMouseEvent*>( event );
+    pts.push_back(cv::Point2i(mouseEvent->x(), mouseEvent->y()));
+    ROS_INFO("new point: %i %i", pts[pts.size()-1].x,pts[pts.size()-1].y);
+
+    Q_EMIT new_point();
+    }
+   return false;
+  }
+ };
 
 
  class MouseHandler : public QObject{
@@ -86,7 +116,7 @@ namespace projector_calibration {
 
 
     if (abs(down.x-up.x) > 10 && abs(down.y-up.y) > 10)
-      Q_EMIT marker_area_changed();
+     Q_EMIT marker_area_changed();
 
     }
 
@@ -139,8 +169,8 @@ namespace projector_calibration {
  /******************************************
   ** Auto-connections (connectQ_SLOTSByName())
   *******************************************/
+ void mouse_new_points();
  void on_actionAbout_triggered();
- //void on_checkbox_use_environment_stateChanged(int state);
  void show_fullscreen_pattern();
  void select_marker_area();
  void project_black_background();
@@ -151,11 +181,17 @@ namespace projector_calibration {
  void save_kinect_trafo();
  void manual_z_changed(int z);
  void manual_yaw_changed(int yaw);
+ void z_max_changed(int z_max);
+ void min_dist_changed(int min_dist);
+ void sl_threshold_changed(int threshold);
  void find_projection_area();
  void update_proj_image();
+ void learn_environment();
+
  void user_interaction_toggled(bool);
  void depth_visualzation_toggled(bool);
  void pattern_auto_size_toggled(bool);
+ void foreGroundVisualizationToggled(bool);
 
  // calibration
  void compute_homography();
@@ -165,6 +201,8 @@ namespace projector_calibration {
  void save_homography();
  void delete_last_img();
 
+
+ void detect_disc();
  /******************************************
   ** Manual connections
   *******************************************/
@@ -181,7 +219,8 @@ namespace projector_calibration {
  Ui::MainWindowDesign ui;
  QNode qnode;
 
- MouseHandler mouse_handler;
+ MouseHandler mousehandler_projector;
+ MouseHandler_points mousehandler_points;
  // bool mouse_selection_active;
 
  // only show smaller images on the gui:

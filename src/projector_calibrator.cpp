@@ -73,7 +73,6 @@ Projector_Calibrator::Projector_Calibrator(){
  kinect_orientation_valid = false;
  kinect_trafo_valid = false;
 
-
  // checkboard_size = cv::Size(10,6);
  // proj_size = cv::Size(1024,768);
 

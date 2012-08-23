@@ -31,7 +31,7 @@ namespace projector_calibration
   *****************************************************************************/
 
  QNode::QNode(int argc, char** argv) :
-  init_argc(argc), init_argv(argv)
+          init_argc(argc), init_argv(argv)
  {
   init();
  }
@@ -40,8 +40,8 @@ namespace projector_calibration
  {
   if (ros::isStarted())
    {
-    ros::shutdown(); // explicitly needed since we use ros::start();
-    ros::waitForShutdown();
+   ros::shutdown(); // explicitly needed since we use ros::start();
+   ros::waitForShutdown();
    }
   wait();
  }
@@ -54,11 +54,15 @@ namespace projector_calibration
 
   cv::cvtColor(current_col_img, bw, CV_BGR2GRAY);
 
+  cv::Mat cpy2;
+  bw.copyTo(cpy2);
+
+
   if (area_mask.cols == current_col_img.cols)
    {
-    cv::Mat foo;
-    bw.copyTo(foo, area_mask);
-    bw = foo;
+   cv::Mat foo;
+   bw.copyTo(foo, area_mask);
+   bw = foo;
    }
 
   cv::Mat bright;
@@ -81,7 +85,7 @@ namespace projector_calibration
 
 
 
-/*
+  /*
   vector<cv::Vec3f> circles;
   cv::HoughCircles(can, circles, CV_HOUGH_GRADIENT, 1, can.rows / 4, 200, 10);
   for (size_t i = 0; i < circles.size(); i++)
@@ -111,12 +115,14 @@ namespace projector_calibration
   cv::waitKey(10);
 
   return;
-*/
+   */
   vector<vector<cv::Point> > contours;
   vector<cv::Vec4i> hierarchy;
 
   cv::Mat cpy;
   bright.copyTo(cpy);
+
+
 
   cv::findContours(cpy, contours, hierarchy, CV_RETR_TREE,
     CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
@@ -126,17 +132,41 @@ namespace projector_calibration
   cv::waitKey(100);
 
 
-  // compute area for each contour:
-  if (contours.size() != 1)
+
+
+  if (contours.size() == 0)
    {
-    stringstream ss;
-    ss << "Found " << contours.size()
-      << " contours, adapt threshold or adjust mask";
-    writeToOutput(ss);
-    return;
+   stringstream ss;
+   ss << "Found no contours, adapt threshold or adjust mask";
+   writeToOutput(ss);
+   return;
    }
 
-  assert(contours.size()==1);
+
+  int outer_contours = 0;
+  for (uint i=0; i<contours.size(); ++i){
+   if (hierarchy[i][3] == 0) outer_contours++;
+  }
+
+
+
+  // compute area for each contour:
+  if (outer_contours > 0)
+   {
+   stringstream ss;
+   ss << "Found " << outer_contours
+     << " contours, adapt threshold or adjust mask";
+   writeToOutput(ss);
+   //    return;
+   }
+
+
+  if (contours[0].size() < 20){
+   stringstream ss;
+   ss << "Found no large contour, adapt threshold or adjust mask (size of largest contour:" << contours[0].size() << ")";
+   writeToOutput(ss);
+   return;
+  }
 
   //  float area = cv::contourArea(contours[0]);
 
@@ -146,47 +176,43 @@ namespace projector_calibration
   current_col_img.copyTo(cpy);
 
   cv::Moments mom = cv::moments(contours[0]);
+  cv::Point2f mom_center = cv::Point2f(mom.m10 / mom.m00, mom.m01 / mom.m00);
 
-  cv::circle(cpy, cv::Point2f(mom.m10 / mom.m00, mom.m01 / mom.m00), 10,
-    CV_RGB(0,255,0), 2);
+  cv::circle(cpy, mom_center, 10, CV_RGB(0,255,0), 2);
 
+  cv::line(cpy, cv::Point(mom_center.x,0),cv::Point(mom_center.x,cpy.cols),CV_RGB(255,0,0),1);
+  cv::line(cpy, cv::Point(0,mom_center.y),cv::Point(cpy.rows, mom_center.y),CV_RGB(255,0,0),1);
 
-  cv::RotatedRect rrect = cv::fitEllipse(contours[0]);
-
-  cv::circle(cpy, rrect.center, 6, CV_RGB(255,255,0),2);
-
-//  cv::namedWindow("foo");
-//  cv::imshow("foo", col);
 
   // get mean of all points:
   pcl_Point mean;
 
-  /*mean.x = mean.y = mean.z = 0;
+  mean.x = mean.y = mean.z = 0;
   int valid = 0;
-  for (uint i = 0; i < contours[0].size(); ++i)
-   {
-    cv::Point px = contours[0][i];
-    pcl_Point p = calibrator.cloud_moved.at(px.x, px.y);
+  //for (uint i = 0; i < contours[0].size(); ++i)
+  int l = 1;
+  for (int x = mom_center.x-l;x <= mom_center.x+l ; ++x )
+   for (int y = mom_center.y-l;y <= mom_center.y+l ; ++y )
+    {
+    if (x < 0 || x > int(calibrator.cloud_moved.width) || y < 0 || y > int(calibrator.cloud_moved.height) ) continue;
+
+    pcl_Point p = calibrator.cloud_moved.at(x, y);
     if (p.x != p.x)
      continue;
 
     valid++;
     add(mean, p);
 
-   }
-   */
+    }
 
-  mean = calibrator.cloud_moved.at(rrect.center.x, rrect.center.y);
+  if (valid == 0){
+   stringstream ss;
+   ss << "no depth value on marker pose";
+   writeToOutput(ss);
+   return;
+  }
 
-//  if (valid == 0)
-//   {
-//    stringstream ss;
-//    ss << "Found no valid 3d points on white target!";
-//    writeToOutput(ss);
-//    return;
-//   }
-
-//  div(mean, valid);
+  div(mean, valid);
 
   stringstream ss;
   ss << "Mean Point: " << mean.x << " " << mean.y << " " << mean.z;
@@ -195,19 +221,23 @@ namespace projector_calibration
   calibrator.projector_image.setTo(0);
   cv::Point2f px = applyPerspectiveTrafo(mean, calibrator.proj_Matrix);
 
-  cv::circle(calibrator.projector_image, px, 1, CV_RGB(0,255,0), 1);
-  cv::circle(calibrator.projector_image, px, 5, CV_RGB(0,0,255), 1);
-  cv::circle(calibrator.projector_image, px, 10, CV_RGB(255,0,0), 1);
+  cv::circle(calibrator.projector_image, px, 10, CV_RGB(255,0,0), -1);
+  cv::circle(calibrator.projector_image, px, 5, CV_RGB(0,0,255), -1);
+  cv::circle(calibrator.projector_image, px, 1, CV_RGB(0,255,0), -1);
 
-  Q_EMIT
-  update_projector_image();
+  Cloud c; c.push_back(mean);
+  Cloud::Ptr msg = c.makeShared();
+  msg->header.frame_id = "/openni_rgb_optical_frame";
+  msg->header.stamp = ros::Time::now();
+  pub_eval_marker.publish(msg);
+
+
+
+  Q_EMIT update_projector_image();
 
   cv::namedWindow("bar");
   cv::imshow("bar", cpy);
   cv::waitKey(10);
-
-  //  Cloud bright =
-
 
  }
 
@@ -215,11 +245,11 @@ namespace projector_calibration
  QNode::init()
  {
   ros::init(init_argc, init_argv, "projector_calibration");
-  if (!ros::master::check())
-   {
-    return false;
-   }
-  ros::start(); // explicitly needed since our nodehandle is going out of scope.
+  if (!ros::master::check()){
+   return false;
+  }
+
+  ros::start();
   ros::NodeHandle n;
 
   user_input = new User_Input();
@@ -254,12 +284,10 @@ namespace projector_calibration
   ros::init(remappings, "projector_calibration");
   if (!ros::master::check())
    {
-    return false;
+   return false;
    }
-  ros::start(); // explicitly needed since our nodehandle is going out of scope.
+  ros::start();
   ros::NodeHandle n;
-  // Add your ros communications here.
-
 
   start();
   return true;
@@ -281,76 +309,76 @@ namespace projector_calibration
   if (calibrator.isKinectTrafoSet()
     && pub_cloud_worldsystem.getNumSubscribers() > 0)
    {
-    Cloud::Ptr msg = calibrator.cloud_moved.makeShared();
-    msg->header.frame_id = "/openni_rgb_optical_frame";
-    msg->header.stamp = ros::Time::now();
-    pub_cloud_worldsystem.publish(msg);
+   Cloud::Ptr msg = calibrator.cloud_moved.makeShared();
+   msg->header.frame_id = "/openni_rgb_optical_frame";
+   msg->header.stamp = ros::Time::now();
+   pub_cloud_worldsystem.publish(msg);
    }
 
   if (train_background && !calibrator.isKinectTrafoSet())
    {
-    ROS_WARN("Kinect Transformation has to be set before background can be computed");
+   ROS_WARN("Kinect Transformation has to be set before background can be computed");
    }
 
   if (calibrator.isKinectTrafoSet() && train_background)
    {
-    uint cnt = detector.addTrainingFrame(calibrator.cloud_moved);
-    ROS_INFO("Background calibration: added traingframe %i of %i", cnt, train_frame_cnt);
-    if (cnt == train_frame_cnt)
-     {
-      detector.computeBackground(0.007);
-      train_background = false;
-      ROS_INFO("computed Background");
-     }
+   uint cnt = detector.addTrainingFrame(calibrator.cloud_moved);
+   ROS_INFO("Background calibration: added traingframe %i of %i", cnt, train_frame_cnt);
+   if (cnt == train_frame_cnt)
+    {
+    detector.computeBackground(0.007);
+    train_background = false;
+    ROS_INFO("computed Background");
+    }
    }
 
   if (foreGroundVisualizationActive && detector.isInitiated())
    {
-    ROS_INFO("foreground visulization active");
+   ROS_INFO("foreground visulization active");
 
-    float max_val = 0.1;
+   float max_val = 0.1;
 
-    Cloud changed =
-      detector.removeBackground(calibrator.cloud_moved, 0.01, 0.3); // everything between 1 and 30cm
-    projectCloudIntoProjector(changed, calibrator.proj_Matrix,
-      calibrator.projector_image, max_val, 0);
+   Cloud changed =
+     detector.removeBackground(calibrator.cloud_moved, 0.01, 0.3); // everything between 1 and 30cm
+   projectCloudIntoProjector(changed, calibrator.proj_Matrix,
+     calibrator.projector_image, max_val, 0);
 
-    Cloud::Ptr msg = changed.makeShared();
-    msg->header.frame_id = "/openni_rgb_optical_frame";
-    msg->header.stamp = ros::Time::now();
-    pub_colored_cloud.publish(msg);
+   Cloud::Ptr msg = changed.makeShared();
+   msg->header.frame_id = "/openni_rgb_optical_frame";
+   msg->header.stamp = ros::Time::now();
+   pub_colored_cloud.publish(msg);
 
-    Q_EMIT update_projector_image();
+   Q_EMIT update_projector_image();
    }
 
   if (user_interaction_active && calibrator.projMatrixSet())
    {
-    Cloud area;
-    if (calibrator.getProjectionAreain3D(area))
+   Cloud area;
+   if (calibrator.getProjectionAreain3D(area))
+    {
+    user_input->setCloud(calibrator.cloud_moved, area);
+    cv::Point3f tip;
+    if (user_input->getUserPositionTrivial(tip))
      {
-      user_input->setCloud(calibrator.cloud_moved, area);
-      cv::Point3f tip;
-      if (user_input->getUserPositionTrivial(tip))
-       {
-        cv::Point2f px = applyPerspectiveTrafo(tip, calibrator.proj_Matrix);
-        cv::circle(calibrator.projector_image, px, 10, CV_RGB(255,0,0), -1);
-        Q_EMIT update_projector_image();
-       }
+     cv::Point2f px = applyPerspectiveTrafo(tip, calibrator.proj_Matrix);
+     cv::circle(calibrator.projector_image, px, 10, CV_RGB(255,0,0), -1);
+     Q_EMIT update_projector_image();
      }
+    }
    }
 
   if (depth_visualization_active && calibrator.projMatrixSet())
    {
-    projectCloudIntoProjector(calibrator.cloud_moved, calibrator.proj_Matrix,
-      calibrator.projector_image, visual_z_max, min_dist);
+   projectCloudIntoProjector(calibrator.cloud_moved, calibrator.proj_Matrix,
+     calibrator.projector_image, visual_z_max, min_dist);
 
-    Cloud colored = colorizeCloud(calibrator.cloud_moved, visual_z_max);
-    Cloud::Ptr msg = colored.makeShared();
-    msg->header.frame_id = "/openni_rgb_optical_frame";
-    msg->header.stamp = ros::Time::now();
-    pub_colored_cloud.publish(msg);
+   Cloud colored = colorizeCloud(calibrator.cloud_moved, visual_z_max);
+   Cloud::Ptr msg = colored.makeShared();
+   msg->header.frame_id = "/openni_rgb_optical_frame";
+   msg->header.stamp = ros::Time::now();
+   pub_colored_cloud.publish(msg);
 
-    Q_EMIT update_projector_image();
+   Q_EMIT update_projector_image();
    }
 
   //  ROS_INFO("GOT cloud with %zu points", current_cloud.size());
@@ -374,7 +402,7 @@ namespace projector_calibration
   ros::NodeHandle nh;
 
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image,
-    sensor_msgs::PointCloud2> policy;
+  sensor_msgs::PointCloud2> policy;
   message_filters::Subscriber<sensor_msgs::Image> image_sub(nh,
     "/camera/rgb/image_color", 1);
   message_filters::Subscriber<sensor_msgs::PointCloud2> cloud_sub(nh,
@@ -385,12 +413,13 @@ namespace projector_calibration
   pub_cloud_worldsystem = nh.advertise<Cloud> ("cloud_world", 1);
   pub_3d_calib_points = nh.advertise<Cloud> ("calibration_points_3d", 1);
   pub_colored_cloud = nh.advertise<Cloud> ("colored", 1);
+  pub_eval_marker = nh.advertise<Cloud> ("disc_center", 1);
   //  ros::Subscriber sub = n.subscribe("chatter", 1000, &Listener::callback, &listener);
 
   while (ros::ok())
    {
-    ros::spinOnce();
-    loop_rate.sleep();
+   ros::spinOnce();
+   loop_rate.sleep();
    }
   std::cout << "Ros shutdown, proceeding to close the gui." << std::endl;
   Q_EMIT rosShutdown(); // used to signal the gui for a shutdown (useful to roslaunch)
@@ -402,38 +431,38 @@ namespace projector_calibration
   logging_model.insertRows(logging_model.rowCount(), 1);
   std::stringstream logging_model_msg;
   switch (level)
-   {
+  {
   case (Debug):
-   {
-    ROS_DEBUG_STREAM(msg);
-    logging_model_msg << "[DEBUG] [" << ros::Time::now() << "]: " << msg;
-    break;
-   }
+           {
+   ROS_DEBUG_STREAM(msg);
+   logging_model_msg << "[DEBUG] [" << ros::Time::now() << "]: " << msg;
+   break;
+           }
   case (Info):
-   {
-    ROS_INFO_STREAM(msg);
-    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
-    break;
-   }
+           {
+   ROS_INFO_STREAM(msg);
+   logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
+   break;
+           }
   case (Warn):
-   {
-    ROS_WARN_STREAM(msg);
-    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
-    break;
-   }
+           {
+   ROS_WARN_STREAM(msg);
+   logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
+   break;
+           }
   case (Error):
-   {
-    ROS_ERROR_STREAM(msg);
-    logging_model_msg << "[ERROR] [" << ros::Time::now() << "]: " << msg;
-    break;
-   }
+           {
+   ROS_ERROR_STREAM(msg);
+   logging_model_msg << "[ERROR] [" << ros::Time::now() << "]: " << msg;
+   break;
+           }
   case (Fatal):
-   {
-    ROS_FATAL_STREAM(msg);
-    logging_model_msg << "[FATAL] [" << ros::Time::now() << "]: " << msg;
-    break;
-   }
-   }
+           {
+   ROS_FATAL_STREAM(msg);
+   logging_model_msg << "[FATAL] [" << ros::Time::now() << "]: " << msg;
+   break;
+           }
+  }
   QVariant new_row(QString(logging_model_msg.str().c_str()));
   logging_model.setData(logging_model.index(logging_model.rowCount() - 1),
     new_row);

@@ -189,6 +189,12 @@ void Projector_Calibrator::drawCheckerboard(cv::Mat& img,cv::Point l1, const cv:
  // the wider the better) around the board to make the detection more robust in various environment"
  float border = 40;
 
+ img.setTo(255);
+
+
+// cv::rectangle(img, cv::Point(min_x-20,min_y-20), cv::Point(max_x+20,max_y+20), cv::Scalar::all(255),-1);
+
+
  if (min_x > border && min_y > border && max_x < img.cols - border && max_y < img.rows-border)
   border = 0;
 
@@ -196,10 +202,9 @@ void Projector_Calibrator::drawCheckerboard(cv::Mat& img,cv::Point l1, const cv:
  float width = ((max_x-min_x)-2*border)/(size.width+1);
  float height = ((max_y-min_y)-2*border)/(size.height+1);
 
- img.setTo(255); // all white
-
  float minx = border+min_x;
  float miny = border+min_y;
+
 
  // ROS_INFO("GRID: W: %f, H: %f", width, height);
 
@@ -609,6 +614,11 @@ bool Projector_Calibrator::computeHomography_SVD(){
  return true;
 }
 
+
+
+
+
+
 bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
 
  ROS_WARN("COMPUTING Projection Matrix with openCV");
@@ -677,6 +687,7 @@ bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
  cameraMatrix.at<float>(2,2) = 1;
 
  cout << "camera (init): " << cameraMatrix << endl;
+
 
 
  double error = cv::calibrateCamera(world_points, pixels, proj_size, cameraMatrix, distCoeffs, rvecs, tvecs,CV_CALIB_USE_INTRINSIC_GUESS || CV_CALIB_ZERO_TANGENT_DIST || CV_CALIB_FIX_K1 || CV_CALIB_FIX_K2 || CV_CALIB_FIX_K3 );
@@ -752,6 +763,153 @@ bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
  return true;
 }
 
+
+
+/*
+bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
+
+ ROS_WARN("COMPUTING Projection Matrix with openCV");
+ assert(observations_3d.size() == corners_2d.size());
+
+
+ if (number_of_features_in_images.size() == 0){
+  ROS_WARN("Can't compute projection matrix without observations");
+  return false;
+ }
+
+ if (number_of_features_in_images.size() == 1){
+  // TODO: check range of z-values to see if points are distributed
+  ROS_WARN("You should not compute projection matrix from one image, 3d points must not lie in one plane");
+  //return false;
+ }
+
+
+ vector<vector<cv::Point3f> > world_points;
+ vector<vector<cv::Point2f> > pixels;
+
+ vector<cv::Mat> rvecs, tvecs;
+
+ vector<cv::Point3f> pt_3;
+ vector<cv::Point2f> pt_2;
+
+ cv::Point3f d3;
+ cv::Point2f d2;
+
+ int pos = 0; // position within current image
+ int img = 0; // number of image in sequence
+ for (uint i=0; i<observations_3d.size(); ++i){
+  pcl_Point p = observations_3d[i];
+  d3.x = p.x;   d3.y = p.y;  d3.z = p.z;
+  pt_3.push_back(d3);
+
+  d2.x = corners_2d[i].x; d2.y = corners_2d[i].y;
+  pt_2.push_back(d2);
+
+  if (pos == number_of_features_in_images[img]-1){
+   world_points.push_back(pt_3); pt_3.clear();
+   pixels.push_back(pt_2); pt_2.clear();
+   pos=0;
+   img++;
+  }else{
+   pos++;
+  }
+ }
+
+ // small check:
+ for (uint i=0; i<number_of_features_in_images.size(); ++i){
+  assert(int(world_points[i].size()) == number_of_features_in_images[i]);
+  assert(int(pixels[i].size()) == number_of_features_in_images[i]);
+ }
+
+ cv::Mat cameraMatrix = cv::Mat(3,3,CV_32FC1);
+ cv::Mat distCoeffs = cv::Mat(1,5,CV_32FC1);
+ distCoeffs.setTo(0);
+
+
+ cameraMatrix.setTo(0);
+ cameraMatrix.at<float>(0,2) = proj_size.width/2;
+ cameraMatrix.at<float>(1,2) = proj_size.height/2;
+ cameraMatrix.at<float>(0,0) = 1000;
+ cameraMatrix.at<float>(1,1) = 1000;
+ cameraMatrix.at<float>(2,2) = 1;
+
+ cout << "camera (init): " << cameraMatrix << endl;
+
+
+
+ double error = cv::calibrateCamera(world_points, pixels, proj_size, cameraMatrix, distCoeffs, rvecs, tvecs,CV_CALIB_USE_INTRINSIC_GUESS || CV_CALIB_ZERO_TANGENT_DIST || CV_CALIB_FIX_K1 || CV_CALIB_FIX_K2 || CV_CALIB_FIX_K3 );
+
+ cout << "error " << error << endl;
+ cout << "camera: " << cameraMatrix << endl;
+ cout << "distortion: " << distCoeffs << endl;
+
+ //int N = observations_3d.size();
+
+ // only eval first matrix on its points
+ int N = number_of_features_in_images[0];
+
+ for (uint i=0; i<tvecs.size() && i<1; ++i){
+
+  mean_error = 0;
+  float total_x = 0;
+  float total_y = 0;
+
+
+  cout << "trafo " << i << endl;
+  cout << "tvec" << tvecs[i] << endl;
+
+
+  //  undistortPoints
+
+  // build projection matrix:
+  cv::Mat rot_matrix;
+  cv::Rodrigues(rvecs[i], rot_matrix);
+  cv::Mat P;
+  cv::hconcat(rot_matrix, tvecs[i], P);
+
+  P = cameraMatrix * P;
+
+  P /= P.at<double>(2,3);
+
+  cout << "P: " << endl << P << endl;
+
+  cv::Point2f px;
+
+  for (int i=0; i<N; ++i){
+   //    ROS_INFO("projection %i", i);
+
+   pcl_Point   p = observations_3d.points.at(i);
+   cv::Point2f p_ = corners_2d.at(i);
+
+   applyPerspectiveTrafo(cv::Point3f(p.x,p.y,p.z),P,px);
+
+
+   // ROS_INFO("err: %f %f", (px.x-p_.x),(px.y-p_.y));
+
+   total_x += abs(px.x-p_.x)/N;
+   total_y += abs(px.y-p_.y)/N;
+   mean_error += sqrt(pow(px.x-p_.x,2)+pow(px.y-p_.y,2))/N;
+
+   //   float err = sqrt(pow(px.x-p_.x,2)+pow(px.y-p_.y,2));
+   //   cout << "err " << err << endl;
+   //   ROS_INFO("dx dy: %f %f", abs(px.x-p_.x),abs(px.y-p_.y) );
+
+  }
+
+  ROS_INFO("Projection Matrix: mean error: %f (x: %f, y: %f)", mean_error, total_x, total_y);
+
+
+
+
+
+ }
+
+
+
+
+ return true;
+}
+*/
 
 bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
 
@@ -940,7 +1098,7 @@ bool Projector_Calibrator::findCheckerboardCorners(){
  }
 
  cv::cvtColor(input_image, gray, CV_BGR2GRAY);
- cv::cornerSubPix(gray, detected_corners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+ cv::cornerSubPix(gray, detected_corners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 50, 0.01));
 
 #ifdef SHOW_DETECTIONS
  cv::Mat cpy = input_image.clone();

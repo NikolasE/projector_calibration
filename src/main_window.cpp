@@ -37,7 +37,7 @@ namespace projector_calibration {
 
   // open label fullscreen on secondary monitor
   lb_img.setParent(NULL);
-  QRect screenres = QApplication::desktop()->screenGeometry(2);
+  QRect screenres = QApplication::desktop()->screenGeometry(1);
 
   //  cout << "foo" << endl;
   //  ROS_INFO("screenres 1: %i %i", screenres.x(), screenres.y());
@@ -224,6 +224,15 @@ namespace projector_calibration {
  }
 
 
+
+ void MainWindow::projection_opencv(){
+  float mean_error;
+  qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error);
+  stringstream ss; ss << "Opencv: " << mean_error;
+  qnode.writeToOutput(ss);
+ }
+
+
  void MainWindow::marker_size_changed(){
   // check if input is valid (positive) double
   // if not reset edit to old value
@@ -351,10 +360,10 @@ namespace projector_calibration {
 
   mousehandler_points.pts.clear();
 
-//  cv::imwrite("mask.jpg", qnode.area_mask);
-//  cv::namedWindow("bar");
-//  cv::imshow("bar", qnode.area_mask);
-//  cv::waitKey(10);
+  //  cv::imwrite("mask.jpg", qnode.area_mask);
+  //  cv::namedWindow("bar");
+  //  cv::imshow("bar", qnode.area_mask);
+  //  cv::waitKey(10);
 
  }
 
@@ -380,7 +389,7 @@ namespace projector_calibration {
   if (qnode.area_mask.cols == cpy.cols){
    cv::Mat darker = cpy*0.5;
    cv::Mat inv = 255- qnode.area_mask;
-    darker.copyTo(cpy,inv);
+   darker.copyTo(cpy,inv);
   }
 
 
@@ -388,9 +397,9 @@ namespace projector_calibration {
   cv::resize(cpy, small, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
 
   for (uint i=0; i< mousehandler_points.pts.size(); ++i){
-     cv::Point2f p = cv::Point2f(mousehandler_points.pts[i].x,mousehandler_points.pts[i].y);
-     cv::circle(small, p, 10, CV_RGB(255,0,0),3);
-    }
+   cv::Point2f p = cv::Point2f(mousehandler_points.pts[i].x,mousehandler_points.pts[i].y);
+   cv::circle(small, p, 10, CV_RGB(255,0,0),3);
+  }
 
 
   qimg_col = Mat2QImage(small);

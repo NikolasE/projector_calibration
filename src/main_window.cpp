@@ -30,21 +30,18 @@ namespace projector_calibration {
 
  MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
  : QMainWindow(parent)
-// , gl_fractal(parent)
  , qnode(argc,argv)
  {
 
   gl_fractal = new GLFractal(parent);
 
   // open label fullscreen on secondary monitor
-  lb_img.setParent(NULL);
-  QRect screenres = QApplication::desktop()->screenGeometry(1);
-
+  //  lb_img.setParent(NULL);
+  //  QRect screenres = QApplication::desktop()->screenGeometry(1);
   //  cout << "foo" << endl;
   //  ROS_INFO("screenres 1: %i %i", screenres.x(), screenres.y());
-
-//  lb_img.move(QPoint(screenres.x(), screenres.y()));
-//  lb_img.showFullScreen();
+  //  lb_img.move(QPoint(screenres.x(), screenres.y()));
+  //  lb_img.showFullScreen();
 
 
   manual_z_change = 0;
@@ -113,6 +110,19 @@ namespace projector_calibration {
 
  void MainWindow::gl_test(){
   ROS_INFO("TESTING OPENGL");
+
+
+  Cloud model = qnode.modeler.getModel();
+  pcl::PolygonMesh mesh = qnode.mesh_visualizer.createMesh(model);
+
+
+
+  float max_length = 0.01; // max edge length of drawn triangle
+  visualization_msgs::Marker marker = qnode.mesh_visualizer.visualizeMesh(mesh, max_length);
+
+  GLuint list_id = gl_fractal->createMeshList(marker);
+
+  gl_fractal->drawList(list_id);
 
   QPixmap pix = gl_fractal->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
 
@@ -598,9 +608,9 @@ namespace projector_calibration {
 
  void MainWindow::foreGroundVisualizationToggled(bool status){
 
-   min_dist_changed(ui.slider_mindist->value());
-   z_max_changed(ui.slider_z_max->value());
-   color_slider_moved(ui.slider_color->value());
+  min_dist_changed(ui.slider_mindist->value());
+  z_max_changed(ui.slider_z_max->value());
+  color_slider_moved(ui.slider_color->value());
 
   qnode.foreGroundVisualizationActive = status;
  }

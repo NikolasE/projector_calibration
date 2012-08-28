@@ -49,6 +49,10 @@ namespace projector_calibration {
      void setYRotation(int degrees);
      void setZRotation(int degrees);
      // void setScale(int newscale);
+     // void drawMesh(const pcl::PolygonMesh& mesh);
+     GLuint createMeshList(const visualization_msgs::Marker& mesh_marker);
+
+     void drawList(GLuint list_id);
 
  protected:
      void initializeGL();

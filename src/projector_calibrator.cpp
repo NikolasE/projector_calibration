@@ -11,6 +11,308 @@ using namespace std;
 #include "projector_calibration/projector_calibrator.h"
 #include "rgbd_utils/calibration_utils.h"
 
+
+
+void Projector_Calibrator::eval_projection_matrix_Checkerboard(Cloud& corners, std::stringstream& ss, const cv::Mat* area_mask){
+
+ corners.clear();
+
+ if (input_image.rows == 0){  ss << "can't find corners on empty image!"; return; }
+
+ ROS_INFO("Looking for checkerboard with %i %i corners img: %i %i", checkboard_size.width, checkboard_size.height, input_image.cols, input_image.rows);
+
+ if (!cv::findChessboardCorners(input_image, checkboard_size,detected_corners, CV_CALIB_CB_ADAPTIVE_THRESH)) {
+  ss << "Could not find a checkerboard!";
+  return;
+ }
+
+ cv::cvtColor(input_image, gray, CV_BGR2GRAY);
+ cv::cornerSubPix(gray, detected_corners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 50, 0.01));
+
+
+
+ // interpolate depth at adjacent pixels and project into projector:
+
+ // projector_image.setTo(0);
+
+
+ cv::Mat col_cpy; input_image.copyTo(col_cpy);
+
+
+ float error = 0;
+
+ ROS_INFO("detected: %zu, corners: %zu",detected_corners.size(), corners_2d.size() );
+
+ // assert(detected_corners.size() == current_projector_corners.size());
+
+ for (uint i=0; i< detected_corners.size(); ++i){
+
+  int valid = 0;
+  pcl_Point mean; mean.x = mean.y = mean.z = 0;
+
+  cv::Point2f px = detected_corners[i];
+
+  cv::circle(col_cpy, px, 3, CV_RGB(255,0,0),1);
+
+  int l = 0;
+  for (int x = px.x-l;x <= px.x+l ; ++x )
+   for (int y = px.y-l;y <= px.y+l ; ++y )
+    {
+    if (x < 0 || x > int(cloud_moved.width) || y < 0 || y > int(cloud_moved.height) ) continue;
+
+    pcl_Point p = cloud_moved.at(x, y);
+    if (p.x != p.x)
+     continue;
+
+    valid++;
+    add(mean, p);
+
+    }
+
+  if (valid == 0){
+   ss << "no depth value on corner " << i;
+   continue;
+  }
+
+  div(mean, valid);
+
+  cv::Point2f pr = applyPerspectiveTrafo(mean, proj_Matrix);
+
+
+  cv::Point2f px_true = current_projector_corners[i];
+  ROS_INFO("true: %f %f", px_true.x, px_true.y);
+
+  float e= sqrt(pow(px_true.x-pr.x,2)+pow(px_true.y-pr.y,2));
+
+  ROS_INFO("error %i: %f", i,e);
+
+  error+=e;
+
+
+  int r = 20;
+  cv::line(projector_image, cv::Point(pr.x,pr.y-r),cv::Point(pr.x,pr.y+r),CV_RGB(0,0,255),3);
+  cv::line(projector_image, cv::Point(pr.x-r,pr.y),cv::Point(pr.x+r,pr.y),CV_RGB(0,0,255),3);
+
+
+  cv::circle(projector_image, pr, r, CV_RGB(255,0,0), 4);
+  cv::circle(projector_image, pr, 5, CV_RGB(0,255,255), -1);
+  cv::circle(projector_image, pr, 3, CV_RGB(255,255,0), -1);
+
+  corners.push_back(mean);
+ }
+
+ error /= current_projector_corners.size();
+
+
+ ss << "mean reprojection error: " << error;
+
+ ROS_INFO("Mean error: %e", error);
+
+ cv::namedWindow("Detected Corners");
+ cv::imshow("Detected Corners", col_cpy);
+ cv::waitKey(10);
+
+
+}
+
+
+
+void Projector_Calibrator::eval_projection_matrix_disc(Cloud& corners, std::stringstream& ss, const cv::Mat* area_mask){
+
+ corners.clear();
+
+
+ cv::Mat bw;
+
+
+ cv::namedWindow("input_image");
+ cv::imshow("input_image", input_image);
+
+ cv::waitKey(1000);
+
+
+ cv::cvtColor(input_image, bw, CV_BGR2GRAY);
+
+ cv::Mat cpy2;
+ bw.copyTo(cpy2);
+
+
+ if (area_mask && area_mask->cols == input_image.cols)
+  {
+  cv::Mat foo;
+  bw.copyTo(foo, *area_mask);
+  bw = foo;
+  }
+
+ cv::Mat bright;
+
+ //  ROS_INFO("threshold: %i",calibrator.eval_brightness_threshold );
+
+ cv::threshold(bw, bright, eval_brightness_threshold, 255,  CV_THRESH_BINARY);
+
+ cv::dilate(bright,bright, cv::Mat());
+
+ cv::Mat can;
+
+ cv::Canny(bright, can, 2, 10);
+
+
+
+ cv::Mat col;
+ input_image.copyTo(col);
+
+
+
+ /*
+   vector<cv::Vec3f> circles;
+   cv::HoughCircles(can, circles, CV_HOUGH_GRADIENT, 1, can.rows / 4, 200, 10);
+   for (size_t i = 0; i < circles.size(); i++)
+    {
+
+
+     cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+     int radius = cvRound(circles[i][2]);
+
+     ROS_INFO("radius: %f", radius);
+     cv::circle(col, center, 1, cv::Scalar(255, 0, 0), -1, 8, 0);
+     cv::circle(col, center, radius, cv::Scalar(0, 0, 255), 1, 8, 0);
+
+     cv::circle(can, center, 1, cv::Scalar::all(125), -1, 8, 0);
+     cv::circle(can, center, radius, cv::Scalar::all(125), 1, 8, 0);
+
+    }
+
+   cv::namedWindow("edges");
+   cv::imshow("edges", can);
+
+   cv::namedWindow("foo");
+   cv::imshow("foo", col);
+
+   cv::namedWindow("foreground");
+   cv::imshow("foreground", bright);
+   cv::waitKey(10);
+
+   return;
+  */
+ vector<vector<cv::Point> > contours;
+ vector<cv::Vec4i> hierarchy;
+
+ cv::Mat cpy;
+ bright.copyTo(cpy);
+
+
+
+ cv::findContours(cpy, contours, hierarchy, CV_RETR_TREE,
+   CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+
+ cv::namedWindow("foreground");
+ cv::imshow("foreground", bright);
+ cv::waitKey(100);
+
+
+
+
+ if (contours.size() == 0)
+  {
+  ss << "Found no contours, adapt threshold or adjust mask";
+  return;
+  }
+
+
+ int outer_contours = 0;
+ for (uint i=0; i<contours.size(); ++i){
+  if (hierarchy[i][3] == 0) outer_contours++;
+ }
+
+
+
+ // compute area for each contour:
+ if (outer_contours > 0)
+  {
+  ss << "Found " << outer_contours
+    << " contours, adapt threshold or adjust mask";
+  //    return;
+  }
+
+
+ if (contours[0].size() < 20){
+  ss << "Found no large contour, adapt threshold or adjust mask (size of largest contour:" << contours[0].size() << ")";
+  return;
+ }
+
+ //  float area = cv::contourArea(contours[0]);
+
+ cv::drawContours(bright, contours, 0, cv::Scalar::all(125), 2, 8, hierarchy,
+   0, cv::Point());
+
+ input_image.copyTo(cpy);
+
+ cv::Moments mom = cv::moments(contours[0]);
+ cv::Point2f mom_center = cv::Point2f(mom.m10 / mom.m00, mom.m01 / mom.m00);
+
+ cv::circle(cpy, mom_center, 10, CV_RGB(0,255,0), 2);
+
+ cv::line(cpy, cv::Point(mom_center.x,0),cv::Point(mom_center.x,cpy.cols),CV_RGB(255,0,0),1);
+ cv::line(cpy, cv::Point(0,mom_center.y),cv::Point(cpy.rows, mom_center.y),CV_RGB(255,0,0),1);
+
+
+ // get mean of all points:
+ pcl_Point mean;
+
+ mean.x = mean.y = mean.z = 0;
+ int valid = 0;
+ //for (uint i = 0; i < contours[0].size(); ++i)
+ int l = 1;
+ for (int x = mom_center.x-l;x <= mom_center.x+l ; ++x )
+  for (int y = mom_center.y-l;y <= mom_center.y+l ; ++y )
+   {
+   if (x < 0 || x > int(cloud_moved.width) || y < 0 || y > int(cloud_moved.height) ) continue;
+
+   pcl_Point p = cloud_moved.at(x, y);
+   if (p.x != p.x)
+    continue;
+
+   valid++;
+   add(mean, p);
+
+   }
+
+ if (valid == 0){
+  ss << "no depth value on marker pose";
+  return;
+ }
+
+ div(mean, valid);
+
+ ss << "Mean Point: " << mean.x << " " << mean.y << " " << mean.z;
+
+ projector_image.setTo(0);
+ cv::Point2f px = applyPerspectiveTrafo(mean, proj_Matrix);
+
+ cv::circle(projector_image, px, 10, CV_RGB(255,0,0), -1);
+ cv::circle(projector_image, px, 5, CV_RGB(0,0,255), -1);
+ cv::circle(projector_image, px, 1, CV_RGB(0,255,0), -1);
+ projector_image.at<cv::Vec3b>(px.y,px.x) = cv::Vec3b(255,0,0);
+
+ corners.push_back(mean);
+ // Cloud::Ptr msg = c.makeShared();
+ // msg->header.frame_id = "/openni_rgb_optical_frame";
+ // msg->header.stamp = ros::Time::now();
+ // pub_eval_marker.publish(msg);
+
+ cv::namedWindow("bar");
+ cv::imshow("bar", cpy);
+ cv::waitKey(10);
+
+
+ return;
+
+
+}
+
+
+
+
 bool Projector_Calibrator::saveObservations(){
 
  ofstream off("calib/obs.txt");
@@ -192,7 +494,7 @@ void Projector_Calibrator::drawCheckerboard(cv::Mat& img,cv::Point l1, const cv:
  img.setTo(255);
 
 
-// cv::rectangle(img, cv::Point(min_x-20,min_y-20), cv::Point(max_x+20,max_y+20), cv::Scalar::all(255),-1);
+ // cv::rectangle(img, cv::Point(min_x-20,min_y-20), cv::Point(max_x+20,max_y+20), cv::Scalar::all(255),-1);
 
 
  if (min_x > border && min_y > border && max_x < img.cols - border && max_y < img.rows-border)
@@ -230,6 +532,9 @@ void Projector_Calibrator::drawCheckerboard(cv::Mat& img,cv::Point l1, const cv:
   }
 
  assert(int(corners_2d.size()) == size.width*size.height);
+
+
+// ROS_INFO("setting corners_2d");
 
  // improve position of corners: (improvement of reprojection error of about 0.2 px)
  cv::Mat gray;
@@ -909,7 +1214,7 @@ bool Projector_Calibrator::computeProjectionMatrix_OPENCV(float& mean_error){
 
  return true;
 }
-*/
+ */
 
 bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
 
@@ -930,7 +1235,7 @@ bool Projector_Calibrator::computeProjectionMatrix(float& mean_error){
  }
 
  if (abs(z_max-z_min) < 0.1){
-  ROS_WARN("computeProjectionMatrix: Observations have to little variation in z!");
+  ROS_WARN("computeProjectionMatrix: Observations have to little variation in z! (%f to %f)", z_min, z_max);
   return false;
  }
 
@@ -1205,7 +1510,7 @@ bool Projector_Calibrator::storeCurrentObservationPairs(){
   observations_3d.push_back(c_3d[i]);
  }
 
-// observations_3d.points.insert(observations_3d.points.end(),c_3d.points.begin(), c_3d.points.end());
+ // observations_3d.points.insert(observations_3d.points.end(),c_3d.points.begin(), c_3d.points.end());
  ROS_INFO("Added %zu points, now %zu 3D-Observations",c_3d.size(), observations_3d.size());
  ROS_INFO("Inserting 3");
 

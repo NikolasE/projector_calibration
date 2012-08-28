@@ -36,6 +36,7 @@
 #include <opencv/cv.h>
 
 #include "pinch_recognition/pinch_detection.h"
+#include "rgbd_utils/surface_modeler.h"
 
 
 /*****************************************************************************
@@ -62,6 +63,11 @@ namespace projector_calibration {
   bool train_background;
   bool foreGroundVisualizationActive;
 
+
+  Surface_Modeler modeler;
+
+  Mesh_visualizer mesh_visualizer;
+
   User_Input* user_input;
   float visual_z_max;
 
@@ -69,6 +75,9 @@ namespace projector_calibration {
   ros::Publisher pub_3d_calib_points; // detected corners in 3d
   ros::Publisher pub_colored_cloud; // detected corners in 3d
   ros::Publisher pub_eval_marker; // center of evaluation disc
+  ros::Publisher pub_background; // center of evaluation disc
+
+  ros::Publisher pub_model;
 
 
   cv::Mat current_col_img;
@@ -78,10 +87,11 @@ namespace projector_calibration {
   bool user_interaction_active;
   bool depth_visualization_active;
   float min_dist;
-
+  float color_range;
 
   cv::Mat area_mask;
 
+  float modeler_cell_size;
 
   QNode(int argc, char** argv );
   virtual ~QNode();
@@ -90,7 +100,7 @@ namespace projector_calibration {
   void run();
 
 
-
+  void disc_evaluation();
   void eval_projection();
 
   /*********************

@@ -37,7 +37,7 @@ namespace projector_calibration {
 
   // open label fullscreen on secondary monitor
   lb_img.setParent(NULL);
-  QRect screenres = QApplication::desktop()->screenGeometry(1);
+  QRect screenres = QApplication::desktop()->screenGeometry(2);
 
   //  cout << "foo" << endl;
   //  ROS_INFO("screenres 1: %i %i", screenres.x(), screenres.y());
@@ -48,8 +48,8 @@ namespace projector_calibration {
   // min_dist_changed(ui.slider_mindist->value());
 
 
-  lb_img.move(QPoint(screenres.x(), screenres.y()));
-  lb_img.showFullScreen();
+//  lb_img.move(QPoint(screenres.x(), screenres.y()));
+//  lb_img.showFullScreen();
 
 
   manual_z_change = 0;
@@ -336,7 +336,10 @@ namespace projector_calibration {
   ui.lb_brightness->repaint();
  }
 
- void MainWindow::detect_disc(){  qnode.eval_projection();  }
+
+ void MainWindow::evaluate_pattern(){ qnode.eval_projection(); }
+
+ void MainWindow::detect_disc(){   qnode.disc_evaluation();  }
 
 
 
@@ -411,6 +414,11 @@ namespace projector_calibration {
 
  }
 
+ void MainWindow::color_slider_moved(int col_cm){
+  qnode.color_range = col_cm/10.0; // now in meter
+  ui.lb_color->setText(QString::number(col_cm));
+ }
+
 
  void MainWindow::min_dist_changed(int min_dist){
   qnode.min_dist = min_dist/1000.0;
@@ -419,7 +427,8 @@ namespace projector_calibration {
 
  void MainWindow::z_max_changed(int z_max){
   qnode.visual_z_max = z_max/100.0; // given in cm
-  ui.lb_z->setText(QString::number(z_max));
+  ui.z_max_label->setText(QString::number(z_max));
+  ui.z_max_label->repaint();
  }
 
  void MainWindow::manual_yaw_changed(int yaw){

@@ -31,7 +31,7 @@ namespace projector_calibration
   *****************************************************************************/
 
  QNode::QNode(int argc, char** argv) :
-          init_argc(argc), init_argv(argv)
+                  init_argc(argc), init_argv(argv)
  {
   init();
  }
@@ -46,198 +46,39 @@ namespace projector_calibration
   wait();
  }
 
- void
- QNode::eval_projection()
- {
-
-  cv::Mat bw;
-
-  cv::cvtColor(current_col_img, bw, CV_BGR2GRAY);
-
-  cv::Mat cpy2;
-  bw.copyTo(cpy2);
-
-
-  if (area_mask.cols == current_col_img.cols)
-   {
-   cv::Mat foo;
-   bw.copyTo(foo, area_mask);
-   bw = foo;
-   }
-
-  cv::Mat bright;
-
-  //  ROS_INFO("threshold: %i",calibrator.eval_brightness_threshold );
-
-  cv::threshold(bw, bright, calibrator.eval_brightness_threshold, 255,
-    CV_THRESH_BINARY);
-
-  cv::dilate(bright,bright, cv::Mat());
-
-  cv::Mat can;
-
-  cv::Canny(bright, can, 2, 10);
-
-
-
-  cv::Mat col;
-  current_col_img.copyTo(col);
-
-
-
-  /*
-  vector<cv::Vec3f> circles;
-  cv::HoughCircles(can, circles, CV_HOUGH_GRADIENT, 1, can.rows / 4, 200, 10);
-  for (size_t i = 0; i < circles.size(); i++)
-   {
-
-
-    cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-    int radius = cvRound(circles[i][2]);
-
-    ROS_INFO("radius: %f", radius);
-    cv::circle(col, center, 1, cv::Scalar(255, 0, 0), -1, 8, 0);
-    cv::circle(col, center, radius, cv::Scalar(0, 0, 255), 1, 8, 0);
-
-    cv::circle(can, center, 1, cv::Scalar::all(125), -1, 8, 0);
-    cv::circle(can, center, radius, cv::Scalar::all(125), 1, 8, 0);
-
-   }
-
-  cv::namedWindow("edges");
-  cv::imshow("edges", can);
-
-  cv::namedWindow("foo");
-  cv::imshow("foo", col);
-
-  cv::namedWindow("foreground");
-  cv::imshow("foreground", bright);
-  cv::waitKey(10);
-
-  return;
-   */
-  vector<vector<cv::Point> > contours;
-  vector<cv::Vec4i> hierarchy;
-
-  cv::Mat cpy;
-  bright.copyTo(cpy);
-
-
-
-  cv::findContours(cpy, contours, hierarchy, CV_RETR_TREE,
-    CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
-
-  cv::namedWindow("foreground");
-  cv::imshow("foreground", bright);
-  cv::waitKey(100);
-
-
-
-
-  if (contours.size() == 0)
-   {
-   stringstream ss;
-   ss << "Found no contours, adapt threshold or adjust mask";
-   writeToOutput(ss);
-   return;
-   }
-
-
-  int outer_contours = 0;
-  for (uint i=0; i<contours.size(); ++i){
-   if (hierarchy[i][3] == 0) outer_contours++;
-  }
-
-
-
-  // compute area for each contour:
-  if (outer_contours > 0)
-   {
-   stringstream ss;
-   ss << "Found " << outer_contours
-     << " contours, adapt threshold or adjust mask";
-   writeToOutput(ss);
-   //    return;
-   }
-
-
-  if (contours[0].size() < 20){
-   stringstream ss;
-   ss << "Found no large contour, adapt threshold or adjust mask (size of largest contour:" << contours[0].size() << ")";
-   writeToOutput(ss);
-   return;
-  }
-
-  //  float area = cv::contourArea(contours[0]);
-
-  cv::drawContours(bright, contours, 0, cv::Scalar::all(125), 2, 8, hierarchy,
-    0, cv::Point());
-
-  current_col_img.copyTo(cpy);
-
-  cv::Moments mom = cv::moments(contours[0]);
-  cv::Point2f mom_center = cv::Point2f(mom.m10 / mom.m00, mom.m01 / mom.m00);
-
-  cv::circle(cpy, mom_center, 10, CV_RGB(0,255,0), 2);
-
-  cv::line(cpy, cv::Point(mom_center.x,0),cv::Point(mom_center.x,cpy.cols),CV_RGB(255,0,0),1);
-  cv::line(cpy, cv::Point(0,mom_center.y),cv::Point(cpy.rows, mom_center.y),CV_RGB(255,0,0),1);
-
-
-  // get mean of all points:
-  pcl_Point mean;
-
-  mean.x = mean.y = mean.z = 0;
-  int valid = 0;
-  //for (uint i = 0; i < contours[0].size(); ++i)
-  int l = 1;
-  for (int x = mom_center.x-l;x <= mom_center.x+l ; ++x )
-   for (int y = mom_center.y-l;y <= mom_center.y+l ; ++y )
-    {
-    if (x < 0 || x > int(calibrator.cloud_moved.width) || y < 0 || y > int(calibrator.cloud_moved.height) ) continue;
-
-    pcl_Point p = calibrator.cloud_moved.at(x, y);
-    if (p.x != p.x)
-     continue;
-
-    valid++;
-    add(mean, p);
-
-    }
-
-  if (valid == 0){
-   stringstream ss;
-   ss << "no depth value on marker pose";
-   writeToOutput(ss);
-   return;
-  }
-
-  div(mean, valid);
-
+ void QNode::disc_evaluation(){
+  Cloud corners;
   stringstream ss;
-  ss << "Mean Point: " << mean.x << " " << mean.y << " " << mean.z;
+  calibrator.eval_projection_matrix_disc(corners, ss, &area_mask);
+
   writeToOutput(ss);
 
-  calibrator.projector_image.setTo(0);
-  cv::Point2f px = applyPerspectiveTrafo(mean, calibrator.proj_Matrix);
-
-  cv::circle(calibrator.projector_image, px, 10, CV_RGB(255,0,0), -1);
-  cv::circle(calibrator.projector_image, px, 5, CV_RGB(0,0,255), -1);
-  cv::circle(calibrator.projector_image, px, 1, CV_RGB(0,255,0), -1);
-
-  Cloud c; c.push_back(mean);
-  Cloud::Ptr msg = c.makeShared();
+  Cloud::Ptr msg = corners.makeShared();
   msg->header.frame_id = "/openni_rgb_optical_frame";
   msg->header.stamp = ros::Time::now();
   pub_eval_marker.publish(msg);
 
+  Q_EMIT update_projector_image();
+ }
 
+ void
+ QNode::eval_projection()
+ {
+
+  Cloud corners;
+  stringstream ss;
+
+  calibrator.eval_projection_matrix_Checkerboard(corners, ss, &area_mask);
+
+
+  writeToOutput(ss);
+
+  Cloud::Ptr msg = corners.makeShared();
+  msg->header.frame_id = "/openni_rgb_optical_frame";
+  msg->header.stamp = ros::Time::now();
+  pub_eval_marker.publish(msg);
 
   Q_EMIT update_projector_image();
-
-  cv::namedWindow("bar");
-  cv::imshow("bar", cpy);
-  cv::waitKey(10);
 
  }
 
@@ -256,6 +97,9 @@ namespace projector_calibration
   user_input->init();
   train_background = false;
   foreGroundVisualizationActive = false;
+  modeler_cell_size = 0.02;
+
+  mesh_visualizer = Mesh_visualizer(n);
 
   start();
   return true;
@@ -275,8 +119,7 @@ namespace projector_calibration
   Q_EMIT loggingUpdated(); // used to readjust the scrollbar
  }
 
- bool
- QNode::init(const std::string &master_url, const std::string &host_url)
+ bool QNode::init(const std::string &master_url, const std::string &host_url)
  {
   std::map<std::string, std::string> remappings;
   remappings["__master"] = master_url;
@@ -293,13 +136,18 @@ namespace projector_calibration
   return true;
  }
 
- void
- QNode::imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr,
+ void QNode::imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr,
    const sensor_msgs::PointCloud2ConstPtr& cloud_ptr)
  {
-  //   ROS_INFO("GOT KINECT DATA");
-
   pcl::fromROSMsg(*cloud_ptr, current_cloud);
+  cv_ptr = cv_bridge::toCvCopy(img_ptr, sensor_msgs::image_encodings::BGR8);
+
+  // TODO: directly apply input mask
+
+
+  current_col_img = cv_ptr->image;
+  calibrator.setInputImage(current_col_img);
+
 
   if (current_cloud.size() == 0)
    return;
@@ -309,10 +157,10 @@ namespace projector_calibration
   if (calibrator.isKinectTrafoSet()
     && pub_cloud_worldsystem.getNumSubscribers() > 0)
    {
-   Cloud::Ptr msg = calibrator.cloud_moved.makeShared();
-   msg->header.frame_id = "/openni_rgb_optical_frame";
-   msg->header.stamp = ros::Time::now();
-   pub_cloud_worldsystem.publish(msg);
+   //   Cloud::Ptr msg = calibrator.cloud_moved.makeShared();
+   //   msg->header.frame_id = "/openni_rgb_optical_frame";
+   //   msg->header.stamp = ros::Time::now();
+   //   pub_cloud_worldsystem.publish(msg);
    }
 
   if (train_background && !calibrator.isKinectTrafoSet())
@@ -322,31 +170,118 @@ namespace projector_calibration
 
   if (calibrator.isKinectTrafoSet() && train_background)
    {
-   uint cnt = detector.addTrainingFrame(calibrator.cloud_moved);
+
+
+   ROS_INFO("modeler: %i", modeler.getTrainingCnt());
+
+   if (modeler.getTrainingCnt() == 0){
+    float l = 0.20;
+    modeler_cell_size = 0.0033;
+    modeler.init(modeler_cell_size, -l,l,-l,l);
+
+    // modeler.init(modeler_cell_size, calibrator.cloud_moved);
+   }
+
+   modeler.addTrainingFrame(calibrator.cloud_moved);
+
+   uint cnt = detector.addTrainingFrame(calibrator.input_cloud);
    ROS_INFO("Background calibration: added traingframe %i of %i", cnt, train_frame_cnt);
    if (cnt == train_frame_cnt)
     {
     detector.computeBackground(0.007);
     train_background = false;
     ROS_INFO("computed Background");
+
+    cv::imwrite("area.jpg",area_mask);
+    cv::imwrite("m1.jpg",detector.mask);
+
+
+    if (area_mask.cols == current_col_img.cols){
+     detector.applyMask(area_mask);
+    }
+
+    cv::imwrite("m2.jpg",detector.mask);
+
+
+    Cloud foo = detector.showBackground(calibrator.input_cloud);
+    Cloud::Ptr msg = foo.makeShared();
+    msg->header.frame_id = "/openni_rgb_optical_frame";
+    msg->header.stamp = ros::Time::now();
+    pub_background.publish(msg);
+
+    // compute background method 2:
+
+    modeler.computeModel();
+
+    Cloud model = modeler.getModel();
+
+
+    pcl::PolygonMesh mesh = mesh_visualizer.createMesh(model);
+
+
+    mesh_visualizer.visualizeMesh(mesh);
+
+
+    msg = model.makeShared();
+    msg->header.frame_id = "/openni_rgb_optical_frame";
+    msg->header.stamp = ros::Time::now();
+    pub_model.publish(msg);
+
+
     }
    }
 
+
+
   if (foreGroundVisualizationActive && detector.isInitiated())
    {
-   ROS_INFO("foreground visulization active");
+   // ROS_INFO("foreground visulization active");
 
-   float max_val = 0.1;
+
+
+
+   Cloud::Ptr msg = calibrator.cloud_moved.makeShared();
+   msg->header.frame_id = "/openni_rgb_optical_frame";
+   msg->header.stamp = ros::Time::now();
+   pub_cloud_worldsystem.publish(msg);
+
 
    Cloud changed =
-     detector.removeBackground(calibrator.cloud_moved, 0.01, 0.3); // everything between 1 and 30cm
-   projectCloudIntoProjector(changed, calibrator.proj_Matrix,
-     calibrator.projector_image, max_val, 0);
+     detector.removeBackground(calibrator.input_cloud, min_dist, visual_z_max);
+   ROS_INFO("background: min %f, max: %f",  min_dist, visual_z_max);
 
-   Cloud::Ptr msg = changed.makeShared();
+   Cloud trafoed;
+   pcl::getTransformedPointCloud(changed,calibrator.getCameraTransformation(),trafoed);
+
+   projectCloudIntoImage(trafoed, calibrator.proj_Matrix,
+     calibrator.projector_image, -1,-100,  color_range); // -1,-100: all values are accepted
+
+   cv::dilate(calibrator.projector_image,calibrator.projector_image,cv::Mat(),cv::Point(-1,-1),30);
+
+
+   //   imwrite("fg.jpg",*detector.getForeground());
+
+   ROS_INFO("Publishing foreground with %zu points", changed.size());
+
+   msg = changed.makeShared();
    msg->header.frame_id = "/openni_rgb_optical_frame";
    msg->header.stamp = ros::Time::now();
    pub_colored_cloud.publish(msg);
+
+
+
+
+
+   // background method 2:
+   cv::Mat fg_2;
+   modeler.getForeground(calibrator.cloud_moved, 0.1, fg_2);
+
+
+   cv::imwrite("modeler.jpg", fg_2);
+
+
+
+
 
    Q_EMIT update_projector_image();
    }
@@ -369,8 +304,7 @@ namespace projector_calibration
 
   if (depth_visualization_active && calibrator.projMatrixSet())
    {
-   projectCloudIntoProjector(calibrator.cloud_moved, calibrator.proj_Matrix,
-     calibrator.projector_image, visual_z_max, min_dist);
+   projectCloudIntoImage(calibrator.cloud_moved, calibrator.proj_Matrix, calibrator.projector_image, visual_z_max, 0, color_range);
 
    Cloud colored = colorizeCloud(calibrator.cloud_moved, visual_z_max);
    Cloud::Ptr msg = colored.makeShared();
@@ -381,14 +315,9 @@ namespace projector_calibration
    Q_EMIT update_projector_image();
    }
 
-  //  ROS_INFO("GOT cloud with %zu points", current_cloud.size());
-  cv_ptr = cv_bridge::toCvCopy(img_ptr, sensor_msgs::image_encodings::BGR8);
 
-  current_col_img = cv_ptr->image;
 
   Q_EMIT received_col_Image();
-
-  //  ROS_INFO("Leaving CB");
 
  }
 
@@ -396,6 +325,7 @@ namespace projector_calibration
  QNode::run()
  {
   ros::Rate loop_rate(10);
+
 
   ROS_INFO("Starting to run");
 
@@ -414,6 +344,9 @@ namespace projector_calibration
   pub_3d_calib_points = nh.advertise<Cloud> ("calibration_points_3d", 1);
   pub_colored_cloud = nh.advertise<Cloud> ("colored", 1);
   pub_eval_marker = nh.advertise<Cloud> ("disc_center", 1);
+  pub_background = nh.advertise<Cloud> ("background", 1);
+  pub_model = nh.advertise<Cloud> ("surface_model", 1);
+
   //  ros::Subscriber sub = n.subscribe("chatter", 1000, &Listener::callback, &listener);
 
   while (ros::ok())
@@ -433,35 +366,35 @@ namespace projector_calibration
   switch (level)
   {
   case (Debug):
-           {
+                   {
    ROS_DEBUG_STREAM(msg);
    logging_model_msg << "[DEBUG] [" << ros::Time::now() << "]: " << msg;
    break;
-           }
+                   }
   case (Info):
-           {
+                   {
    ROS_INFO_STREAM(msg);
    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
    break;
-           }
+                   }
   case (Warn):
-           {
+                   {
    ROS_WARN_STREAM(msg);
    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
    break;
-           }
+                   }
   case (Error):
-           {
+                   {
    ROS_ERROR_STREAM(msg);
    logging_model_msg << "[ERROR] [" << ros::Time::now() << "]: " << msg;
    break;
-           }
+                   }
   case (Fatal):
-           {
+                   {
    ROS_FATAL_STREAM(msg);
    logging_model_msg << "[FATAL] [" << ros::Time::now() << "]: " << msg;
    break;
-           }
+                   }
   }
   QVariant new_row(QString(logging_model_msg.str().c_str()));
   logging_model.setData(logging_model.index(logging_model.rowCount() - 1),

@@ -36,8 +36,6 @@ class Projector_Calibrator {
  cv::Mat gray; // gray version of kinect image
 
 
- // point cloud from kinect (still in kinect frame)
- Cloud input_cloud;
 
 
  // tilt of kinect (rotation around optical axis)
@@ -49,7 +47,7 @@ class Projector_Calibrator {
 
 
  // draw a checkerboard with given number of internal corners on the image and store the corners
-// void drawCheckerboard(cv::Mat& img, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
+ // void drawCheckerboard(cv::Mat& img, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
  void drawCheckerboard(cv::Mat& img,cv::Point l1, const cv::Point l2, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
 
  // Position of internal checkerboard corners
@@ -58,8 +56,8 @@ class Projector_Calibrator {
 
  std::string hom_cv_filename, hom_svd_filename, proj_matrix_filename, kinect_trafo_filename;
 
-// bool saveMat(const std::string name, const std::string filename, const cv::Mat& mat);
-// bool loadMat(const std::string name, const std::string filename, cv::Mat& mat);
+ // bool saveMat(const std::string name, const std::string filename, const cv::Mat& mat);
+ // bool loadMat(const std::string name, const std::string filename, cv::Mat& mat);
 
  bool setupImageProjection(const cv_RectF& wall_area, const cv::Size& img_size);
 
@@ -74,13 +72,27 @@ class Projector_Calibrator {
 public:
 
 
+ Eigen::Affine3f getCameraTransformation(){
+  assert(kinect_trafo_valid);
+   return kinect_trafo;
+ }
+
+ // point cloud from kinect (still in kinect frame)
+ Cloud input_cloud;
+
+
+ void eval_projection_matrix_Checkerboard(Cloud& corners, std::stringstream& ss, const cv::Mat* area_mask);
+
+ void eval_projection_matrix_disc(Cloud& corners, std::stringstream& ss, const cv::Mat* mask = NULL);
+
+
  int eval_brightness_threshold;
 
  cv::Mat projector_position;
 
  void updateProjectorImage();
 
-// Cloud projectionAreaCorners;
+ // Cloud projectionAreaCorners;
  bool getProjectionAreain3D(std::vector<cv::Mat>& corners);
  bool getProjectionAreain3D(Cloud& corners);
 

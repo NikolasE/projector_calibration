@@ -205,13 +205,14 @@ namespace projector_calibration {
 
 
  void detect_disc();
+ void evaluate_pattern();
  /******************************************
   ** Manual connections
   *******************************************/
  void updateLoggingView(); // no idea why this can't connect automatically
  void sl_received_image();
  void pattern_size_changed();
-
+ void color_slider_moved(int);
 
 
  private:

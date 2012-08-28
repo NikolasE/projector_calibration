@@ -14,16 +14,17 @@
 
 #include <QtGui/QMainWindow>
 #include "ui_main_window.h"
-#include "ui_img_window.h"
 #include "qnode.hpp"
 #include <qevent.h>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/core/core.hpp>
 
+#include <QtOpenGL/qgl.h>
 
 #include "projector_calibration/calib_eval.h"
 
-/*****************************************************************************
+
+/*****************parent************************************************************
  ** Namespace
  *****************************************************************************/
 
@@ -31,6 +32,36 @@ typedef std::stringstream sstream;
 
 
 namespace projector_calibration {
+
+ struct Point {
+  float x; float y;
+ };
+
+ class GLFractal : public QGLWidget
+ {
+   Q_OBJECT
+ public:
+   GLFractal( QWidget* parent);
+   ~GLFractal();
+
+  public Q_SLOTS:
+     void setXRotation(int degrees);
+     void setYRotation(int degrees);
+     void setZRotation(int degrees);
+     // void setScale(int newscale);
+
+ protected:
+     void initializeGL();
+     void paintGL();
+     void resizeGL( int w, int h );
+     GLuint makeObject();
+     void drawTriangle(Point a, Point b, Point c);
+     void drawSierpinski(Point a, Point b, Point c, int level);
+
+ public:
+     GLuint object;
+     GLfloat xRot, yRot, zRot, scale;
+ };
 
 
  class MouseHandler_points : public QObject{
@@ -213,9 +244,14 @@ namespace projector_calibration {
  void sl_received_image();
  void pattern_size_changed();
  void color_slider_moved(int);
-
+ void gl_test();
 
  private:
+
+ // QGLWidget widget;
+
+ GLFractal* gl_fractal;
+
 
  cv::Mat small, cpy;
 

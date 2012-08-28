@@ -44,6 +44,18 @@ rosbuild_prepare_qt4(QtCore QtGui) # Add the appropriate components to the compo
 
 ADD_DEFINITIONS(-DQT_NO_KEYWORDS)
 
+#############################
+# Qt ########################
+#############################
+# http://qtnode.net/wiki/Qt4_with_cmake
+find_package(Qt4 REQUIRED)
+SET(QT_USE_QTXML TRUE)
+SET(QT_USE_QTOPENGL TRUE)
+ADD_DEFINITIONS(-DQT_NO_KEYWORDS)
+include(${QT_USE_FILE})
+
+include_directories(${QT_QTOPENGL_INCLUDE_DIR})
+
 ##############################################################################
 # Sections
 ##############################################################################
@@ -68,6 +80,6 @@ file(GLOB_RECURSE QT_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} FOLLOW_SYMLINK
 
    
 rosbuild_add_executable(calibration_app ${QT_SOURCES} ${QT_RESOURCES_CPP} ${QT_FORMS_HPP} ${QT_MOC_HPP})
-target_link_libraries(calibration_app ${QT_LIBRARIES} rgbd_utils pinch)
+target_link_libraries(calibration_app ${QT_LIBRARIES} rgbd_utils pinch GL GLU  ${QT_LIBRARIES} ${QT_QTOPENGL_LIBRARY} ${GLUT_LIBRARY} ${OPENGL_LIBRARY})
 
 rosbuild_add_library(projector_calibration  src/projector_calibrator.cpp)

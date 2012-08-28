@@ -30,10 +30,11 @@ namespace projector_calibration {
 
  MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
  : QMainWindow(parent)
+// , gl_fractal(parent)
  , qnode(argc,argv)
  {
 
-
+  gl_fractal = new GLFractal(parent);
 
   // open label fullscreen on secondary monitor
   lb_img.setParent(NULL);
@@ -42,8 +43,8 @@ namespace projector_calibration {
   //  cout << "foo" << endl;
   //  ROS_INFO("screenres 1: %i %i", screenres.x(), screenres.y());
 
-  lb_img.move(QPoint(screenres.x(), screenres.y()));
-  lb_img.showFullScreen();
+//  lb_img.move(QPoint(screenres.x(), screenres.y()));
+//  lb_img.showFullScreen();
 
 
   manual_z_change = 0;
@@ -106,6 +107,20 @@ namespace projector_calibration {
  }
 
  MainWindow::~MainWindow() {
+
+ }
+
+
+ void MainWindow::gl_test(){
+  ROS_INFO("TESTING OPENGL");
+
+  QPixmap pix = gl_fractal->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
+
+  gl_fractal->setXRotation(gl_fractal->xRot+10);
+
+  ui.lb_img_2->setPixmap(pix);
+  ui.lb_img_2->repaint();
+
 
  }
 

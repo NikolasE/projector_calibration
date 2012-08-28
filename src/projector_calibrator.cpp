@@ -80,11 +80,11 @@ void Projector_Calibrator::eval_projection_matrix_Checkerboard(Cloud& corners, s
 
 
   cv::Point2f px_true = current_projector_corners[i];
-  ROS_INFO("true: %f %f", px_true.x, px_true.y);
+//  ROS_INFO("true: %f %f", px_true.x, px_true.y);
 
   float e= sqrt(pow(px_true.x-pr.x,2)+pow(px_true.y-pr.y,2));
 
-  ROS_INFO("error %i: %f", i,e);
+//  ROS_INFO("error %i: %f", i,e);
 
   error+=e;
 
@@ -108,9 +108,9 @@ void Projector_Calibrator::eval_projection_matrix_Checkerboard(Cloud& corners, s
 
  ROS_INFO("Mean error: %e", error);
 
- cv::namedWindow("Detected Corners");
- cv::imshow("Detected Corners", col_cpy);
- cv::waitKey(10);
+// cv::namedWindow("Detected Corners");
+// cv::imshow("Detected Corners", col_cpy);
+// cv::waitKey(10);
 
 
 }
@@ -1719,7 +1719,10 @@ bool  Projector_Calibrator::computeKinectTransformation(std::stringstream& msg){
  float plane_direction = plane_model.head<3>()[2]>0?1:-1;
 
  // compute trafo without pcl
- computeTransformationFromYZVectorsAndOrigin(-pl_upwards,plane_direction*plane_model.head<3>(), pl_center,kinect_trafo);
+
+
+ // z-axis towards camera
+ computeTransformationFromYZVectorsAndOrigin(pl_upwards,-plane_direction*plane_model.head<3>(), pl_center,kinect_trafo);
  // PCL alternative
  //pcl::getTransformationFromTwoUnitVectorsAndOrigin(-pl_upwards,plane_direction*plane_model.head<3>(), pl_center, kinect_trafo);
 

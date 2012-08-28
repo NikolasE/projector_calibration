@@ -37,19 +37,13 @@ namespace projector_calibration {
 
   // open label fullscreen on secondary monitor
   lb_img.setParent(NULL);
-  QRect screenres = QApplication::desktop()->screenGeometry(2);
+  QRect screenres = QApplication::desktop()->screenGeometry(1);
 
   //  cout << "foo" << endl;
   //  ROS_INFO("screenres 1: %i %i", screenres.x(), screenres.y());
 
-
-  // z_max_changed(ui.slider_z_max->value());
-
-  // min_dist_changed(ui.slider_mindist->value());
-
-
-//  lb_img.move(QPoint(screenres.x(), screenres.y()));
-//  lb_img.showFullScreen();
+  lb_img.move(QPoint(screenres.x(), screenres.y()));
+  lb_img.showFullScreen();
 
 
   manual_z_change = 0;
@@ -415,7 +409,7 @@ namespace projector_calibration {
  }
 
  void MainWindow::color_slider_moved(int col_cm){
-  qnode.color_range = col_cm/10.0; // now in meter
+  qnode.color_range = col_cm/100.0; // now in meter
   ui.lb_color->setText(QString::number(col_cm));
  }
 
@@ -588,6 +582,11 @@ namespace projector_calibration {
  }
 
  void MainWindow::foreGroundVisualizationToggled(bool status){
+
+   min_dist_changed(ui.slider_mindist->value());
+   z_max_changed(ui.slider_z_max->value());
+   color_slider_moved(ui.slider_color->value());
+
   qnode.foreGroundVisualizationActive = status;
  }
 
@@ -602,8 +601,12 @@ namespace projector_calibration {
  }
 
  void MainWindow::depth_visualzation_toggled(bool status){
-  qnode.depth_visualization_active = status;
 
+  min_dist_changed(ui.slider_mindist->value());
+  min_dist_changed(ui.slider_z_max->value());
+  color_slider_moved(ui.slider_color->value());
+
+  qnode.depth_visualization_active = status;
  }
 
 

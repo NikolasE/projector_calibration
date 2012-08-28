@@ -154,13 +154,12 @@ namespace projector_calibration
 
   calibrator.setInputCloud(current_cloud);
 
-  if (calibrator.isKinectTrafoSet()
-    && pub_cloud_worldsystem.getNumSubscribers() > 0)
+  if (calibrator.isKinectTrafoSet() && pub_cloud_worldsystem.getNumSubscribers() > 0)
    {
-   //   Cloud::Ptr msg = calibrator.cloud_moved.makeShared();
-   //   msg->header.frame_id = "/openni_rgb_optical_frame";
-   //   msg->header.stamp = ros::Time::now();
-   //   pub_cloud_worldsystem.publish(msg);
+      Cloud::Ptr msg = calibrator.cloud_moved.makeShared();
+      msg->header.frame_id = "/openni_rgb_optical_frame";
+      msg->header.stamp = ros::Time::now();
+      pub_cloud_worldsystem.publish(msg);
    }
 
   if (train_background && !calibrator.isKinectTrafoSet())
@@ -219,7 +218,9 @@ namespace projector_calibration
     pcl::PolygonMesh mesh = mesh_visualizer.createMesh(model);
 
 
-    mesh_visualizer.visualizeMesh(mesh);
+
+    float max_length = 0.01; // max edge length of drawn triangle
+    mesh_visualizer.visualizeMesh(mesh, max_length);
 
 
     msg = model.makeShared();
@@ -240,11 +241,10 @@ namespace projector_calibration
 
 
 
-   Cloud::Ptr msg = calibrator.cloud_moved.makeShared();
-   msg->header.frame_id = "/openni_rgb_optical_frame";
-   msg->header.stamp = ros::Time::now();
-   pub_cloud_worldsystem.publish(msg);
 
+
+
+   ROS_INFO("RANGE from %f to %f", min_dist, visual_z_max);
 
    Cloud changed =
      detector.removeBackground(calibrator.input_cloud, min_dist, visual_z_max);
@@ -253,31 +253,39 @@ namespace projector_calibration
    Cloud trafoed;
    pcl::getTransformedPointCloud(changed,calibrator.getCameraTransformation(),trafoed);
 
+
+   Cloud::Ptr msg = trafoed.makeShared();
+   msg->header.frame_id = "/openni_rgb_optical_frame";
+   msg->header.stamp = ros::Time::now();
+   pub_foreground.publish(msg);
+
+   ROS_INFO("color_range: %f", color_range);
+
    projectCloudIntoImage(trafoed, calibrator.proj_Matrix,
      calibrator.projector_image, -1,-100,  color_range); // -1,-100: all values are accepted
 
-   cv::dilate(calibrator.projector_image,calibrator.projector_image,cv::Mat(),cv::Point(-1,-1),30);
+//   cv::dilate(calibrator.projector_image,calibrator.projector_image,cv::Mat(),cv::Point(-1,-1),2);
 
 
    //   imwrite("fg.jpg",*detector.getForeground());
 
    ROS_INFO("Publishing foreground with %zu points", changed.size());
 
-   msg = changed.makeShared();
-   msg->header.frame_id = "/openni_rgb_optical_frame";
-   msg->header.stamp = ros::Time::now();
-   pub_colored_cloud.publish(msg);
+//   Cloud::Ptr msg = changed.makeShared();
+//   msg->header.frame_id = "/openni_rgb_optical_frame";
+//   msg->header.stamp = ros::Time::now();
+//   pub_colored_cloud.publish(msg);
 
 
 
 
 
-   // background method 2:
-   cv::Mat fg_2;
-   modeler.getForeground(calibrator.cloud_moved, 0.1, fg_2);
+//   // background method 2:
+//   cv::Mat fg_2;
+//   modeler.getForeground(calibrator.cloud_moved, 0.1, fg_2);
 
 
-   cv::imwrite("modeler.jpg", fg_2);
+//   cv::imwrite("modeler.jpg", fg_2);
 
 
 
@@ -304,6 +312,8 @@ namespace projector_calibration
 
   if (depth_visualization_active && calibrator.projMatrixSet())
    {
+
+   ROS_INFO("color_range: %f", color_range);
    projectCloudIntoImage(calibrator.cloud_moved, calibrator.proj_Matrix, calibrator.projector_image, visual_z_max, 0, color_range);
 
    Cloud colored = colorizeCloud(calibrator.cloud_moved, visual_z_max);
@@ -346,7 +356,7 @@ namespace projector_calibration
   pub_eval_marker = nh.advertise<Cloud> ("disc_center", 1);
   pub_background = nh.advertise<Cloud> ("background", 1);
   pub_model = nh.advertise<Cloud> ("surface_model", 1);
-
+  pub_foreground  = nh.advertise<Cloud> ("foreground", 1);
   //  ros::Subscriber sub = n.subscribe("chatter", 1000, &Listener::callback, &listener);
 
   while (ros::ok())

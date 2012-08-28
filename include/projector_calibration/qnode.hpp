@@ -76,8 +76,8 @@ namespace projector_calibration {
   ros::Publisher pub_colored_cloud; // detected corners in 3d
   ros::Publisher pub_eval_marker; // center of evaluation disc
   ros::Publisher pub_background; // center of evaluation disc
-
   ros::Publisher pub_model;
+  ros::Publisher pub_foreground;
 
 
   cv::Mat current_col_img;

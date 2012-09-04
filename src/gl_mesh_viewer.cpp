@@ -19,104 +19,41 @@ using namespace std;
 /**
  * Constructor that creates a GLFractal widget
  */
-GLFractal::GLFractal( QWidget* parent)
+GL_Mesh_Viewer::GL_Mesh_Viewer( QWidget* parent)
 : QGLWidget(parent)
 {
  object = 0;
  initializeGL();
 }
 
-GLFractal::~GLFractal()
+GL_Mesh_Viewer::~GL_Mesh_Viewer()
 {
  glDeleteLists( object, 1 );
 }
 
 
 
-void GLFractal::drawMesh(){
+void GL_Mesh_Viewer::drawMesh(){
 
  Cloud cloud;
  pcl::fromROSMsg(mesh.cloud, cloud);
 
-
- //assert(mesh.points.size() % 3 == 0 && mesh.points.size() > 0);
  glBegin(GL_TRIANGLES);
 
- for (uint i=0; i<mesh.polygons.size(); ++i){
+ for (uint i=0; i<mesh.polygons.size(); i++){
   for (uint j = 0; j<3; ++j){
-   pcl_Point p = cloud.at(mesh.polygons[i].vertices[j]);
-   glVertex3f(p.x, p.y, p.z);
+   pcl_Point p = cloud.points[mesh.polygons[i].vertices[j]];
    glColor3f(p.r/255.0, p.g/255.0, p.b/255.0);
+   glVertex3f(p.x, p.y, p.z);
   }
  }
+
  glEnd();
 
 }
 
 
-/*
- * Create new Object list for meshLines
- *
- */
-/*
-GLuint GLFractal::createMeshList(const visualization_msgs::Marker& mesh_marker){
- initializeGL();
- ROS_INFO("mesh_marker: %zu", mesh_marker.points.size());
- ROS_INFO("meshmarker start");
- GLuint list = object;//glGenLists(1);
- ROS_INFO("list: %i", list);
-
- //assert(list != 0);
- glNewList(list, GL_COMPILE);
-
- ROS_INFO("aa");
- object = list;
-
-
-
- assert(mesh_marker.points.size() % 3 == 0);
-
-
- // (fast) jede Kante wird zwei Mal gezeichnet..
- glBegin(GL_TRIANGLES);
-mesh.points.size()
- for (uint i=0; i<mesh_marker.points.size(); i+=3){
-
-
-
-  geometry_msgs::Point pt0 = mesh_marker.points[i];
-  geometry_msgs::Point pt1 = mesh_marker.points[i+1];
-  geometry_msgs::Point pt2 = mesh_marker.points[i+2];
-
-  std_msgs::ColorRGBA c0 = mesh_marker.colors[i];
-  std_msgs::ColorRGBA c1 = mesh_marker.colors[i+1];
-  std_msgs::ColorRGBA c2 = mesh_marker.colors[i+2];
-
-  assert(pt0.x == pt0.x);
-  assert(pt1.x == pt1.x);
-  assert(pt2.x == pt2.x);
-
-
-  glVertex3f(pt0.x, pt0.y, pt0.z);
-  glColor3f(c0.r, c0.g, c0.b);
-
-  glVertex3f(pt1.x, pt1.y, pt1.z);
-  glColor3f(c1.r, c1.g, c1.b);
-
-
-  glVertex3f(pt2.x, pt2.y, pt2.z);
-  glColor3f(c2.r, c2.g, c2.b);
-
- }
- glEnd();
-
-
- glEndList();
- return list;
-}
- */
-
-void GLFractal::drawList(GLuint list_id){
+void GL_Mesh_Viewer::drawList(GLuint list_id){
  glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
  glEnable( GL_DEPTH_TEST );
 // glLoadIdentity();
@@ -140,7 +77,7 @@ void glVectorToCvMat(GLdouble* v, cv::Mat &M){
 }
 
 
-cv::Point2f GLFractal::simulateGlPipeline(float x, float y, float z){
+cv::Point2f GL_Mesh_Viewer::simulateGlPipeline(float x, float y, float z){
 
 
  GLdouble v[16];
@@ -220,7 +157,7 @@ cv::Point2f GLFractal::simulateGlPipeline(float x, float y, float z){
  * Paint the box. The actual openGL commands for drawing the box are
  * performed here.
  */
-void GLFractal::paintGL()
+void GL_Mesh_Viewer::paintGL()
 {
 
  glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -278,12 +215,12 @@ void GLFractal::paintGL()
 }
 
 
-void GLFractal::setMesh(const pcl::PolygonMesh& mesh_){
+void GL_Mesh_Viewer::setMesh(const pcl::PolygonMesh& mesh_){
  mesh = mesh_;
 }
 
 
-GLuint GLFractal::makeObject()
+GLuint GL_Mesh_Viewer::makeObject()
 {
 
 
@@ -382,11 +319,9 @@ GLuint GLFractal::makeObject()
  * Set up the OpenGL rendering state, and define display list
  */
 
-void GLFractal::initializeGL()
+void GL_Mesh_Viewer::initializeGL()
 {
- ROS_INFO("GL initialized");
-
- glClearColor( 0.0, 0.0, 0.0, 0.0 ); // Let OpenGL clear to black
+glClearColor( 0.0, 0.0, 0.0, 0.0 ); // Let OpenGL clear to black
  object = makeObject(); // generate an OpenGL display list
  glShadeModel( GL_SMOOTH ); // we want smooth shading . . . try GL_FLAT if you like
 }
@@ -395,11 +330,8 @@ void GLFractal::initializeGL()
 /**
  * Set up the OpenGL view port, matrix mode, etc.
  */
-void GLFractal::resizeGL( int w, int h )
+void GL_Mesh_Viewer::resizeGL( int w, int h )
 {
-
- ROS_INFO("resizeGL: %i %i", w,h);
-
  w_ = w;
  h_ = h;
 

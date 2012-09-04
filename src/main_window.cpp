@@ -33,7 +33,7 @@ namespace projector_calibration {
  , qnode(argc,argv)
  {
 
-  gl_fractal = new GLFractal(parent);
+  gl_viewer = new GL_Mesh_Viewer(parent);
 
   // open label fullscreen on secondary monitor
   lb_img.setParent(NULL);
@@ -120,19 +120,19 @@ namespace projector_calibration {
   float max_length = 100; // max edge length of drawn triangle in m
   pcl::PolygonMesh mesh = qnode.mesh_visualizer.createMesh(colored, max_length);
 
-//  visualization_msgs::Marker marker = qnode.mesh_visualizer.visualizeMesh(mesh);
+  qnode.mesh_visualizer.visualizeMesh(mesh);
 
-  gl_fractal->setMesh(mesh);
-  gl_fractal->M = qnode.calibrator.proj_Matrix;
+  gl_viewer->setMesh(mesh);
+  gl_viewer->M = qnode.calibrator.proj_Matrix;
 
 
-  gl_fractal->resize(lb_img.width(),lb_img.height());
-  QPixmap pix2 = gl_fractal->renderPixmap(lb_img.width(),lb_img.height(),true);
+  gl_viewer->resize(lb_img.width(),lb_img.height());
+  QPixmap pix2 = gl_viewer->renderPixmap(lb_img.width(),lb_img.height(),true);
   lb_img.setPixmap(pix2);
   lb_img.repaint();
 
-//  gl_fractal->resize(ui.lb_img_2->width(),ui.lb_img_2->height());
-//  QPixmap pix = gl_fractal->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
+//  gl_viewer->resize(ui.lb_img_2->width(),ui.lb_img_2->height());
+//  QPixmap pix = gl_viewer->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
 //  ui.lb_img_2->setPixmap(pix);
 //  ui.lb_img_2->repaint();
 

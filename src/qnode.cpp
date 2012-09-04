@@ -171,10 +171,11 @@ namespace projector_calibration
    ROS_INFO("modeler: %i", modeler.getTrainingCnt());
 
    if (modeler.getTrainingCnt() == 0){
-    float lx = 0.30;
-    float ly = 0.30;
+    float lx = 0.20;
+    float ly = 0.20;
 
     modeler_cell_size = 0.0033;
+//    modeler_cell_size = 0.1;
     modeler.init(modeler_cell_size, -lx,lx,-ly,ly);
 
     // modeler.init(modeler_cell_size, calibrator.cloud_moved);

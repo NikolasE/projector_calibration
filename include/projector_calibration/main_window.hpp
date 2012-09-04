@@ -134,12 +134,12 @@ namespace projector_calibration {
  };
 
 
- class GLFractal : public QGLWidget
+ class GL_Mesh_Viewer : public QGLWidget
  {
    Q_OBJECT
  public:
-   GLFractal( QWidget* parent);
-   ~GLFractal();
+   GL_Mesh_Viewer( QWidget* parent);
+   ~GL_Mesh_Viewer();
 
 
    cv::Mat M;
@@ -153,11 +153,10 @@ namespace projector_calibration {
 
      void setMesh(const pcl::PolygonMesh& mesh);
 
-     void drawList(GLuint list_id);
-
 
  protected:
 
+     void drawList(GLuint list_id);
 
      void drawMesh();
 
@@ -262,7 +261,7 @@ namespace projector_calibration {
 
  // QGLWidget widget;
 
-GLFractal *gl_fractal;
+GL_Mesh_Viewer *gl_viewer;
 
  cv::Mat small, cpy;
 

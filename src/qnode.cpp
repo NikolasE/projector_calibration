@@ -95,9 +95,14 @@ namespace projector_calibration
 
   user_input = new User_Input();
   user_input->init();
-  train_background = false;
+
+
+  train_background = true;
+
+
   foreGroundVisualizationActive = false;
   modeler_cell_size = 0.02;
+
 
   mesh_visualizer = Mesh_visualizer(n);
 
@@ -167,18 +172,13 @@ namespace projector_calibration
   if (calibrator.isKinectTrafoSet() && train_background)
    {
 
-
-   ROS_INFO("modeler: %i", modeler.getTrainingCnt());
-
    if (modeler.getTrainingCnt() == 0){
-    float lx = 0.20;
+    float lx = 0.30;
     float ly = 0.20;
 
     modeler_cell_size = 0.0033;
 //    modeler_cell_size = 0.1;
     modeler.init(modeler_cell_size, -lx,lx,-ly,ly);
-
-    // modeler.init(modeler_cell_size, calibrator.cloud_moved);
    }
 
    uint cnt = modeler.addTrainingFrame(calibrator.cloud_moved);

@@ -540,6 +540,13 @@ void Projector_Calibrator::drawCheckerboard(cv::Mat& img,cv::Point l1, const cv:
  cv::Mat gray;
  cv::cvtColor(img, gray, CV_BGR2GRAY);
  cv::cornerSubPix(gray, corners_2d, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 50, 0.01));
+
+
+// for (uint i=0; i<corners_2d.size(); ++i){
+//  cv::Point2f p = corners_2d[i];
+//  ROS_INFO("px i: %f %f", p.x,p.y);
+// }
+
 }
 
 
@@ -1566,6 +1573,9 @@ bool Projector_Calibrator::removeLastObservations(){
 bool z_comp(pcl_Point A, pcl_Point B){return A.z > B.z;}
 
 Cloud Projector_Calibrator::visualizePointCloud(){
+
+
+ assert(1==0);
 
  Cloud coled;
 

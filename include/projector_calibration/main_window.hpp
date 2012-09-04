@@ -33,40 +33,6 @@ typedef std::stringstream sstream;
 
 namespace projector_calibration {
 
- struct Point {
-  float x; float y;
- };
-
- class GLFractal : public QGLWidget
- {
-   Q_OBJECT
- public:
-   GLFractal( QWidget* parent);
-   ~GLFractal();
-
-  public Q_SLOTS:
-     void setXRotation(int degrees);
-     void setYRotation(int degrees);
-     void setZRotation(int degrees);
-     // void setScale(int newscale);
-     // void drawMesh(const pcl::PolygonMesh& mesh);
-     GLuint createMeshList(const visualization_msgs::Marker& mesh_marker);
-
-     void drawList(GLuint list_id);
-
- protected:
-     void initializeGL();
-     void paintGL();
-     void resizeGL( int w, int h );
-     GLuint makeObject();
-     void drawTriangle(Point a, Point b, Point c);
-     void drawSierpinski(Point a, Point b, Point c, int level);
-
- public:
-     GLuint object;
-     GLfloat xRot, yRot, zRot, scale;
- };
-
 
  class MouseHandler_points : public QObject{
   Q_OBJECT
@@ -168,6 +134,45 @@ namespace projector_calibration {
  };
 
 
+ class GLFractal : public QGLWidget
+ {
+   Q_OBJECT
+ public:
+   GLFractal( QWidget* parent);
+   ~GLFractal();
+
+
+   cv::Mat M;
+
+   pcl::PolygonMesh mesh;
+
+  public Q_SLOTS:
+     // void setScale(int newscale);
+     // void drawMesh(const pcl::PolygonMesh& mesh);
+     // GLuint createMeshList(const visualization_msgs::Marker& mesh_marker);
+
+     void setMesh(const pcl::PolygonMesh& mesh);
+
+     void drawList(GLuint list_id);
+
+
+ protected:
+
+
+     void drawMesh();
+
+     void initializeGL();
+     void paintGL();
+     void resizeGL( int w, int h );
+
+     cv::Point2f simulateGlPipeline(float x, float y, float z);
+
+     int w_,h_;
+ public:
+     GLuint makeObject();
+     GLuint object;
+ };
+
 
  /*****************************************************************************
   ** Interface [MainWindow]
@@ -222,6 +227,9 @@ namespace projector_calibration {
  void find_projection_area();
  void update_proj_image();
  void learn_environment();
+ void show_model_openGL();
+
+// void setProjectorPixmap(const QPixmap& pixmap);
 
  void user_interaction_toggled(bool);
  void depth_visualzation_toggled(bool);
@@ -248,14 +256,13 @@ namespace projector_calibration {
  void sl_received_image();
  void pattern_size_changed();
  void color_slider_moved(int);
- void gl_test();
+
 
  private:
 
  // QGLWidget widget;
 
- GLFractal* gl_fractal;
-
+GLFractal *gl_fractal;
 
  cv::Mat small, cpy;
 

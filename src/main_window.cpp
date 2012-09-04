@@ -36,12 +36,11 @@ namespace projector_calibration {
   gl_fractal = new GLFractal(parent);
 
   // open label fullscreen on secondary monitor
-  //  lb_img.setParent(NULL);
-  //  QRect screenres = QApplication::desktop()->screenGeometry(1);
-  //  cout << "foo" << endl;
+  lb_img.setParent(NULL);
+  QRect screenres = QApplication::desktop()->screenGeometry(2);
   //  ROS_INFO("screenres 1: %i %i", screenres.x(), screenres.y());
-  //  lb_img.move(QPoint(screenres.x(), screenres.y()));
-  //  lb_img.showFullScreen();
+  lb_img.move(QPoint(screenres.x(), screenres.y()));
+  lb_img.showFullScreen();
 
 
   manual_z_change = 0;
@@ -58,6 +57,9 @@ namespace projector_calibration {
   QObject::connect(&qnode, SIGNAL(rosShutdown()), this, SLOT(close()));
   QObject::connect(&qnode, SIGNAL(received_col_Image()), this, SLOT(sl_received_image()));
   QObject::connect(&qnode, SIGNAL(update_projector_image()), this, SLOT(update_proj_image()));
+  QObject::connect(&qnode, SIGNAL(model_computed()), this, SLOT(show_model_openGL()));
+
+
   QObject::connect(&mousehandler_projector, SIGNAL(redraw_image()), this, SLOT(update_proj_image()));
 
 
@@ -108,28 +110,34 @@ namespace projector_calibration {
  }
 
 
- void MainWindow::gl_test(){
-  ROS_INFO("TESTING OPENGL");
+ void MainWindow::show_model_openGL(){
 
+//  ROS_INFO("show with openGL");
 
   Cloud model = qnode.modeler.getModel();
-  pcl::PolygonMesh mesh = qnode.mesh_visualizer.createMesh(model);
+  Cloud colored = colorizeCloud(model, 100,-1,qnode.color_range); // max, min, color_range
+
+  float max_length = 100; // max edge length of drawn triangle in m
+  pcl::PolygonMesh mesh = qnode.mesh_visualizer.createMesh(colored, max_length);
+
+//  visualization_msgs::Marker marker = qnode.mesh_visualizer.visualizeMesh(mesh);
+
+  gl_fractal->setMesh(mesh);
+  gl_fractal->M = qnode.calibrator.proj_Matrix;
 
 
+  gl_fractal->resize(lb_img.width(),lb_img.height());
+  QPixmap pix2 = gl_fractal->renderPixmap(lb_img.width(),lb_img.height(),true);
+  lb_img.setPixmap(pix2);
+  lb_img.repaint();
 
-  float max_length = 0.01; // max edge length of drawn triangle
-  visualization_msgs::Marker marker = qnode.mesh_visualizer.visualizeMesh(mesh, max_length);
+//  gl_fractal->resize(ui.lb_img_2->width(),ui.lb_img_2->height());
+//  QPixmap pix = gl_fractal->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
+//  ui.lb_img_2->setPixmap(pix);
+//  ui.lb_img_2->repaint();
 
-  GLuint list_id = gl_fractal->createMeshList(marker);
 
-  gl_fractal->drawList(list_id);
-
-  QPixmap pix = gl_fractal->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
-
-  gl_fractal->setXRotation(gl_fractal->xRot+10);
-
-  ui.lb_img_2->setPixmap(pix);
-  ui.lb_img_2->repaint();
+  qnode.modeler.reset();
 
 
  }
@@ -188,6 +196,7 @@ namespace projector_calibration {
 
  void MainWindow::learn_environment(){
   qnode.detector.reset();
+  qnode.modeler.reset();
   qnode.train_background = true;
  }
 
@@ -320,6 +329,15 @@ namespace projector_calibration {
   }
   return dest;
  }
+
+
+// void MainWindow::setProjectorPixmap(const QPixmap& pixmap){
+//  ROS_INFO("PROJECTOR PIXMAP");
+//
+//  lb_img.setPixmap(pixmap);
+//  lb_img.repaint();
+// }
+
 
 
  void MainWindow::update_proj_image(){
@@ -544,6 +562,15 @@ namespace projector_calibration {
   if (qnode.pub_3d_calib_points.getNumSubscribers() > 0){
    ROS_WARN("SENDING %zu 3d observations", qnode.calibrator.observations_3d.size());
    // show observations in rviz
+
+   pcl_Point *p = &qnode.calibrator.observations_3d[0];
+   p->r = 0;
+   p->g = 1;
+
+   p = &qnode.calibrator.observations_3d[1];
+   p->r = 0;
+   p->b = 1;
+
    Cloud::Ptr cloud_msg = qnode.calibrator.observations_3d.makeShared();
    cloud_msg->header.frame_id = "/openni_rgb_optical_frame";
    cloud_msg->header.stamp = ros::Time::now ();
@@ -578,6 +605,24 @@ namespace projector_calibration {
    msg << "Projection Matrix computed with mean reprojection error of " << mean_error << "pixels ";
    // qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error);
    // cout << "opencv calib: mean of " << mean_error << endl;
+
+   cv::Mat K,R,t;
+
+   cv::Mat rx,ry,rz;
+   vector<double> angles;
+
+   // cv::Point3d angles;
+
+   cv::decomposeProjectionMatrix(qnode.calibrator.proj_Matrix,K,R,t,rx,ry,rz,angles);
+
+   t /= t.at<double>(3);
+   K /= K.at<double>(2,2);
+
+   msg << endl << "translation: " << t.at<double>(0) << " " << t.at<double>(1) << " " << t.at<double>(2) << endl;
+   msg << "angles: " << angles[0] << " " << angles[1] << " " << angles[2];
+
+
+
   }else{
    msg << "Could not compute Projection Matrix (not enough points or to little variation in z-direction)";
   }

@@ -28,6 +28,7 @@
 #include "projector_calibration/user_input.h"
 
 #include "projector_calibration/calib_eval.h"
+#include "rgbd_utils/calibration_utils.h"
 
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/subscriber.h>
@@ -37,7 +38,7 @@
 
 #include "pinch_recognition/pinch_detection.h"
 #include "rgbd_utils/surface_modeler.h"
-
+#include <QtOpenGL/qgl.h>
 
 /*****************************************************************************
  ** Namespaces
@@ -49,6 +50,9 @@ namespace projector_calibration {
   ** Class
   *****************************************************************************/
 
+
+
+
  class QNode : public QThread {
   Q_OBJECT
  public:
@@ -59,7 +63,7 @@ namespace projector_calibration {
   Projector_Calibrator calibrator;
 
   Pinch_detector detector;
-  const static uint train_frame_cnt = 20;
+  const static uint train_frame_cnt = 5;
   bool train_background;
   bool foreGroundVisualizationActive;
 
@@ -90,6 +94,7 @@ namespace projector_calibration {
   float color_range;
 
   cv::Mat area_mask;
+
 
   float modeler_cell_size;
 
@@ -122,6 +127,8 @@ namespace projector_calibration {
   void rosShutdown();
   void received_col_Image();
   void update_projector_image();
+  void model_computed();
+//  void newProjectorPixmap(const QPixmap& pixmap);
 
 
  private:

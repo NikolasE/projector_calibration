@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1261</width>
-    <height>815</height>
+    <width>1463</width>
+    <height>861</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -940,7 +940,7 @@
         </property>
        </widget>
       </widget>
-      <widget class="QWidget" name="tab_6">
+      <widget class="QWidget" name="Warhammer">
        <attribute name="title">
         <string>Warhammer</string>
        </attribute>
@@ -1119,7 +1119,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1261</width>
+     <width>1463</width>
      <height>25</height>
     </rect>
    </property>

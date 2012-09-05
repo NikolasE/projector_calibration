@@ -144,14 +144,14 @@ namespace projector_calibration {
 
    cv::Mat M;
 
-   pcl::PolygonMesh mesh;
+
 
   public Q_SLOTS:
      // void setScale(int newscale);
      // void drawMesh(const pcl::PolygonMesh& mesh);
      // GLuint createMeshList(const visualization_msgs::Marker& mesh_marker);
 
-     void setMesh(const pcl::PolygonMesh& mesh);
+//     void setMesh(const pcl::PolygonMesh* mesh_);
 
 
  protected:
@@ -170,6 +170,8 @@ namespace projector_calibration {
  public:
      GLuint makeObject();
      GLuint object;
+
+     pcl::PolygonMesh* mesh;
  };
 
 
@@ -209,7 +211,6 @@ namespace projector_calibration {
   ** Auto-connections (connectQ_SLOTSByName())
   *******************************************/
  void mouse_new_points();
- void on_actionAbout_triggered();
  void show_fullscreen_pattern();
  void select_marker_area();
  void project_black_background();
@@ -275,6 +276,8 @@ GL_Mesh_Viewer *gl_viewer;
  // only show smaller images on the gui:
  float image_scale;
 
+ std::vector<ros::Time> frame_update_times;
+ static const uint hist_length = 10; // show mean framerate over last n frames
  };
 
 }  // namespace projector_calibration

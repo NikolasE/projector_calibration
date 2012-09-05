@@ -31,7 +31,7 @@ namespace projector_calibration
   *****************************************************************************/
 
  QNode::QNode(int argc, char** argv) :
-                    init_argc(argc), init_argv(argv)
+                          init_argc(argc), init_argv(argv)
  {
   init();
  }
@@ -96,7 +96,7 @@ namespace projector_calibration
   user_input = new User_Input();
   user_input->init();
 
-
+  train_frame_cnt = 2;
   train_background = true;
 
 
@@ -144,6 +144,12 @@ namespace projector_calibration
  void QNode::imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr,
    const sensor_msgs::PointCloud2ConstPtr& cloud_ptr)
  {
+
+  ros::Time now_callback = ros::Time::now();
+
+
+
+
   pcl::fromROSMsg(*cloud_ptr, current_cloud);
   cv_ptr = cv_bridge::toCvCopy(img_ptr, sensor_msgs::image_encodings::BGR8);
 
@@ -176,47 +182,53 @@ namespace projector_calibration
     float lx = 0.30;
     float ly = 0.20;
 
-    modeler_cell_size = 0.0033;
-//    modeler_cell_size = 0.1;
+    //    modeler_cell_size = 0.0033;
+    modeler_cell_size = 0.02;
     modeler.init(modeler_cell_size, -lx,lx,-ly,ly);
    }
 
+
+   ros::Time start_train = ros::Time::now();
    uint cnt = modeler.addTrainingFrame(calibrator.cloud_moved);
+   ROS_INFO("Adding Frame: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
 
    // uint cnt = detector.addTrainingFrame(calibrator.input_cloud);
-   ROS_INFO("Background calibration: added traingframe %i of %i", cnt, train_frame_cnt);
+   // ROS_INFO("Background calibration: added traingframe %i of %i", cnt, train_frame_cnt);
    if (cnt == train_frame_cnt)
     {
     //detector.computeBackground(0.007);
-//    train_background = false;
-//    ROS_INFO("computed Background");
-//
-//    cv::imwrite("area.jpg",area_mask);
-//    cv::imwrite("m1.jpg",detector.mask);
-//
-//
-//    if (area_mask.cols == current_col_img.cols){
-//     detector.applyMask(area_mask);
-//    }
-//
-//    cv::imwrite("m2.jpg",detector.mask);
-//
-//
-//    Cloud foo = detector.showBackground(calibrator.input_cloud);
-//    Cloud::Ptr msg = foo.makeShared();
-//    msg->header.frame_id = "/openni_rgb_optical_frame";
-//    msg->header.stamp = ros::Time::now();
-//    pub_background.publish(msg);
+    //    train_background = false;
+    //    ROS_INFO("computed Background");
+    //
+    //    cv::imwrite("area.jpg",area_mask);
+    //    cv::imwrite("m1.jpg",detector.mask);
+    //
+    //
+    //    if (area_mask.cols == current_col_img.cols){
+    //     detector.applyMask(area_mask);
+    //    }
+    //
+    //    cv::imwrite("m2.jpg",detector.mask);
+    //
+    //
+    //    Cloud foo = detector.showBackground(calibrator.input_cloud);
+    //    Cloud::Ptr msg = foo.makeShared();
+    //    msg->header.frame_id = "/openni_rgb_optical_frame";
+    //    msg->header.stamp = ros::Time::now();
+    //    pub_background.publish(msg);
 
     // compute background method 2:
-
+    ros::Time now = ros::Time::now();
     modeler.computeModel();
+    ROS_INFO("Compute Model: %f ms", (ros::Time::now()-now).toSec()*1000.0);
 
-    Cloud model = modeler.getModel();
-    Cloud::Ptr msg = model.makeShared();
-    msg->header.frame_id = "/openni_rgb_optical_frame";
-    msg->header.stamp = ros::Time::now();
-    pub_model.publish(msg);
+
+
+    //    Cloud model = modeler.getModel();
+    //    Cloud::Ptr msg = model.makeShared();
+    //    msg->header.frame_id = "/openni_rgb_optical_frame";
+    //    msg->header.stamp = ros::Time::now();
+    //    pub_model.publish(msg);
 
     Q_EMIT model_computed();
 
@@ -228,12 +240,6 @@ namespace projector_calibration
   if (foreGroundVisualizationActive && detector.isInitiated())
    {
    // ROS_INFO("foreground visulization active");
-
-
-
-
-
-
 
    ROS_INFO("RANGE from %f to %f", min_dist, visual_z_max);
 
@@ -267,20 +273,10 @@ namespace projector_calibration
    //   msg->header.stamp = ros::Time::now();
    //   pub_colored_cloud.publish(msg);
 
-
-
-
-
    //   // background method 2:
    //   cv::Mat fg_2;
    //   modeler.getForeground(calibrator.cloud_moved, 0.1, fg_2);
-
-
    //   cv::imwrite("modeler.jpg", fg_2);
-
-
-
-
 
    Q_EMIT update_projector_image();
    }
@@ -322,12 +318,36 @@ namespace projector_calibration
 
   Q_EMIT received_col_Image();
 
+
+  ROS_INFO("FULL Callback: %f ms", (ros::Time::now()-now_callback).toSec()*1000.0);
+
+
  }
+
+
+ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
+ {
+
+  ROS_INFO("git image");
+  //  sensor_msgs::CvBridge bridge;
+  //  try
+  //  {
+  //
+  //
+  //   // cvShowImage("view", bridge.imgMsgToCv(msg, "bgr8"));
+  //  }
+  //  catch (sensor_msgs::CvBridgeException& e)
+  //  {
+  //   ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+  //  }
+ }
+
+
 
  void
  QNode::run()
  {
-  ros::Rate loop_rate(10);
+  ros::Rate loop_rate(40);
 
 
   ROS_INFO("Starting to run");
@@ -343,6 +363,10 @@ namespace projector_calibration
   message_filters::Synchronizer<policy> sync(policy(2), image_sub, cloud_sub);
   sync.registerCallback(boost::bind(&QNode::imgCloudCB, this, _1, _2));
 
+
+  image_transport::ImageTransport it(nh);
+  image_transport::Subscriber sub = it.subscribe("camera/depth/image", 1, imageCallback);
+
   pub_cloud_worldsystem = nh.advertise<Cloud> ("cloud_world", 1);
   pub_3d_calib_points = nh.advertise<Cloud> ("calibration_points_3d", 1);
   pub_colored_cloud = nh.advertise<Cloud> ("colored", 1);
@@ -352,11 +376,14 @@ namespace projector_calibration
   pub_foreground  = nh.advertise<Cloud> ("foreground", 1);
   //  ros::Subscriber sub = n.subscribe("chatter", 1000, &Listener::callback, &listener);
 
-  while (ros::ok())
-   {
-   ros::spinOnce();
-   loop_rate.sleep();
-   }
+
+  ros::spin();
+
+  //  while (ros::ok())
+  //   {
+  //   ros::spinOnce();
+  //   loop_rate.sleep();
+  //   }
   std::cout << "Ros shutdown, proceeding to close the gui." << std::endl;
   Q_EMIT rosShutdown(); // used to signal the gui for a shutdown (useful to roslaunch)
  }
@@ -369,35 +396,35 @@ namespace projector_calibration
   switch (level)
   {
   case (Debug):
-                     {
+                           {
    ROS_DEBUG_STREAM(msg);
    logging_model_msg << "[DEBUG] [" << ros::Time::now() << "]: " << msg;
    break;
-                     }
+                           }
   case (Info):
-                     {
+                           {
    ROS_INFO_STREAM(msg);
    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
    break;
-                     }
+                           }
   case (Warn):
-                     {
+                           {
    ROS_WARN_STREAM(msg);
    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
    break;
-                     }
+                           }
   case (Error):
-                     {
+                           {
    ROS_ERROR_STREAM(msg);
    logging_model_msg << "[ERROR] [" << ros::Time::now() << "]: " << msg;
    break;
-                     }
+                           }
   case (Fatal):
-                     {
+                           {
    ROS_FATAL_STREAM(msg);
    logging_model_msg << "[FATAL] [" << ros::Time::now() << "]: " << msg;
    break;
-                     }
+                           }
   }
   QVariant new_row(QString(logging_model_msg.str().c_str()));
   logging_model.setData(logging_model.index(logging_model.rowCount() - 1),

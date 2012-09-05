@@ -114,28 +114,57 @@ namespace projector_calibration {
 
 //  ROS_INFO("show with openGL");
 
+  ros::Time start_show_openGL = ros::Time::now();
+
+
+  ros::Time now_getmodel = ros::Time::now();
   Cloud model = qnode.modeler.getModel();
+  ROS_INFO("getModel: %f ms", (ros::Time::now()-now_getmodel).toSec()*1000);
+
+  ros::Time now_color = ros::Time::now();
   Cloud colored = colorizeCloud(model, 100,-1,qnode.color_range); // max, min, color_range
+  ROS_INFO("colorizeCloud: %f ms", (ros::Time::now()-now_color).toSec()*1000.0);
 
   float max_length = 100; // max edge length of drawn triangle in m
+
+
+  ros::Time now_mesh = ros::Time::now();
   pcl::PolygonMesh mesh = qnode.mesh_visualizer.createMesh(colored, max_length);
+  ROS_INFO("createMesh: %f ms", (ros::Time::now()-now_mesh).toSec()*1000.0);
 
-  qnode.mesh_visualizer.visualizeMesh(mesh);
 
-  gl_viewer->setMesh(mesh);
+//  qnode.mesh_visualizer.visualizeMesh(mesh);
+
+  gl_viewer->mesh = &mesh;
   gl_viewer->M = qnode.calibrator.proj_Matrix;
 
 
-  gl_viewer->resize(lb_img.width(),lb_img.height());
+//  gl_viewer->resize(lb_img.width(),lb_img.height());
+  ros::Time now_render = ros::Time::now();
   QPixmap pix2 = gl_viewer->renderPixmap(lb_img.width(),lb_img.height(),true);
   lb_img.setPixmap(pix2);
-  lb_img.repaint();
+  ROS_INFO("Rendering: %f ms", (ros::Time::now()-now_render).toSec()*1000.0);
+
+//  lb_img.repaint();
+
+
+
+  ROS_INFO("Showing Model with openGL (total): %f ms", (ros::Time::now()-start_show_openGL).toSec()*1000);
+
+
+  frame_update_times.push_back(ros::Time::now());
+  if (frame_update_times.size() > hist_length){
+   ros::Time earlier = frame_update_times[frame_update_times.size()-1-hist_length];
+   double fr = hist_length/(frame_update_times[frame_update_times.size()-1]-earlier).toSec();
+   ui.lb_framerate->setText(QString::number(int(fr*100)/100.0));
+  }
+
+
 
 //  gl_viewer->resize(ui.lb_img_2->width(),ui.lb_img_2->height());
 //  QPixmap pix = gl_viewer->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
 //  ui.lb_img_2->setPixmap(pix);
 //  ui.lb_img_2->repaint();
-
 
   qnode.modeler.reset();
 
@@ -294,8 +323,6 @@ namespace projector_calibration {
   }
 
  }
-
-
 
 
  void MainWindow::project_black_background(){
@@ -627,11 +654,7 @@ namespace projector_calibration {
    msg << "Could not compute Projection Matrix (not enough points or to little variation in z-direction)";
   }
 
-
-
-
   qnode.writeToOutput(msg);
-
  }
 
  void MainWindow::save_projection_matrix(){
@@ -687,13 +710,7 @@ namespace projector_calibration {
    qnode.writeToOutput(sstream("No image to remove"));
  }
 
- // void MainWindow::on_checkbox_use_environment_stateChanged(int state) {
- //  //  bool enabled;
- //  //  enabled = ( state == 0 );
- //  //  ui.line_edit_master->setEnabled(enabled);
- //  //  ui.line_edit_host->setEnabled(enabled);
- //  //ui.line_edit_topic->setEnabled(enabled);
- // }
+
 
  /*****************************************************************************
   ** Implemenation [Slots][manually connected]
@@ -712,9 +729,6 @@ namespace projector_calibration {
   ** Implementation [Menu]
   *****************************************************************************/
 
- void MainWindow::on_actionAbout_triggered() {
-  QMessageBox::about(this, tr("About ..."),tr("<h2>PACKAGE_NAME Test Program 0.10</h2><p>Copyright Yujin Robot</p><p>This package needs an about description.</p>"));
- }
 
  /*****************************************************************************
   ** Implementation [Configuration]

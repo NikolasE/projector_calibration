@@ -26,7 +26,7 @@
   <!-- rosbuild1 -->
   <depend package="qt_build"/>
   <depend package="roscpp"/>
-  
+   <depend package="image_transport"/>
   
   <rosbuild2>
     <depend package="qt_build"/>

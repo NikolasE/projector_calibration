@@ -36,13 +36,13 @@ GL_Mesh_Viewer::~GL_Mesh_Viewer()
 void GL_Mesh_Viewer::drawMesh(){
 
  Cloud cloud;
- pcl::fromROSMsg(mesh.cloud, cloud);
+ pcl::fromROSMsg(mesh->cloud, cloud);
 
  glBegin(GL_TRIANGLES);
 
- for (uint i=0; i<mesh.polygons.size(); i++){
+ for (uint i=0; i<mesh->polygons.size(); i++){
   for (uint j = 0; j<3; ++j){
-   pcl_Point p = cloud.points[mesh.polygons[i].vertices[j]];
+   pcl_Point p = cloud.points[mesh->polygons[i].vertices[j]];
    glColor3f(p.r/255.0, p.g/255.0, p.b/255.0);
    glVertex3f(p.x, p.y, p.z);
   }
@@ -215,9 +215,9 @@ void GL_Mesh_Viewer::paintGL()
 }
 
 
-void GL_Mesh_Viewer::setMesh(const pcl::PolygonMesh& mesh_){
- mesh = mesh_;
-}
+//void GL_Mesh_Viewer::setMesh(pcl::PolygonMesh* mesh_){
+// mesh = mesh_;
+//}
 
 
 GLuint GL_Mesh_Viewer::makeObject()

@@ -39,6 +39,7 @@
 #include "pinch_recognition/pinch_detection.h"
 #include "rgbd_utils/surface_modeler.h"
 #include <QtOpenGL/qgl.h>
+#include <image_transport/image_transport.h>
 
 /*****************************************************************************
  ** Namespaces
@@ -63,7 +64,7 @@ namespace projector_calibration {
   Projector_Calibrator calibrator;
 
   Pinch_detector detector;
-  const static uint train_frame_cnt = 5;
+  uint train_frame_cnt;
   bool train_background;
   bool foreGroundVisualizationActive;
 

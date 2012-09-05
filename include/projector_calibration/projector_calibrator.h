@@ -231,7 +231,7 @@ public:
  void createMaskFromDetections();
 
  void setInputImage(cv::Mat& image){input_image = image; detected_corners.clear();}
- void setInputCloud(Cloud& cloud);
+ void setInputCloud(const Cloud& cloud);
 
 
 

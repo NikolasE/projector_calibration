@@ -56,6 +56,12 @@ include(${QT_USE_FILE})
 
 include_directories(${QT_QTOPENGL_INCLUDE_DIR})
 
+# add dynamic reconfigure api
+rosbuild_find_ros_package(dynamic_reconfigure)
+include(${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake)
+gencfg()
+
+
 ##############################################################################
 # Sections
 ##############################################################################

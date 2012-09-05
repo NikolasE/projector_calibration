@@ -147,10 +147,7 @@ namespace projector_calibration {
 
 //  lb_img.repaint();
 
-
-
   ROS_INFO("Showing Model with openGL (total): %f ms", (ros::Time::now()-start_show_openGL).toSec()*1000);
-
 
   frame_update_times.push_back(ros::Time::now());
   if (frame_update_times.size() > hist_length){
@@ -159,15 +156,12 @@ namespace projector_calibration {
    ui.lb_framerate->setText(QString::number(int(fr*100)/100.0));
   }
 
-
-
 //  gl_viewer->resize(ui.lb_img_2->width(),ui.lb_img_2->height());
 //  QPixmap pix = gl_viewer->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
 //  ui.lb_img_2->setPixmap(pix);
 //  ui.lb_img_2->repaint();
 
-  qnode.modeler.reset();
-
+ // qnode.modeler.reset();
 
  }
 

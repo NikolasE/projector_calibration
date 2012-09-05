@@ -134,9 +134,23 @@ namespace projector_calibration {
  };
 
 
+
+
+ /* Image type - contains height, width, and data */
+ struct gl_Image {
+     unsigned long sizeX;
+     unsigned long sizeY;
+     char *data;
+ };
+
  class GL_Mesh_Viewer : public QGLWidget
  {
    Q_OBJECT
+
+ private:
+   /* storage for one texture  */
+   GLuint texture[1];
+
  public:
    GL_Mesh_Viewer( QWidget* parent);
    ~GL_Mesh_Viewer();
@@ -145,7 +159,7 @@ namespace projector_calibration {
    cv::Mat M;
 
 
-
+   void LoadGLTextures();
   public Q_SLOTS:
      // void setScale(int newscale);
      // void drawMesh(const pcl::PolygonMesh& mesh);
@@ -159,6 +173,7 @@ namespace projector_calibration {
      void drawList(GLuint list_id);
 
      void drawMesh();
+     void drawMeshWithTexture();
 
      void initializeGL();
      void paintGL();

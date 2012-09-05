@@ -33,6 +33,86 @@ GL_Mesh_Viewer::~GL_Mesh_Viewer()
 
 
 
+
+void GL_Mesh_Viewer::LoadGLTextures() {
+ // Load Texture
+ gl_Image *image1;
+
+ // allocate space for texture
+ image1 = (gl_Image *) malloc(sizeof(gl_Image));
+ if (image1 == NULL) {
+  printf("Error allocating space for image");
+  exit(0);
+ }
+
+ // if (!ImageLoad("imgs/NeHe.bmp", image1)) {
+ //  exit(1);
+ // }
+ glEnable(GL_TEXTURE_2D);
+
+ // Create Texture
+ glGenTextures(1, &texture[0]);
+ glBindTexture(GL_TEXTURE_2D, texture[0]);   // 2d texture (x and y size)
+
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR); // scale linearly when image bigger than texture
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); // scale linearly when image smalled than texture
+
+ // 2d texture, level of detail 0 (normal), 3 components (red, green, blue), x size from image, y size from image,
+ // border 0 (normal), rgb color data, unsigned byte data, and finally the data itself.
+
+ cv::Mat texture_cv = cv::imread("imgs/NeHe.bmp");
+
+ ROS_INFO("texture: %i %i", texture_cv.cols, texture_cv.rows);
+
+ glTexImage2D(GL_TEXTURE_2D, 0, 3, texture_cv.cols, texture_cv.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, texture_cv.data);
+
+ // cv::namedWindow("foo");
+ // cv::imshow("foo", texture_cv);
+ // cv::waitKey(10);
+
+
+ // glTexImage2D(GL_TEXTURE_2D, 0, 3, image1->sizeX, image1->sizeY, 0, GL_RGB, GL_UNSIGNED_BYTE, image1->data);
+};
+
+
+
+void GL_Mesh_Viewer::drawMeshWithTexture(){
+
+ ROS_INFO("TEXTURE @###################");
+
+ LoadGLTextures();
+
+ glBindTexture(GL_TEXTURE_2D, texture[0]);   // choose the texture to use.
+
+
+ glBegin(GL_QUADS);
+
+ // Front Face (note that the texture's corners have to match the quad's corners)
+
+ float x = 0.1;
+ float y = 0.1;
+
+ // glColor3f(1,0,0);
+
+ glTexCoord2f(0.0f, 0.0f);
+ glVertex3f(-x, -y,  0.0f);  // Bottom Left Of The Texture and Quad
+
+
+ glTexCoord2f(0.0f, 1.0f);
+ glVertex3f( x, -y,  0.0f);  // Bottom Right Of The Texture and Quad
+
+ glTexCoord2f(1.0f, 1.0f);
+ glVertex3f( x,  y,  0.0f);  // Top Right Of The Texture and Quad
+
+ glTexCoord2f(1.0f, 0.0f);
+ glVertex3f(-x,  y,  0.0f);  // Top Left Of The Texture and Quad
+
+ glEnd();
+
+
+}
+
+
 void GL_Mesh_Viewer::drawMesh(){
 
  Cloud cloud;
@@ -53,17 +133,22 @@ void GL_Mesh_Viewer::drawMesh(){
 }
 
 
+
+
+
+
+
 void GL_Mesh_Viewer::drawList(GLuint list_id){
  glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
  glEnable( GL_DEPTH_TEST );
-// glLoadIdentity();
-// glTranslatef(0.0, 0.0, -10.0);
-// // set the zoom according to the scale variable
-// glScalef(scale, scale, scale);
-// // set the image rotation up according to xRot, yRot, zRot
-// glRotatef( xRot, 1.0, 0.0, 0.0);
-// glRotatef( yRot, 0.0, 1.0, 0.0);
-// glRotatef( zRot, 0.0, 0.0, 1.0);
+ // glLoadIdentity();
+ // glTranslatef(0.0, 0.0, -10.0);
+ // // set the zoom according to the scale variable
+ // glScalef(scale, scale, scale);
+ // // set the image rotation up according to xRot, yRot, zRot
+ // glRotatef( xRot, 1.0, 0.0, 0.0);
+ // glRotatef( yRot, 0.0, 1.0, 0.0);
+ // glRotatef( zRot, 0.0, 0.0, 1.0);
 
  glCallList(list_id);
 }
@@ -206,10 +291,11 @@ void GL_Mesh_Viewer::paintGL()
  glOrtho(0,w_,h_,0,-10,10);
  glViewport(0,0,w_,h_);
 
- drawMesh();
+ // drawMesh();
+
+ drawMeshWithTexture();
 
  //glCallList(object);
-
 
 
 }
@@ -321,7 +407,7 @@ GLuint GL_Mesh_Viewer::makeObject()
 
 void GL_Mesh_Viewer::initializeGL()
 {
-glClearColor( 0.0, 0.0, 0.0, 0.0 ); // Let OpenGL clear to black
+ glClearColor( 0.0, 0.0, 0.0, 0.0 ); // Let OpenGL clear to black
  object = makeObject(); // generate an OpenGL display list
  glShadeModel( GL_SMOOTH ); // we want smooth shading . . . try GL_FLAT if you like
 }

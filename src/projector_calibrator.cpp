@@ -2101,7 +2101,7 @@ bool Projector_Calibrator::findOptimalProjectionArea(float ratio, cv_RectF& rect
 
 }
 
-void Projector_Calibrator::setInputCloud(Cloud& cloud){
+void Projector_Calibrator::setInputCloud(const Cloud& cloud){
  // #define COMPUTE_NANS
 
  if (cloud.size() == 0){
@@ -2124,7 +2124,10 @@ void Projector_Calibrator::setInputCloud(Cloud& cloud){
 #endif
 
  if (kinect_trafo_valid){
+  //ros::Time foo = ros::Time::now();
   pcl::getTransformedPointCloud(input_cloud,kinect_trafo,cloud_moved);
+  //ROS_INFO("transforming: %f ms", (ros::Time::now()-foo).toSec()*1000);
+
 #ifdef COMPUTE_NANS
   for (uint i=0; i<cloud_moved.size(); ++i) {
    pcl_Point p = cloud_moved[i];

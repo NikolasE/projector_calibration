@@ -21,14 +21,18 @@
 #include <QThread>
 #include <QStringListModel>
 
-#include "rgbd_utils/type_definitions.h"
-
 
 #include "projector_calibration/projector_calibrator.h"
 #include "projector_calibration/user_input.h"
-
 #include "projector_calibration/calib_eval.h"
+
+#include "projector_calibration/visualization_paramsConfig.h"
+
 #include "rgbd_utils/calibration_utils.h"
+#include "rgbd_utils/surface_modeler.h"
+#include "rgbd_utils/type_definitions.h"
+
+#include "pinch_recognition/pinch_detection.h"
 
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/subscriber.h>
@@ -36,10 +40,10 @@
 #include <sensor_msgs/image_encodings.h>
 #include <opencv/cv.h>
 
-#include "pinch_recognition/pinch_detection.h"
-#include "rgbd_utils/surface_modeler.h"
+
 #include <QtOpenGL/qgl.h>
 #include <image_transport/image_transport.h>
+#include <dynamic_reconfigure/server.h>
 
 /*****************************************************************************
  ** Namespaces
@@ -57,6 +61,11 @@ namespace projector_calibration {
  class QNode : public QThread {
   Q_OBJECT
  public:
+
+
+  void imageCallback(const sensor_msgs::ImageConstPtr& msg);
+  void paramCallback(const projector_calibration::visualization_paramsConfig& config, uint32_t level);
+
 
   cv_bridge::CvImagePtr cv_ptr;
 
@@ -137,7 +146,7 @@ namespace projector_calibration {
   char** init_argv;
   QStringListModel logging_model;
 
-
+  bool restart_modeler;
 
 
 

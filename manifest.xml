@@ -11,6 +11,7 @@
 
 
   <depend package="rgbd_utils"/>
+  <depend package="water_simulation"/>
   
 
   <depend package="sensor_msgs"/>

@@ -161,7 +161,7 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>4</number>
+       <number>5</number>
       </property>
       <property name="documentMode">
        <bool>false</bool>
@@ -1027,7 +1027,7 @@
         <property name="geometry">
          <rect>
           <x>80</x>
-          <y>120</y>
+          <y>140</y>
           <width>181</width>
           <height>22</height>
          </rect>
@@ -1160,6 +1160,19 @@
         </property>
         <property name="text">
          <string>0</string>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="cb_water">
+        <property name="geometry">
+         <rect>
+          <x>80</x>
+          <y>190</y>
+          <width>151</width>
+          <height>22</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>water simulation</string>
         </property>
        </widget>
       </widget>
@@ -1797,6 +1810,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>cb_water</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>water_simulation_toggled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>142</x>
+     <y>269</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>452</x>
+     <y>611</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>show_fullscreen_pattern()</slot>
@@ -1833,5 +1862,6 @@
   <slot>gl_test()</slot>
   <slot>gl_visualization_toggled(bool)</slot>
   <slot>show_texture(bool)</slot>
+  <slot>water_simulation_toggled(bool)</slot>
  </slots>
 </ui>

@@ -257,6 +257,7 @@ namespace projector_calibration {
  void foreGroundVisualizationToggled(bool);
  void gl_visualization_toggled(bool);
  void show_texture(bool);
+ void water_simulation_toggled(bool);
 
  // calibration
  void compute_homography();

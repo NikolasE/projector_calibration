@@ -25,7 +25,6 @@
 #include "projector_calibration/projector_calibrator.h"
 #include "projector_calibration/user_input.h"
 #include "projector_calibration/calib_eval.h"
-
 #include "projector_calibration/visualization_paramsConfig.h"
 
 #include "rgbd_utils/calibration_utils.h"
@@ -33,6 +32,11 @@
 #include "rgbd_utils/type_definitions.h"
 
 #include "pinch_recognition/pinch_detection.h"
+
+#include "water_simulation/simulator_init.h"
+#include "water_simulation/simulator_step.h"
+#include "water_simulation/msg_source_sink.h"
+#include "water_simulation/water_simulation.h"
 
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/subscriber.h>
@@ -71,23 +75,27 @@ namespace projector_calibration {
 
   // the actual calibration object
   Projector_Calibrator calibrator;
-
   Pinch_detector detector;
+  Surface_Modeler modeler;
+  Mesh_visualizer mesh_visualizer;
+  User_Input* user_input;
+
+
   uint train_frame_cnt;
   bool train_background;
   bool openGL_visualizationActive;
   bool foreGroundVisualizationActive;
   bool show_texture;
+  bool water_simulation_active;
+
+  bool init_watersimulation();
+  bool step_watersimulation();
+  int water_request_id;
+
 
   bool loadParameters();
   void saveParameters();
 
-  Surface_Modeler modeler;
-
-  Mesh_visualizer mesh_visualizer;
-
-  User_Input* user_input;
-  float max_dist;
 
   ros::Publisher pub_cloud_worldsystem; // kinect cloud in world frame
   ros::Publisher pub_3d_calib_points; // detected corners in 3d
@@ -104,7 +112,10 @@ namespace projector_calibration {
   void writeToOutput(const std::stringstream& msg);
   bool user_interaction_active;
   bool depth_visualization_active;
-  float min_dist;
+
+
+
+  float min_dist, max_dist;
   float color_range;
 
   cv::Mat area_mask;

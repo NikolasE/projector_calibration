@@ -17,6 +17,8 @@
 #include <sstream>
 #include "../include/projector_calibration/qnode.hpp"
 
+
+
 /*****************************************************************************
  ** Namespaces
  *****************************************************************************/
@@ -31,7 +33,7 @@ namespace projector_calibration
   *****************************************************************************/
 
  QNode::QNode(int argc, char** argv) :
-                                                  init_argc(argc), init_argv(argv)
+                                                    init_argc(argc), init_argv(argv)
  {
   init();
  }
@@ -103,7 +105,7 @@ namespace projector_calibration
   foreGroundVisualizationActive = false;
   modeler_cell_size = 1/100.0; // given in m
 
-
+  water_request_id = 0;
   mesh_visualizer = Mesh_visualizer(n);
   restart_modeler = true;
 
@@ -152,6 +154,7 @@ namespace projector_calibration
   fs << "openGL_visualizationActive" << openGL_visualizationActive;
   fs << "depth_visualization_active" << depth_visualization_active;
   fs << "show_texture" << show_texture;
+  fs << "water_simulation_active" << water_simulation_active;
  }
 
 
@@ -169,6 +172,7 @@ namespace projector_calibration
   openGL_visualizationActive = (int)fs["openGL_visualizationActive"];
   depth_visualization_active = (int)fs["depth_visualization_active"];
   show_texture = (int)fs["show_texture"];
+  water_simulation_active  = (int)fs["water_simulation_active"];
 
 
   if (openGL_visualizationActive)
@@ -363,6 +367,88 @@ namespace projector_calibration
  }
 
 
+ bool QNode::init_watersimulation(){
+
+  cv::Mat land = modeler.getHeightImage();
+  // TODO: check if there is a good heightmodel
+
+
+  ROS_INFO("Height: %i %i", land.cols, land.rows);
+
+  land.convertTo(land, CV_64FC1,1); // scaling?
+
+  cv_bridge::CvImage out_msg;
+  out_msg.encoding = sensor_msgs::image_encodings::TYPE_64FC1;
+  out_msg.image    = land;
+
+
+  water_simulation::simulator_init srv_msg;
+
+  water_request_id++;
+  srv_msg.request.id = water_request_id;
+  srv_msg.request.land_img = *out_msg.toImageMsg();
+  srv_msg.request.viscosity = 0.9;
+  srv_msg.request.add_sink_border = false;
+
+
+  // TODO: timeout after 3sec?
+  ros::service::waitForService("srv_simulator_init",ros::DURATION_MAX);
+  ros::service::waitForService("srv_simulator_step",ros::DURATION_MAX);
+
+
+  if (ros::service::call("srv_simulator_init", srv_msg)){
+   ROS_INFO("simulation was initialized");
+  }else{
+   ROS_WARN("init failed (Simulation Service not available");
+  }
+
+
+  return true;
+
+ }
+
+
+ bool QNode::step_watersimulation(){
+
+  water_simulation::simulator_step msg_step;
+  msg_step.request.iteration_cnt = 10;
+  msg_step.request.id = water_request_id;
+
+  water_simulation::msg_source_sink source;
+  source.height = 0.05; // 5cm of water at this position
+  cv::Point pos = modeler.grid_pos(0,0); // source at origin
+  source.x = pos.x;
+  source.y = pos.y;
+  source.radius = 2; // TODO: only a point, not a circle
+  msg_step.request.sources_sinks.push_back(source);
+
+
+  if (ros::service::call("srv_simulator_step", msg_step)){
+
+     if (!msg_step.response.valid_id){
+      ROS_WARN("WATER SIMULATION: sent request with wrong id!");
+      return false;
+     }else{
+      // ROS_INFO("WATER SIMULATION: Active");
+      cv_bridge::CvImagePtr cv_ptr;
+      cv_ptr = cv_bridge::toCvCopy(msg_step.response.water_img, sensor_msgs::image_encodings::TYPE_64FC1);
+
+
+
+//      TODO: do something with the water!!1elf
+
+//      cv::imshow("water", cv_ptr->image*10);
+//      cv::waitKey(1);
+     }
+
+    }
+
+
+
+  return true;
+
+ }
+
  void QNode::imageCallback(const sensor_msgs::ImageConstPtr& msg)
  {
 
@@ -429,14 +515,21 @@ namespace projector_calibration
 
 
 
-  if (openGL_visualizationActive && calibrator.projMatrixSet()){
+  if ((openGL_visualizationActive || water_simulation_active) && calibrator.projMatrixSet()){
 
-   ros::Time start_train = ros::Time::now();
-   // uint cnt = modeler.addTrainingFrame(calibrator.cloud_moved);
+//   ros::Time start_train = ros::Time::now();
    modeler.updateHeight(calibrator.cloud_moved);
-   ROS_INFO("Frame Update: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
+//   ROS_INFO("Frame Update: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
 
-   Q_EMIT model_computed();
+
+   if (water_simulation_active)
+    step_watersimulation();
+
+   if (openGL_visualizationActive)
+    Q_EMIT model_computed();
+
+   // TODO: Q_EMIT for water_simulation
+
   }
 
 
@@ -530,35 +623,35 @@ namespace projector_calibration
   switch (level)
   {
   case (Debug):
-                                                   {
+                                                     {
    ROS_DEBUG_STREAM(msg);
    logging_model_msg << "[DEBUG] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                   }
+                                                     }
   case (Info):
-                                                   {
+                                                     {
    ROS_INFO_STREAM(msg);
    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                   }
+                                                     }
   case (Warn):
-                                                   {
+                                                     {
    ROS_WARN_STREAM(msg);
    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                   }
+                                                     }
   case (Error):
-                                                   {
+                                                     {
    ROS_ERROR_STREAM(msg);
    logging_model_msg << "[ERROR] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                   }
+                                                     }
   case (Fatal):
-                                                   {
+                                                     {
    ROS_FATAL_STREAM(msg);
    logging_model_msg << "[FATAL] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                   }
+                                                     }
   }
   QVariant new_row(QString(logging_model_msg.str().c_str()));
   logging_model.setData(logging_model.index(logging_model.rowCount() - 1),

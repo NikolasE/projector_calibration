@@ -39,8 +39,8 @@ namespace projector_calibration {
   lb_img.setParent(NULL);
   QRect screenres = QApplication::desktop()->screenGeometry(1);
   //  ROS_INFO("screenres 1: %i %i", screenres.x(), screenres.y());
-  lb_img.move(QPoint(screenres.x(), screenres.y()));
-  lb_img.showFullScreen();
+//  lb_img.move(QPoint(screenres.x(), screenres.y()));
+//  lb_img.showFullScreen();
 
 
   manual_z_change = 0;
@@ -495,7 +495,7 @@ namespace projector_calibration {
 
   gl_viewer->show_texture = qnode.show_texture;
   ui.cb_texture->setChecked(gl_viewer->show_texture);
-
+  ui.cb_water->setChecked(qnode.water_simulation_active);
 
   ROS_INFO("Loading");
 
@@ -723,6 +723,19 @@ namespace projector_calibration {
   sstream msg;
   qnode.calibrator.saveHomographyCV(msg);
   qnode.writeToOutput(msg);
+ }
+
+ void MainWindow::water_simulation_toggled(bool status){
+
+  if (status && !qnode.water_simulation_active){
+   bool success = qnode.init_watersimulation();
+//   if (success)
+//    ROS_INFO("Started water simulation");
+//   else
+//    ROS_INFO("Could not start water simulation");
+  }
+
+  qnode.water_simulation_active = status;
  }
 
  void MainWindow::gl_visualization_toggled(bool status){

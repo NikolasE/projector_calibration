@@ -75,15 +75,19 @@ namespace projector_calibration {
   Pinch_detector detector;
   uint train_frame_cnt;
   bool train_background;
+  bool openGL_visualizationActive;
   bool foreGroundVisualizationActive;
+  bool show_texture;
 
+  bool loadParameters();
+  void saveParameters();
 
   Surface_Modeler modeler;
 
   Mesh_visualizer mesh_visualizer;
 
   User_Input* user_input;
-  float visual_z_max;
+  float max_dist;
 
   ros::Publisher pub_cloud_worldsystem; // kinect cloud in world frame
   ros::Publisher pub_3d_calib_points; // detected corners in 3d

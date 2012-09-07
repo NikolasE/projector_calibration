@@ -37,7 +37,7 @@ namespace projector_calibration {
 
   // open label fullscreen on secondary monitor
   lb_img.setParent(NULL);
-  QRect screenres = QApplication::desktop()->screenGeometry(2);
+  QRect screenres = QApplication::desktop()->screenGeometry(1);
   //  ROS_INFO("screenres 1: %i %i", screenres.x(), screenres.y());
   lb_img.move(QPoint(screenres.x(), screenres.y()));
   lb_img.showFullScreen();
@@ -103,11 +103,17 @@ namespace projector_calibration {
   qnode.foreGroundVisualizationActive = ui.cb_foreground->isChecked();
   pattern_size_auto = ui.cb_autosize->isChecked();
 
+  loadParameters();
+
  }
 
  MainWindow::~MainWindow() {
 
  }
+
+
+
+
 
 
  void MainWindow::show_model_openGL(){
@@ -387,12 +393,7 @@ namespace projector_calibration {
  }
 
 
- // Calibration Evaluation
- void MainWindow::sl_threshold_changed(int threshold){
-  qnode.calibrator.eval_brightness_threshold = threshold;
-  ui.lb_brightness->setText( QString::number(threshold));
-  ui.lb_brightness->repaint();
- }
+
 
 
  void MainWindow::evaluate_pattern(){ qnode.eval_projection(); }
@@ -472,22 +473,83 @@ namespace projector_calibration {
 
  }
 
- void MainWindow::color_slider_moved(int col_cm){
-  qnode.color_range = col_cm/100.0; // now in meter
-  ui.lb_color->setText(QString::number(col_cm));
+
+ /*
+  *
+  * Slider callbacks
+  *
+  */
+
+
+ void MainWindow::loadParameters(){
+  if (!qnode.loadParameters()) return;
+
+  sl_threshold_changed(qnode.calibrator.eval_brightness_threshold);
+  color_slider_moved(qnode.color_range*100);
+  min_dist_changed(qnode.min_dist*1000);
+  z_max_changed(qnode.max_dist*100);
+
+  ui.cb_depth_visualization_GL->setChecked(qnode.openGL_visualizationActive);
+
+  ui.cb_depth_visualization->setChecked(qnode.depth_visualization_active);
+
+  gl_viewer->show_texture = qnode.show_texture;
+  ui.cb_texture->setChecked(gl_viewer->show_texture);
+
+
+  ROS_INFO("Loading");
+
  }
 
 
+
+
+ void MainWindow::color_slider_moved(int col_cm){
+  // set sliderposition so that function can also be called
+  // when loading parameters from file
+  ui.slider_color->setSliderPosition(col_cm);
+  qnode.color_range = col_cm/100.0; // now in meter
+
+  ROS_INFO("color slider: %i cm", col_cm);
+  ui.lb_color->setText(QString::number(col_cm));
+
+  qnode.saveParameters();
+ }
+
+
+ // Calibration Evaluation
+ void MainWindow::sl_threshold_changed(int threshold){
+  ui.sl_brightness->setSliderPosition(threshold);
+  qnode.calibrator.eval_brightness_threshold = threshold;
+  ui.lb_brightness->setText( QString::number(threshold));
+  ui.lb_brightness->repaint();
+
+  qnode.saveParameters();
+ }
+
  void MainWindow::min_dist_changed(int min_dist){
+
+  ui.slider_mindist->setSliderPosition(min_dist);
   qnode.min_dist = min_dist/1000.0;
   ui.lb_mindist->setText(QString::number(min_dist));
+
+  qnode.saveParameters();
  }
 
  void MainWindow::z_max_changed(int z_max){
-  qnode.visual_z_max = z_max/100.0; // given in cm
+  ui.slider_z_max->setSliderPosition(z_max);
+  qnode.max_dist = z_max/100.0; // given in cm
   ui.z_max_label->setText(QString::number(z_max));
   ui.z_max_label->repaint();
+
+  qnode.saveParameters();
  }
+
+
+
+
+
+
 
  void MainWindow::manual_yaw_changed(int yaw){
   float y = yaw/2.0;
@@ -663,6 +725,10 @@ namespace projector_calibration {
   qnode.writeToOutput(msg);
  }
 
+ void MainWindow::gl_visualization_toggled(bool status){
+  qnode.openGL_visualizationActive = status;
+  qnode.saveParameters();
+ }
 
  void MainWindow::user_interaction_toggled(bool status){
   qnode.user_interaction_active = status;
@@ -670,9 +736,9 @@ namespace projector_calibration {
 
  void MainWindow::foreGroundVisualizationToggled(bool status){
 
-  min_dist_changed(ui.slider_mindist->value());
-  z_max_changed(ui.slider_z_max->value());
-  color_slider_moved(ui.slider_color->value());
+//  min_dist_changed(ui.slider_mindist->value());
+//  z_max_changed(ui.slider_z_max->value());
+//  color_slider_moved(ui.slider_color->value());
 
   qnode.foreGroundVisualizationActive = status;
  }
@@ -689,13 +755,20 @@ namespace projector_calibration {
 
  void MainWindow::depth_visualzation_toggled(bool status){
 
-  min_dist_changed(ui.slider_mindist->value());
-  min_dist_changed(ui.slider_z_max->value());
-  color_slider_moved(ui.slider_color->value());
+//  min_dist_changed(ui.slider_mindist->value());
+//  min_dist_changed(ui.slider_z_max->value());
+//  color_slider_moved(ui.slider_color->value());
 
   qnode.depth_visualization_active = status;
  }
 
+
+ void MainWindow::show_texture(bool status){
+  gl_viewer->show_texture = status;
+
+  qnode.show_texture = status;
+  qnode.saveParameters();
+ }
 
  void MainWindow::delete_last_img(){
   if (qnode.calibrator.removeLastObservations())

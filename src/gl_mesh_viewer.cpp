@@ -24,6 +24,7 @@ GL_Mesh_Viewer::GL_Mesh_Viewer( QWidget* parent)
 {
  object = 0;
  initializeGL();
+ show_texture = false;
 }
 
 GL_Mesh_Viewer::~GL_Mesh_Viewer()
@@ -35,6 +36,9 @@ GL_Mesh_Viewer::~GL_Mesh_Viewer()
 
 
 void GL_Mesh_Viewer::LoadGLTextures() {
+
+ ROS_INFO("Load texture");
+
  // Load Texture
  gl_Image *image1;
 
@@ -45,69 +49,93 @@ void GL_Mesh_Viewer::LoadGLTextures() {
   exit(0);
  }
 
- // if (!ImageLoad("imgs/NeHe.bmp", image1)) {
- //  exit(1);
- // }
- glEnable(GL_TEXTURE_2D);
+
 
  // Create Texture
  glGenTextures(1, &texture[0]);
+
  glBindTexture(GL_TEXTURE_2D, texture[0]);   // 2d texture (x and y size)
 
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR); // scale linearly when image bigger than texture
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); // scale linearly when image smalled than texture
 
- // 2d texture, level of detail 0 (normal), 3 components (red, green, blue), x size from image, y size from image,
- // border 0 (normal), rgb color data, unsigned byte data, and finally the data itself.
 
- cv::Mat texture_cv = cv::imread("imgs/NeHe.bmp");
+ texture_cv = cv::imread("imgs/test.bmp");
 
  ROS_INFO("texture: %i %i", texture_cv.cols, texture_cv.rows);
 
+ // 2d texture, level of detail 0 (normal), 3 components (red, green, blue), x size from image, y size from image,
+ // border 0 (normal), rgb color data, unsigned byte data, and finally the data itself.
  glTexImage2D(GL_TEXTURE_2D, 0, 3, texture_cv.cols, texture_cv.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, texture_cv.data);
 
  // cv::namedWindow("foo");
  // cv::imshow("foo", texture_cv);
  // cv::waitKey(10);
 
-
- // glTexImage2D(GL_TEXTURE_2D, 0, 3, image1->sizeX, image1->sizeY, 0, GL_RGB, GL_UNSIGNED_BYTE, image1->data);
 };
 
 
 
 void GL_Mesh_Viewer::drawMeshWithTexture(){
 
- ROS_INFO("TEXTURE @###################");
+ glEnable(GL_TEXTURE_2D);
 
- LoadGLTextures();
+ if (texture_cv.cols != 256)
+  LoadGLTextures();
+
+
+ Cloud cloud;
+ pcl::fromROSMsg(mesh->cloud, cloud);
 
  glBindTexture(GL_TEXTURE_2D, texture[0]);   // choose the texture to use.
 
-
- glBegin(GL_QUADS);
-
- // Front Face (note that the texture's corners have to match the quad's corners)
-
- float x = 0.1;
- float y = 0.1;
-
- // glColor3f(1,0,0);
-
- glTexCoord2f(0.0f, 0.0f);
- glVertex3f(-x, -y,  0.0f);  // Bottom Left Of The Texture and Quad
+ //ROS_INFO("w.h: %i %i", cloud.width, cloud.height);
 
 
- glTexCoord2f(0.0f, 1.0f);
- glVertex3f( x, -y,  0.0f);  // Bottom Right Of The Texture and Quad
+ glBegin(GL_TRIANGLES);
 
- glTexCoord2f(1.0f, 1.0f);
- glVertex3f( x,  y,  0.0f);  // Top Right Of The Texture and Quad
+ for (uint i=0; i<mesh->polygons.size(); i++){
+  for (uint j = 0; j<3; ++j){
 
- glTexCoord2f(1.0f, 0.0f);
- glVertex3f(-x,  y,  0.0f);  // Top Left Of The Texture and Quad
+   int idx = mesh->polygons[i].vertices[j];
+
+   pcl_Point p = cloud.points[idx];
+
+   int x = idx%cloud.width;
+   int y = idx/cloud.width;
+
+
+   // ROS_INFO("x,y: %i %i u,v: %f %f", x,y,x/(1.0*(cloud.width-1)), y/(1.0*(cloud.height-1)));
+
+   glTexCoord2f(x/(1.0*(cloud.width-1)),y/(1.0*(cloud.height-1)));
+   glVertex3f(p.x, p.y, p.z);
+  }
+ }
 
  glEnd();
+
+
+ glDisable(GL_TEXTURE_2D);
+
+ // // Front Face (note that the texture's corners have to match the quad's corners)
+ //
+ // float x = 0.1;
+ // float y = 0.1;
+ //
+ // // glColor3f(1,0,0);
+ //
+ // glTexCoord2f(0.0f, 0.0f);
+ // glVertex3f(-x, -y,  0.0f);  // Bottom Left Of The Texture and Quad
+ //
+ // glTexCoord2f(0.0f, 1.0f);
+ // glVertex3f( x, -y,  0.0f);  // Bottom Right Of The Texture and Quad
+ //
+ // glTexCoord2f(1.0f, 1.0f);
+ // glVertex3f( x,  y,  0.0f);  // Top Right Of The Texture and Quad
+ //
+ // glTexCoord2f(1.0f, 0.0f);
+ // glVertex3f(-x,  y,  0.0f);  // Top Left Of The Texture and Quad
+
 
 
 }
@@ -291,9 +319,12 @@ void GL_Mesh_Viewer::paintGL()
  glOrtho(0,w_,h_,0,-10,10);
  glViewport(0,0,w_,h_);
 
- // drawMesh();
+ //
 
- drawMeshWithTexture();
+ if (show_texture)
+  drawMeshWithTexture();
+ else
+  drawMesh();
 
  //glCallList(object);
 

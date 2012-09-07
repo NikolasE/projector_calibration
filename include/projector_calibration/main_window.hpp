@@ -138,55 +138,60 @@ namespace projector_calibration {
 
  /* Image type - contains height, width, and data */
  struct gl_Image {
-     unsigned long sizeX;
-     unsigned long sizeY;
-     char *data;
+  unsigned long sizeX;
+  unsigned long sizeY;
+  char *data;
  };
 
  class GL_Mesh_Viewer : public QGLWidget
  {
-   Q_OBJECT
+  Q_OBJECT
 
  private:
-   /* storage for one texture  */
-   GLuint texture[1];
+  /* storage for one texture  */
+  GLuint texture[1];
+
+  cv::Mat texture_cv;
 
  public:
-   GL_Mesh_Viewer( QWidget* parent);
-   ~GL_Mesh_Viewer();
+  GL_Mesh_Viewer( QWidget* parent);
+  ~GL_Mesh_Viewer();
 
 
-   cv::Mat M;
+  cv::Mat M;
+   bool show_texture;
 
 
-   void LoadGLTextures();
-  public Q_SLOTS:
-     // void setScale(int newscale);
-     // void drawMesh(const pcl::PolygonMesh& mesh);
-     // GLuint createMeshList(const visualization_msgs::Marker& mesh_marker);
+  void LoadGLTextures();
+ public Q_SLOTS:
+ // void setScale(int newscale);
+ // void drawMesh(const pcl::PolygonMesh& mesh);
+ // GLuint createMeshList(const visualization_msgs::Marker& mesh_marker);
 
-//     void setMesh(const pcl::PolygonMesh* mesh_);
+ //     void setMesh(const pcl::PolygonMesh* mesh_);
+
+
 
 
  protected:
 
-     void drawList(GLuint list_id);
+ void drawList(GLuint list_id);
 
-     void drawMesh();
-     void drawMeshWithTexture();
+ void drawMesh();
+ void drawMeshWithTexture();
 
-     void initializeGL();
-     void paintGL();
-     void resizeGL( int w, int h );
+ void initializeGL();
+ void paintGL();
+ void resizeGL( int w, int h );
 
-     cv::Point2f simulateGlPipeline(float x, float y, float z);
+ cv::Point2f simulateGlPipeline(float x, float y, float z);
 
-     int w_,h_;
+ int w_,h_;
  public:
-     GLuint makeObject();
-     GLuint object;
+ GLuint makeObject();
+ GLuint object;
 
-     pcl::PolygonMesh* mesh;
+ pcl::PolygonMesh* mesh;
  };
 
 
@@ -244,12 +249,14 @@ namespace projector_calibration {
  void learn_environment();
  void show_model_openGL();
 
-// void setProjectorPixmap(const QPixmap& pixmap);
+ // void setProjectorPixmap(const QPixmap& pixmap);
 
  void user_interaction_toggled(bool);
  void depth_visualzation_toggled(bool);
  void pattern_auto_size_toggled(bool);
  void foreGroundVisualizationToggled(bool);
+ void gl_visualization_toggled(bool);
+ void show_texture(bool);
 
  // calibration
  void compute_homography();
@@ -272,12 +279,13 @@ namespace projector_calibration {
  void pattern_size_changed();
  void color_slider_moved(int);
 
+ void loadParameters();
 
  private:
 
  // QGLWidget widget;
 
-GL_Mesh_Viewer *gl_viewer;
+ GL_Mesh_Viewer *gl_viewer;
 
  cv::Mat small, cpy;
 

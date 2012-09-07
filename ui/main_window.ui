@@ -71,6 +71,81 @@
       </property>
      </widget>
     </item>
+    <item row="2" column="1">
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <widget class="QListView" name="view_logging">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>300</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <widget class="QLabel" name="label_15">
+          <property name="maximumSize">
+           <size>
+            <width>75</width>
+            <height>30</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Framerate: </string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lb_framerate">
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+    <item row="4" column="1">
+     <widget class="QLabel" name="lb_img_2">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>1000</width>
+        <height>1000</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>Projector Image</string>
+      </property>
+     </widget>
+    </item>
     <item row="2" column="0">
      <widget class="QTabWidget" name="tab_manager">
       <property name="sizePolicy">
@@ -86,7 +161,7 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>5</number>
+       <number>4</number>
       </property>
       <property name="documentMode">
        <bool>false</bool>
@@ -837,7 +912,7 @@
         <property name="geometry">
          <rect>
           <x>10</x>
-          <y>170</y>
+          <y>230</y>
           <width>181</width>
           <height>22</height>
          </rect>
@@ -851,12 +926,12 @@
          <rect>
           <x>10</x>
           <y>140</y>
-          <width>171</width>
+          <width>251</width>
           <height>22</height>
          </rect>
         </property>
         <property name="text">
-         <string>Depth Visualization</string>
+         <string>Depth Visualization (simple)</string>
         </property>
        </widget>
        <widget class="QSlider" name="slider_color">
@@ -902,6 +977,32 @@
         </property>
         <property name="text">
          <string>10</string>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="cb_depth_visualization_GL">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>170</y>
+          <width>251</width>
+          <height>22</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Depth Visualization (OpenGL)</string>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="cb_texture">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>200</y>
+          <width>251</width>
+          <height>22</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>show texture</string>
         </property>
        </widget>
       </widget>
@@ -1064,81 +1165,6 @@
       </widget>
      </widget>
     </item>
-    <item row="2" column="1">
-     <layout class="QVBoxLayout" name="verticalLayout">
-      <item>
-       <widget class="QListView" name="view_logging">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>300</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_3">
-        <item>
-         <widget class="QLabel" name="label_15">
-          <property name="maximumSize">
-           <size>
-            <width>75</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Framerate: </string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="lb_framerate">
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-     </layout>
-    </item>
-    <item row="4" column="1">
-     <widget class="QLabel" name="lb_img_2">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>0</width>
-        <height>0</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>1000</width>
-        <height>1000</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>Projector Image</string>
-      </property>
-     </widget>
-    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -1218,8 +1244,8 @@
    <slot>show_fullscreen_pattern()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>205</x>
-     <y>309</y>
+     <x>211</x>
+     <y>265</y>
     </hint>
     <hint type="destinationlabel">
      <x>502</x>
@@ -1234,8 +1260,8 @@
    <slot>select_marker_area()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>354</x>
-     <y>309</y>
+     <x>365</x>
+     <y>265</y>
     </hint>
     <hint type="destinationlabel">
      <x>501</x>
@@ -1250,8 +1276,8 @@
    <slot>pattern_size_changed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>242</x>
-     <y>187</y>
+     <x>288</x>
+     <y>143</y>
     </hint>
     <hint type="destinationlabel">
      <x>561</x>
@@ -1266,8 +1292,8 @@
    <slot>pattern_size_changed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>425</x>
-     <y>187</y>
+     <x>471</x>
+     <y>143</y>
     </hint>
     <hint type="destinationlabel">
      <x>584</x>
@@ -1282,8 +1308,8 @@
    <slot>project_white_background()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>110</x>
-     <y>379</y>
+     <x>121</x>
+     <y>341</y>
     </hint>
     <hint type="destinationlabel">
      <x>103</x>
@@ -1298,8 +1324,8 @@
    <slot>project_black_background()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>80</x>
-     <y>409</y>
+     <x>91</x>
+     <y>371</y>
     </hint>
     <hint type="destinationlabel">
      <x>56</x>
@@ -1314,8 +1340,8 @@
    <slot>marker_size_changed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>353</x>
-     <y>389</y>
+     <x>364</x>
+     <y>351</y>
     </hint>
     <hint type="destinationlabel">
      <x>385</x>
@@ -1330,8 +1356,8 @@
    <slot>load_kinect_trafo_from_file()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>141</x>
-     <y>164</y>
+     <x>152</x>
+     <y>145</y>
     </hint>
     <hint type="destinationlabel">
      <x>195</x>
@@ -1346,8 +1372,8 @@
    <slot>compute_trafo()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>201</x>
-     <y>226</y>
+     <x>212</x>
+     <y>214</y>
     </hint>
     <hint type="destinationlabel">
      <x>443</x>
@@ -1362,8 +1388,8 @@
    <slot>save_kinect_trafo()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>105</x>
-     <y>299</y>
+     <x>116</x>
+     <y>285</y>
     </hint>
     <hint type="destinationlabel">
      <x>114</x>
@@ -1411,7 +1437,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>171</x>
-     <y>225</y>
+     <y>181</y>
     </hint>
     <hint type="destinationlabel">
      <x>413</x>
@@ -1426,8 +1452,8 @@
    <slot>compute_homography()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>130</x>
-     <y>203</y>
+     <x>141</x>
+     <y>195</y>
     </hint>
     <hint type="destinationlabel">
      <x>535</x>
@@ -1442,8 +1468,8 @@
    <slot>compute_projection_matrix()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>100</x>
-     <y>267</y>
+     <x>111</x>
+     <y>255</y>
     </hint>
     <hint type="destinationlabel">
      <x>389</x>
@@ -1458,8 +1484,8 @@
    <slot>save_homography()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>372</x>
-     <y>201</y>
+     <x>383</x>
+     <y>195</y>
     </hint>
     <hint type="destinationlabel">
      <x>557</x>
@@ -1474,8 +1500,8 @@
    <slot>save_projection_matrix()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>398</x>
-     <y>270</y>
+     <x>409</x>
+     <y>255</y>
     </hint>
     <hint type="destinationlabel">
      <x>520</x>
@@ -1490,8 +1516,8 @@
    <slot>delete_last_img()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>73</x>
-     <y>383</y>
+     <x>84</x>
+     <y>375</y>
     </hint>
     <hint type="destinationlabel">
      <x>62</x>
@@ -1506,8 +1532,8 @@
    <slot>find_projection_area()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>150</x>
-     <y>203</y>
+     <x>161</x>
+     <y>175</y>
     </hint>
     <hint type="destinationlabel">
      <x>514</x>
@@ -1522,8 +1548,8 @@
    <slot>user_interaction_toggled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>141</x>
-     <y>300</y>
+     <x>152</x>
+     <y>316</y>
     </hint>
     <hint type="destinationlabel">
      <x>512</x>
@@ -1538,8 +1564,8 @@
    <slot>depth_visualzation_toggled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>126</x>
-     <y>270</y>
+     <x>137</x>
+     <y>226</y>
     </hint>
     <hint type="destinationlabel">
      <x>548</x>
@@ -1554,8 +1580,8 @@
    <slot>add_new_observation()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>198</x>
-     <y>136</y>
+     <x>209</x>
+     <y>135</y>
     </hint>
     <hint type="destinationlabel">
      <x>732</x>
@@ -1570,8 +1596,8 @@
    <slot>learn_environment()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>193</x>
-     <y>192</y>
+     <x>204</x>
+     <y>161</y>
     </hint>
     <hint type="destinationlabel">
      <x>249</x>
@@ -1586,8 +1612,8 @@
    <slot>foreGroundVisualizationToggled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>143</x>
-     <y>250</y>
+     <x>154</x>
+     <y>206</y>
     </hint>
     <hint type="destinationlabel">
      <x>177</x>
@@ -1602,8 +1628,8 @@
    <slot>detect_disc()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>144</x>
-     <y>171</y>
+     <x>155</x>
+     <y>145</y>
     </hint>
     <hint type="destinationlabel">
      <x>626</x>
@@ -1634,8 +1660,8 @@
    <slot>projection_opencv()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>122</x>
-     <y>336</y>
+     <x>133</x>
+     <y>315</y>
     </hint>
     <hint type="destinationlabel">
      <x>302</x>
@@ -1650,8 +1676,8 @@
    <slot>evaluate_pattern()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>133</x>
-     <y>273</y>
+     <x>144</x>
+     <y>245</y>
     </hint>
     <hint type="destinationlabel">
      <x>321</x>
@@ -1666,8 +1692,8 @@
    <slot>show_fullscreen_pattern()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>327</x>
-     <y>268</y>
+     <x>338</x>
+     <y>245</y>
     </hint>
     <hint type="destinationlabel">
      <x>189</x>
@@ -1682,8 +1708,8 @@
    <slot>project_black_background()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>264</x>
-     <y>157</y>
+     <x>275</x>
+     <y>145</y>
     </hint>
     <hint type="destinationlabel">
      <x>99</x>
@@ -1714,8 +1740,8 @@
    <slot>min_dist_changed(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>476</x>
-     <y>381</y>
+     <x>487</x>
+     <y>364</y>
     </hint>
     <hint type="destinationlabel">
      <x>699</x>
@@ -1736,6 +1762,38 @@
     <hint type="destinationlabel">
      <x>280</x>
      <y>479</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cb_depth_visualization_GL</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>gl_visualization_toggled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>96</x>
+     <y>244</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>706</x>
+     <y>566</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cb_texture</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>show_texture(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>69</x>
+     <y>278</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>714</x>
+     <y>514</y>
     </hint>
    </hints>
   </connection>
@@ -1773,5 +1831,7 @@
   <slot>evaluate_pattern()</slot>
   <slot>color_slider_moved(int)</slot>
   <slot>gl_test()</slot>
+  <slot>gl_visualization_toggled(bool)</slot>
+  <slot>show_texture(bool)</slot>
  </slots>
 </ui>

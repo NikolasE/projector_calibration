@@ -13,6 +13,7 @@
  *****************************************************************************/
 
 #include <QtGui/QMainWindow>
+#include <QApplication>
 #include "ui_main_window.h"
 #include "qnode.hpp"
 #include <qevent.h>
@@ -248,6 +249,8 @@ namespace projector_calibration {
  void update_proj_image();
  void learn_environment();
  void show_model_openGL();
+ void scene_static(bool);
+ void ant_demo();
 
  // void setProjectorPixmap(const QPixmap& pixmap);
 
@@ -266,6 +269,7 @@ namespace projector_calibration {
  void save_projection_matrix();
  void save_homography();
  void delete_last_img();
+ void restart_water_simulation();
 
  void projection_opencv();
 
@@ -275,7 +279,7 @@ namespace projector_calibration {
  /******************************************
   ** Manual connections
   *******************************************/
- void updateLoggingView(); // no idea why this can't connect automatically
+ void updateLoggingView();
  void sl_received_image();
  void pattern_size_changed();
  void color_slider_moved(int);
@@ -284,9 +288,10 @@ namespace projector_calibration {
 
  private:
 
- // QGLWidget widget;
 
  GL_Mesh_Viewer *gl_viewer;
+
+ QApplication *qAppff;
 
  cv::Mat small, cpy;
 

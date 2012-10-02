@@ -24,9 +24,10 @@ int main(int argc, char **argv) {
     **********************/
     QApplication app(argc, argv);
     projector_calibration::MainWindow w(argc,argv);
-//    projector_calibration::imgWindow img_w(argc,argv);
 
-//    img_w.show();
+
+//    w.app = &app;
+
     w.show();
     app.connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit()));
     int result = app.exec();

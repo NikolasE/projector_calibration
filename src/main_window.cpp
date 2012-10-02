@@ -1,13 +1,13 @@
 /**
- * @file /src/main_window.cpp
- *
- * @brief Implementation for the qt gui.
- *
- * @date February 2011
- **/
+* @file /src/main_window.cpp
+*
+* @brief Implementation for the qt gui.
+*
+* @date February 2011
+**/
 /*****************************************************************************
- ** Includes
- *****************************************************************************/
+** Includes
+*****************************************************************************/
 
 #include <QtGui>
 #include <QMessageBox>
@@ -15,8 +15,8 @@
 #include "../include/projector_calibration/main_window.hpp"
 
 /*****************************************************************************
- ** Namespaces
- *****************************************************************************/
+** Namespaces
+*****************************************************************************/
 
 using namespace std;
 
@@ -25,8 +25,8 @@ namespace projector_calibration {
  using namespace Qt;
 
  /*****************************************************************************
-  ** Implementation [MainWindow]
-  *****************************************************************************/
+ ** Implementation [MainWindow]
+ *****************************************************************************/
 
  MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
  : QMainWindow(parent)
@@ -39,8 +39,8 @@ namespace projector_calibration {
   lb_img.setParent(NULL);
   QRect screenres = QApplication::desktop()->screenGeometry(1);
   //  ROS_INFO("screenres 1: %i %i", screenres.x(), screenres.y());
-//  lb_img.move(QPoint(screenres.x(), screenres.y()));
-//  lb_img.showFullScreen();
+  lb_img.move(QPoint(screenres.x(), screenres.y()));
+  lb_img.showFullScreen();
 
 
   manual_z_change = 0;
@@ -58,6 +58,7 @@ namespace projector_calibration {
   QObject::connect(&qnode, SIGNAL(received_col_Image()), this, SLOT(sl_received_image()));
   QObject::connect(&qnode, SIGNAL(update_projector_image()), this, SLOT(update_proj_image()));
   QObject::connect(&qnode, SIGNAL(model_computed()), this, SLOT(show_model_openGL()));
+  QObject::connect(&qnode, SIGNAL(scene_static(bool)), this, SLOT(scene_static(bool)));
 
 
   QObject::connect(&mousehandler_projector, SIGNAL(redraw_image()), this, SLOT(update_proj_image()));
@@ -118,40 +119,69 @@ namespace projector_calibration {
 
  void MainWindow::show_model_openGL(){
 
-//  ROS_INFO("show with openGL");
+  //  ROS_INFO("show with openGL");
 
   ros::Time start_show_openGL = ros::Time::now();
 
 
   ros::Time now_getmodel = ros::Time::now();
+
+
+  if (!qnode.modeler.modelComputed()){
+   ROS_INFO("Model is not computed");
+   return;
+  }
+
   Cloud model = qnode.modeler.getModel();
+
+  if (model.size() == 0){
+   ROS_INFO("Model is not computed (and empty)");
+   return;
+  }
+
   ROS_INFO("getModel: %f ms", (ros::Time::now()-now_getmodel).toSec()*1000);
 
   ros::Time now_color = ros::Time::now();
-  Cloud colored = colorizeCloud(model, 100,-1,qnode.color_range); // max, min, color_range
+
+//  double min_, max_;
+//  cv::minMaxLoc(qnode.water, &min_, &max_);
+//  //  ROS_INFO("Water: min: %f, max: %f", min_, max_);
+//  double s = cv::sum(qnode.water).val[0];
+//  ROS_INFO("Updating vis: %f",s);
+
+  Cloud colored;
+  cv::Mat water;
+  qnode.water.copyTo(water);
+  if (qnode.water.cols == int(model.width))
+   colored = colorizeCloud(model, 100,-1,qnode.color_range,&water,1,0);
+  else
+   colored = colorizeCloud(model, 100,-1,qnode.color_range);
+
   ROS_INFO("colorizeCloud: %f ms", (ros::Time::now()-now_color).toSec()*1000.0);
 
-  float max_length = 100; // max edge length of drawn triangle in m
+
 
 
   ros::Time now_mesh = ros::Time::now();
+  float max_length = 100; // max edge length of drawn triangle in m
   pcl::PolygonMesh mesh = qnode.mesh_visualizer.createMesh(colored, max_length);
   ROS_INFO("createMesh: %f ms", (ros::Time::now()-now_mesh).toSec()*1000.0);
 
 
-//  qnode.mesh_visualizer.visualizeMesh(mesh);
+  //  qnode.mesh_visualizer.visualizeMesh(mesh);
 
   gl_viewer->mesh = &mesh;
   gl_viewer->M = qnode.calibrator.proj_Matrix;
 
 
-//  gl_viewer->resize(lb_img.width(),lb_img.height());
+  //  gl_viewer->resize(lb_img.width(),lb_img.height());
   ros::Time now_render = ros::Time::now();
   QPixmap pix2 = gl_viewer->renderPixmap(lb_img.width(),lb_img.height(),true);
   lb_img.setPixmap(pix2);
+  lb_img.repaint();
   ROS_INFO("Rendering: %f ms", (ros::Time::now()-now_render).toSec()*1000.0);
 
-//  lb_img.repaint();
+  //  lb_img.repaint();
 
   ROS_INFO("Showing Model with openGL (total): %f ms", (ros::Time::now()-start_show_openGL).toSec()*1000);
 
@@ -162,18 +192,18 @@ namespace projector_calibration {
    ui.lb_framerate->setText(QString::number(int(fr*100)/100.0));
   }
 
-//  gl_viewer->resize(ui.lb_img_2->width(),ui.lb_img_2->height());
-//  QPixmap pix = gl_viewer->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
-//  ui.lb_img_2->setPixmap(pix);
-//  ui.lb_img_2->repaint();
+  //  gl_viewer->resize(ui.lb_img_2->width(),ui.lb_img_2->height());
+  //  QPixmap pix = gl_viewer->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
+  //  ui.lb_img_2->setPixmap(pix);
+  //  ui.lb_img_2->repaint();
 
- // qnode.modeler.reset();
+  // qnode.modeler.reset();
 
  }
 
  /*****************************************************************************
-  ** Implementation [Slots]
-  *****************************************************************************/
+ ** Implementation [Slots]
+ *****************************************************************************/
 
  void MainWindow::showNoMasterMessage() {
   QMessageBox msgBox;
@@ -182,6 +212,10 @@ namespace projector_calibration {
   close();
  }
 
+
+ void MainWindow::ant_demo(){
+  qnode.run_ant_demo();
+ }
 
  void MainWindow::select_marker_area(){
 
@@ -358,12 +392,12 @@ namespace projector_calibration {
  }
 
 
-// void MainWindow::setProjectorPixmap(const QPixmap& pixmap){
-//  ROS_INFO("PROJECTOR PIXMAP");
-//
-//  lb_img.setPixmap(pixmap);
-//  lb_img.repaint();
-// }
+ // void MainWindow::setProjectorPixmap(const QPixmap& pixmap){
+ //  ROS_INFO("PROJECTOR PIXMAP");
+ //
+ //  lb_img.setPixmap(pixmap);
+ //  lb_img.repaint();
+ // }
 
 
 
@@ -373,6 +407,7 @@ namespace projector_calibration {
   assert(qnode.calibrator.projector_image.cols > 0);
   qimg_proj = Mat2QImage(qnode.calibrator.projector_image);
   lb_img.setPixmap(pixmap_proj.fromImage(qimg_proj, 0));
+  lb_img.repaint();
 
 
   // draw projector image on right label
@@ -386,6 +421,7 @@ namespace projector_calibration {
 
    qimg_p = Mat2QImage(small2);
    ui.lb_img_2->setPixmap(pixmap_p.fromImage(qimg_p, 0));
+   ui.lb_img_2->repaint();
   }
 
 
@@ -400,6 +436,10 @@ namespace projector_calibration {
 
  void MainWindow::detect_disc(){   qnode.disc_evaluation();  }
 
+
+ void MainWindow::scene_static(bool is_static){
+  ui.lb_static->setText(is_static?"STATIC":"NON STATIC");
+ }
 
 
  void MainWindow::mouse_new_points(){
@@ -431,6 +471,11 @@ namespace projector_calibration {
 
 
  void MainWindow::sl_received_image(){
+
+
+
+
+
 
   if (qnode.current_col_img.cols == 0){
    return;
@@ -466,20 +511,10 @@ namespace projector_calibration {
 
   qimg_col = Mat2QImage(small);
   ui.lb_kinect_image->setPixmap(pixmap_col.fromImage(qimg_col, 0));
+  ui.lb_kinect_image->repaint();
 
-  //    cv::namedWindow("foo");
-  //    cv::imshow("foo",cpy);
-  //    cv::waitKey(100);
-
+  //qApp->processEvents();
  }
-
-
- /*
-  *
-  * Slider callbacks
-  *
-  */
-
 
  void MainWindow::loadParameters(){
   if (!qnode.loadParameters()) return;
@@ -611,8 +646,8 @@ namespace projector_calibration {
 
 
  /*****************************************************************************
-  ** Calibration Functions
-  *****************************************************************************/
+ ** Calibration Functions
+ *****************************************************************************/
 
  void MainWindow::add_new_observation(){
   sstream msg;
@@ -728,11 +763,11 @@ namespace projector_calibration {
  void MainWindow::water_simulation_toggled(bool status){
 
   if (status && !qnode.water_simulation_active){
-   bool success = qnode.init_watersimulation();
-//   if (success)
-//    ROS_INFO("Started water simulation");
-//   else
-//    ROS_INFO("Could not start water simulation");
+   //bool success = qnode.init_watersimulation();
+   //   if (success)
+   //    ROS_INFO("Started water simulation");
+   //   else
+   //    ROS_INFO("Could not start water simulation");
   }
 
   qnode.water_simulation_active = status;
@@ -749,9 +784,9 @@ namespace projector_calibration {
 
  void MainWindow::foreGroundVisualizationToggled(bool status){
 
-//  min_dist_changed(ui.slider_mindist->value());
-//  z_max_changed(ui.slider_z_max->value());
-//  color_slider_moved(ui.slider_color->value());
+  //  min_dist_changed(ui.slider_mindist->value());
+  //  z_max_changed(ui.slider_z_max->value());
+  //  color_slider_moved(ui.slider_color->value());
 
   qnode.foreGroundVisualizationActive = status;
  }
@@ -768,9 +803,9 @@ namespace projector_calibration {
 
  void MainWindow::depth_visualzation_toggled(bool status){
 
-//  min_dist_changed(ui.slider_mindist->value());
-//  min_dist_changed(ui.slider_z_max->value());
-//  color_slider_moved(ui.slider_color->value());
+  //  min_dist_changed(ui.slider_mindist->value());
+  //  min_dist_changed(ui.slider_z_max->value());
+  //  color_slider_moved(ui.slider_color->value());
 
   qnode.depth_visualization_active = status;
  }
@@ -792,27 +827,32 @@ namespace projector_calibration {
 
 
 
+ void MainWindow::restart_water_simulation(){
+  qnode.restart_modeler = true;
+ }
+
+
  /*****************************************************************************
-  ** Implemenation [Slots][manually connected]
-  *****************************************************************************/
+ ** Implemenation [Slots][manually connected]
+ *****************************************************************************/
 
  /**
-  * This function is signalled by the underlying model. When the model changes,
-  * this will drop the cursor down to the last line in the QListview to ensure
-  * the user can always see the latest log message.
-  */
+ * This function is signalled by the underlying model. When the model changes,
+ * this will drop the cursor down to the last line in the QListview to ensure
+ * the user can always see the latest log message.
+ */
  void MainWindow::updateLoggingView() {
   ui.view_logging->scrollToBottom();
  }
 
  /*****************************************************************************
-  ** Implementation [Menu]
-  *****************************************************************************/
+ ** Implementation [Menu]
+ *****************************************************************************/
 
 
  /*****************************************************************************
-  ** Implementation [Configuration]
-  *****************************************************************************/
+ ** Implementation [Configuration]
+ *****************************************************************************/
 
  void MainWindow::ReadSettings() {
   QSettings settings("Qt-Ros Package", "projector_calibration");

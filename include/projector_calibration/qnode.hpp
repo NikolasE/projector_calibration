@@ -30,6 +30,7 @@
 #include "rgbd_utils/calibration_utils.h"
 #include "rgbd_utils/surface_modeler.h"
 #include "rgbd_utils/type_definitions.h"
+#include "rgbd_utils/ants.h"
 
 #include "pinch_recognition/pinch_detection.h"
 
@@ -66,6 +67,7 @@ namespace projector_calibration {
   Q_OBJECT
  public:
 
+  void imageColCallback(const sensor_msgs::ImageConstPtr& msg);
 
   void imageCallback(const sensor_msgs::ImageConstPtr& msg);
   void paramCallback(const projector_calibration::visualization_paramsConfig& config, uint32_t level);
@@ -79,7 +81,9 @@ namespace projector_calibration {
   Surface_Modeler modeler;
   Mesh_visualizer mesh_visualizer;
   User_Input* user_input;
+  Path_planner planner;
 
+  void run_ant_demo();
 
   uint train_frame_cnt;
   bool train_background;
@@ -87,6 +91,10 @@ namespace projector_calibration {
   bool foreGroundVisualizationActive;
   bool show_texture;
   bool water_simulation_active;
+//  bool simulator_initialized;
+
+
+  cv::Mat water;
 
   bool init_watersimulation();
   bool step_watersimulation();
@@ -113,7 +121,7 @@ namespace projector_calibration {
   bool user_interaction_active;
   bool depth_visualization_active;
 
-
+  bool restart_modeler;
 
   float min_dist, max_dist;
   float color_range;
@@ -153,6 +161,7 @@ namespace projector_calibration {
   void received_col_Image();
   void update_projector_image();
   void model_computed();
+  void scene_static(bool);
 //  void newProjectorPixmap(const QPixmap& pixmap);
 
 
@@ -161,7 +170,12 @@ namespace projector_calibration {
   char** init_argv;
   QStringListModel logging_model;
 
-  bool restart_modeler;
+  int iterations_per_frame;
+  float sim_viscosity;
+
+
+  bool first_depth_callback;
+  cv::Mat last_static_depth_image;
 
 
 

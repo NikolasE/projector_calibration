@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1463</width>
-    <height>861</height>
+    <width>1107</width>
+    <height>866</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -90,8 +90,11 @@
        </widget>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_3">
-        <item>
+       <layout class="QGridLayout" name="gridLayout">
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <item row="0" column="1">
          <widget class="QLabel" name="label_15">
           <property name="maximumSize">
            <size>
@@ -104,7 +107,21 @@
           </property>
          </widget>
         </item>
-        <item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="label_16">
+          <property name="text">
+           <string>Scene Static:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="3">
+         <widget class="QLabel" name="lb_static">
+          <property name="text">
+           <string>TextLabel</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
          <widget class="QLabel" name="lb_framerate">
           <property name="maximumSize">
            <size>
@@ -114,6 +131,20 @@
           </property>
           <property name="text">
            <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLabel" name="label_17">
+          <property name="text">
+           <string>Pause Water      </string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="3">
+         <widget class="QCheckBox" name="cb_water_hold">
+          <property name="text">
+           <string/>
           </property>
          </widget>
         </item>
@@ -1175,6 +1206,32 @@
          <string>water simulation</string>
         </property>
        </widget>
+       <widget class="QPushButton" name="b_restart_water">
+        <property name="geometry">
+         <rect>
+          <x>80</x>
+          <y>230</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Restart Watersimulation</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="b_restart_water_2">
+        <property name="geometry">
+         <rect>
+          <x>80</x>
+          <y>300</y>
+          <width>191</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Ant</string>
+        </property>
+       </widget>
       </widget>
      </widget>
     </item>
@@ -1185,7 +1242,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1463</width>
+     <width>1107</width>
      <height>25</height>
     </rect>
    </property>
@@ -1826,6 +1883,38 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>b_restart_water</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>restart_water_simulation()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>123</x>
+     <y>317</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>383</x>
+     <y>627</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>b_restart_water_2</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>ant_demo()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>200</x>
+     <y>396</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>353</x>
+     <y>637</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>show_fullscreen_pattern()</slot>
@@ -1863,5 +1952,7 @@
   <slot>gl_visualization_toggled(bool)</slot>
   <slot>show_texture(bool)</slot>
   <slot>water_simulation_toggled(bool)</slot>
+  <slot>restart_water_simulation()</slot>
+  <slot>ant_demo()</slot>
  </slots>
 </ui>

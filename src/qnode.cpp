@@ -1,14 +1,14 @@
 /**
- * @file /src/qnode.cpp
- *
- * @brief Ros communication central!
- *
- * @date February 2011
- **/
+* @file /src/qnode.cpp
+*
+* @brief Ros communication central!
+*
+* @date February 2011
+**/
 
 /*****************************************************************************
- ** Includes
- *****************************************************************************/
+** Includes
+*****************************************************************************/
 
 #include <ros/ros.h>
 #include <ros/network.h>
@@ -18,10 +18,9 @@
 #include "../include/projector_calibration/qnode.hpp"
 
 
-
 /*****************************************************************************
- ** Namespaces
- *****************************************************************************/
+** Namespaces
+*****************************************************************************/
 
 using namespace std;
 
@@ -29,11 +28,11 @@ namespace projector_calibration
 {
 
  /*****************************************************************************
-  ** Implementation
-  *****************************************************************************/
+ ** Implementation
+ *****************************************************************************/
 
  QNode::QNode(int argc, char** argv) :
-                                                    init_argc(argc), init_argv(argv)
+                                                              init_argc(argc), init_argv(argv)
  {
   init();
  }
@@ -191,14 +190,20 @@ namespace projector_calibration
   ros::Time now_callback = ros::Time::now();
 
 
-
-
   pcl::fromROSMsg(*cloud_ptr, current_cloud);
   cv_ptr = cv_bridge::toCvCopy(img_ptr, sensor_msgs::image_encodings::BGR8);
 
 
   current_col_img = cv_ptr->image;
+
+  calibrator.setInputCloud(current_cloud);
   calibrator.setInputImage(current_col_img);
+
+  Q_EMIT received_col_Image();
+
+  return;
+
+
 
   if (current_cloud.size() == 0)
    return;
@@ -231,50 +236,50 @@ namespace projector_calibration
    }
 
 
-   ros::Time start_train = ros::Time::now();
-   uint cnt = modeler.addTrainingFrame(calibrator.cloud_moved);
-   ROS_INFO("Adding Frame: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
-
-   // uint cnt = detector.addTrainingFrame(calibrator.input_cloud);
-   // ROS_INFO("Background calibration: added traingframe %i of %i", cnt, train_frame_cnt);
-   if (cnt == train_frame_cnt)
-    {
-    //detector.computeBackground(0.007);
-    //    train_background = false;
-    //    ROS_INFO("computed Background");
-    //
-    //    cv::imwrite("area.jpg",area_mask);
-    //    cv::imwrite("m1.jpg",detector.mask);
-    //
-    //    if (area_mask.cols == current_col_img.cols){
-    //     detector.applyMask(area_mask);
-    //    }
-    //
-    //    cv::imwrite("m2.jpg",detector.mask);
-    //
-    //
-    //    Cloud foo = detector.showBackground(calibrator.input_cloud);
-    //    Cloud::Ptr msg = foo.makeShared();
-    //    msg->header.frame_id = "/openni_rgb_optical_frame";
-    //    msg->header.stamp = ros::Time::now();
-    //    pub_background.publish(msg);
-
-    // compute background method 2:
-    ros::Time now = ros::Time::now();
-    modeler.computeModel();
-    ROS_INFO("Compute Model: %f ms", (ros::Time::now()-now).toSec()*1000.0);
-
-
-
-    //    Cloud model = modeler.getModel();
-    //    Cloud::Ptr msg = model.makeShared();
-    //    msg->header.frame_id = "/openni_rgb_optical_frame";
-    //    msg->header.stamp = ros::Time::now();
-    //    pub_model.publish(msg);
-
-    Q_EMIT model_computed();
-
-    }
+   //   ros::Time start_train = ros::Time::now();
+   //   uint cnt = modeler.addTrainingFrame(calibrator.cloud_moved);
+   //   ROS_INFO("Adding Frame: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
+   //
+   //   // uint cnt = detector.addTrainingFrame(calibrator.input_cloud);
+   //   // ROS_INFO("Background calibration: added traingframe %i of %i", cnt, train_frame_cnt);
+   //   if (cnt == train_frame_cnt)
+   //    {
+   //    //detector.computeBackground(0.007);
+   //    //    train_background = false;
+   //    //    ROS_INFO("computed Background");
+   //    //
+   //    //    cv::imwrite("area.jpg",area_mask);
+   //    //    cv::imwrite("m1.jpg",detector.mask);
+   //    //
+   //    //    if (area_mask.cols == current_col_img.cols){
+   //    //     detector.applyMask(area_mask);
+   //    //    }
+   //    //
+   //    //    cv::imwrite("m2.jpg",detector.mask);
+   //    //
+   //    //
+   //    //    Cloud foo = detector.showBackground(calibrator.input_cloud);
+   //    //    Cloud::Ptr msg = foo.makeShared();
+   //    //    msg->header.frame_id = "/openni_rgb_optical_frame";
+   //    //    msg->header.stamp = ros::Time::now();
+   //    //    pub_background.publish(msg);
+   //
+   //    // compute background method 2:
+   //    ros::Time now = ros::Time::now();
+   //    modeler.computeModel();
+   //    ROS_INFO("Compute Model: %f ms", (ros::Time::now()-now).toSec()*1000.0);
+   //
+   //
+   //
+   //    //    Cloud model = modeler.getModel();
+   //    //    Cloud::Ptr msg = model.makeShared();
+   //    //    msg->header.frame_id = "/openni_rgb_optical_frame";
+   //    //    msg->header.stamp = ros::Time::now();
+   //    //    pub_model.publish(msg);
+   //
+   //    Q_EMIT model_computed();
+   //
+   //    }
    }
 
 
@@ -346,7 +351,6 @@ namespace projector_calibration
    projectCloudIntoImage(calibrator.cloud_moved, calibrator.proj_Matrix, calibrator.projector_image, max_dist, 0, color_range);
 
 
-   foo();
    Cloud colored = colorizeCloud(calibrator.cloud_moved,0, max_dist,color_range);
    Cloud::Ptr msg = colored.makeShared();
    msg->header.frame_id = "/openni_rgb_optical_frame";
@@ -356,24 +360,23 @@ namespace projector_calibration
    Q_EMIT update_projector_image();
    }
 
-
-
-  Q_EMIT received_col_Image();
-
+  //  Q_EMIT received_col_Image();
 
   ROS_INFO("FULL Callback: %f ms", (ros::Time::now()-now_callback).toSec()*1000.0);
-
-
  }
 
 
+
+
+ /**
+ * @TODO check if there is a good heightmodel
+ * @return
+ */
  bool QNode::init_watersimulation(){
 
   cv::Mat land = modeler.getHeightImage();
-  // TODO: check if there is a good heightmodel
 
-
-  ROS_INFO("Height: %i %i", land.cols, land.rows);
+  ROS_INFO("Height: %i %i, viscosity: %f", land.cols, land.rows,sim_viscosity);
 
   land.convertTo(land, CV_64FC1,1); // scaling?
 
@@ -387,11 +390,10 @@ namespace projector_calibration
   water_request_id++;
   srv_msg.request.id = water_request_id;
   srv_msg.request.land_img = *out_msg.toImageMsg();
-  srv_msg.request.viscosity = 0.9;
-  srv_msg.request.add_sink_border = false;
+  srv_msg.request.viscosity = sim_viscosity;
+  srv_msg.request.add_sink_border = true;
 
 
-  // TODO: timeout after 3sec?
   ros::service::waitForService("srv_simulator_init",ros::DURATION_MAX);
   ros::service::waitForService("srv_simulator_step",ros::DURATION_MAX);
 
@@ -408,40 +410,68 @@ namespace projector_calibration
  }
 
 
+ void QNode::run_ant_demo(){
+
+  cv::Mat height = modeler.getHeightImage();
+
+  int w = height.cols;
+  int h = height.rows;
+
+  planner.setHeightMap(height);
+  planner.computePolicy(cv::Point(w-1,h-1),modeler.getCellSize());
+  planner.setMaxSteepness(45);
+  planner.printPath(cv::Point(10,10));
+ }
+
+
  bool QNode::step_watersimulation(){
 
   water_simulation::simulator_step msg_step;
-  msg_step.request.iteration_cnt = 10;
+  msg_step.request.iteration_cnt = iterations_per_frame;
   msg_step.request.id = water_request_id;
+
+  // Updating the land height
+  cv::Mat land = modeler.getHeightImage();
+  land.convertTo(land, CV_64FC1,1); // scaling?
+  cv_bridge::CvImage out_msg;
+  out_msg.encoding = sensor_msgs::image_encodings::TYPE_64FC1;
+  out_msg.image    = land;
+  msg_step.request.land_img = *out_msg.toImageMsg();
+  msg_step.request.update_land_img = true;
+
+  // update viscosity
+  msg_step.request.update_viscosity = true;
+  msg_step.request.viscosity = sim_viscosity;
+
+
 
   water_simulation::msg_source_sink source;
   source.height = 0.05; // 5cm of water at this position
   cv::Point pos = modeler.grid_pos(0,0); // source at origin
   source.x = pos.x;
   source.y = pos.y;
-  source.radius = 2; // TODO: only a point, not a circle
+  source.radius = 1; // TODO: only a point, not a circle
   msg_step.request.sources_sinks.push_back(source);
 
 
   if (ros::service::call("srv_simulator_step", msg_step)){
 
-     if (!msg_step.response.valid_id){
-      ROS_WARN("WATER SIMULATION: sent request with wrong id!");
-      return false;
-     }else{
-      // ROS_INFO("WATER SIMULATION: Active");
-      cv_bridge::CvImagePtr cv_ptr;
-      cv_ptr = cv_bridge::toCvCopy(msg_step.response.water_img, sensor_msgs::image_encodings::TYPE_64FC1);
+   if (!msg_step.response.valid_id){
+    ROS_WARN("WATER SIMULATION: sent request with wrong id!");
+    return false;
+   }else{
+    //    ROS_INFO("WATER SIMULATION: Active");
+    cv_bridge::CvImagePtr cv_ptr;
+    cv_ptr = cv_bridge::toCvCopy(msg_step.response.water_img, sensor_msgs::image_encodings::TYPE_64FC1);
+
+    cv_ptr->image.copyTo(water);
 
 
+    //      cv::imshow("water", cv_ptr->image*10);
+    //      cv::waitKey(1);
+   }
 
-//      TODO: do something with the water!!1elf
-
-//      cv::imshow("water", cv_ptr->image*10);
-//      cv::waitKey(1);
-     }
-
-    }
+  }
 
 
 
@@ -449,56 +479,80 @@ namespace projector_calibration
 
  }
 
+
+ void QNode::imageColCallback(const sensor_msgs::ImageConstPtr& msg){
+
+  ROS_INFO("imageColCallback");
+
+  cv_bridge::CvImagePtr col_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+
+  ROS_INFO("FOOBAR: %i %i",cv_ptr->image.cols, cv_ptr->image.rows);
+
+  // cv::Mat * img = &col_ptr->image;
+  cv_ptr->image.copyTo(current_col_img);
+  //  current_col_img = cv_ptr->image;
+
+  //  Q_EMIT received_col_Image();
+ }
+
+
+
+
+ /**
+ *
+ * @todo apply bilinear filtering on image
+ * @param msg
+ */
  void QNode::imageCallback(const sensor_msgs::ImageConstPtr& msg)
  {
 
   //  ROS_INFO("got image");
+
 
   ros::Time cb_start = ros::Time::now();
 
 
   // < 1 ms
   cv_bridge::CvImagePtr depth_ptr = cv_bridge::toCvCopy(msg);
-  cv::Mat * img = &depth_ptr->image;
+  cv::Mat * depth = &depth_ptr->image;
 
 
+  //    bool new_static_image = false;
+  //    if (first_depth_callback){
+  //     first_depth_callback = false;
+  //     depth->copyTo(last_static_depth_image);
+  //    }else{
+  //     bool static_ = isSimilar(last_static_depth_image, *depth, &area_mask,0.05,1000);
+  //
+  //     if (static_){
+  ////      ROS_INFO("STATIC");
+  //      depth->copyTo(last_static_depth_image);
+  //  //    new_static_image = true;
+  //
+  //      // return;
+  //
+  //
+  //     }else{
+  ////      ROS_INFO("NOT STATIC");
+  //     }
+  //
+  //
+  //     Q_EMIT scene_static(static_);
+  //
+  //     if (!static_){
+  //      return;
+  //     }
+  //
+  //    }
 
-
-  // TODO: apply bilinear filtering on image
-
-  // create pointcloud
 
   float fx = 525.0;  // focal length x
   float fy = 525.0;  // focal length y
   float cx = 319.5;  // optical center x
   float cy = 239.5;  // optical center y
-
-  Cloud cloud;
-  cloud.points.resize(img->cols*img->rows);
-
-
-
-  ros::Time start_creation = ros::Time::now();
-
+  //  ros::Time start_creation = ros::Time::now();
   // 3 ms for creation of cloud
-  int pos = 0;
-  for (int y = 0; y< img->rows; ++y)
-   for (int x = 0; x< img->cols; ++x){
-    float d = img->at<float>(y,x);
-
-    pcl_Point p;
-    p.z = d;
-    p.x = (x - cx) * p.z / fx;
-    p.y = (y - cy) * p.z / fy;
-
-    // cloud.push_back(p);
-
-    cloud.points[pos++] = p;
-   }
-
-  cloud.width = img->cols;
-  cloud.height = img->rows;
-
+  Cloud cloud = createCloud(*depth, fx,fy,cx,cy);
   //  ROS_INFO("create cloud: %f ms", (ros::Time::now()-start_creation).toSec()*1000.0);
 
   ros::Time start_set = ros::Time::now();
@@ -507,26 +561,45 @@ namespace projector_calibration
 
 
 
-  if (depth_visualization_active && calibrator.projMatrixSet()){
-   projectCloudIntoImage(calibrator.cloud_moved, calibrator.proj_Matrix, calibrator.projector_image, max_dist, 0, color_range);
-   Q_EMIT update_projector_image();
-   return;
-  }
+  //  if (depth_visualization_active && calibrator.projMatrixSet()){
+  //   projectCloudIntoImage(calibrator.cloud_moved, calibrator.proj_Matrix, calibrator.projector_image, max_dist, 0, color_range);
+  //   Q_EMIT update_projector_image();
+  //   return;
+  //  }
 
+
+  modeler.updateHeight(calibrator.cloud_moved);
 
 
   if ((openGL_visualizationActive || water_simulation_active) && calibrator.projMatrixSet()){
 
-//   ros::Time start_train = ros::Time::now();
+
+   ros::Time start_train = ros::Time::now();
    modeler.updateHeight(calibrator.cloud_moved);
-//   ROS_INFO("Frame Update: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
+   ROS_INFO("Frame Update: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
+
+   // assert(modeler.modelComputed());
 
 
-   if (water_simulation_active)
-    step_watersimulation();
+   if (water_simulation_active){
+    if (restart_modeler){
+     init_watersimulation();
+     restart_modeler = false;
+    }
+    else{
+     ros::Time start_water = ros::Time::now();
+     step_watersimulation();
+     ROS_INFO("Water simulation: %f ms", (ros::Time::now()-start_water).toSec()*1000.0);
 
-   if (openGL_visualizationActive)
+     Q_EMIT model_computed();
+    }
+   }
+
+
+   if (openGL_visualizationActive){
+    ROS_INFO("OPENGL");
     Q_EMIT model_computed();
+   }
 
    // TODO: Q_EMIT for water_simulation
 
@@ -536,18 +609,51 @@ namespace projector_calibration
   //    ROS_INFO("Callback time: %f ms", (ros::Time::now()-cb_start).toSec()*1000.0);
  }
 
+ /**
+ *
+ *
+ * @param config
+ * @param level
+ */
  void QNode::paramCallback(const projector_calibration::visualization_paramsConfig& config, uint32_t level){
-  ROS_INFO("new config: %f cm, hist: %i", config.cell_length_cm, config.hist_length);
-  modeler_cell_size = config.cell_length_cm/100.0;
+  //  ROS_INFO("new config: %f cm, hist: %i", config.cell_length_cm, config.hist_length);
+
   train_frame_cnt = config.hist_length;
   modeler.weight = config.update_weight;
-  restart_modeler = true;
+
+  //  ROS_INFO("cell size: %f, new size: %f", modeler_cell_size,config.cell_length_cm/100.0);
+
+  iterations_per_frame = config.sim_iter_cnt;
+  sim_viscosity = config.sim_viscosity;
+
+  planner.setMaxSteepness(config.ant_steepness);
+  planner.setCostFactor(config.ant_cost_factor);
+  planner.setUphillfactor(config.ant_uphill_factor);
+  planner.setFourNeighbours(config.ant_use_four == 1);
+
+  if (abs(modeler_cell_size - config.cell_length_cm/100.0) > 0.00001){
+
+   //   ROS_INFO("updae");
+   modeler_cell_size = config.cell_length_cm/100.0;
+   // Initializing the modeler:
+   float lx = 0.30;
+   float ly = 0.20;
+
+   // ros::Time start_init = ros::Time::now();
+   modeler.init(modeler_cell_size, -lx,lx,-ly,ly);
+
+   restart_modeler = true;
+  }
+
  }
 
+ /**
+ * @todo subscribe to camera info
+ */
  void
  QNode::run()
  {
-  ros::Rate loop_rate(40);
+  //  ros::Rate loop_rate(40);
 
 
   ROS_INFO("Starting to run");
@@ -562,10 +668,6 @@ namespace projector_calibration
   //     ROS_INFO("init modeller: %f ms", (ros::Time::now()-start_init).toSec()*1000.0);
 
 
-
-
-
-
   ros::NodeHandle nh;
 
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image,
@@ -575,7 +677,7 @@ namespace projector_calibration
   message_filters::Subscriber<sensor_msgs::PointCloud2> cloud_sub(nh,
     "/camera/rgb/points", 1);
   message_filters::Synchronizer<policy> sync(policy(2), image_sub, cloud_sub);
-  //  sync.registerCallback(boost::bind(&QNode::imgCloudCB, this, _1, _2));
+  sync.registerCallback(boost::bind(&QNode::imgCloudCB, this, _1, _2));
 
 
 
@@ -590,8 +692,8 @@ namespace projector_calibration
 
   image_transport::ImageTransport it(nh);
   image_transport::Subscriber sub = it.subscribe("camera/depth/image", 10, boost::bind(&QNode::imageCallback, this, _1));
+  //  image_transport::Subscriber sub_col = it.subscribe("/camera/rgb/image_color", 10, boost::bind(&QNode::imageColCallback, this, _1));
 
-  // TODO: subscribe to camera info
 
   pub_cloud_worldsystem = nh.advertise<Cloud> ("cloud_world", 1);
   pub_3d_calib_points = nh.advertise<Cloud> ("calibration_points_3d", 1);
@@ -602,7 +704,7 @@ namespace projector_calibration
   pub_foreground  = nh.advertise<Cloud> ("foreground", 1);
   //  ros::Subscriber sub = n.subscribe("chatter", 1000, &Listener::callback, &listener);
 
-
+  first_depth_callback = true;
 
   ros::spin();
 
@@ -611,6 +713,9 @@ namespace projector_calibration
   //   ros::spinOnce();
   //   loop_rate.sleep();
   //   }
+
+
+
   std::cout << "Ros shutdown, proceeding to close the gui." << std::endl;
   Q_EMIT rosShutdown(); // used to signal the gui for a shutdown (useful to roslaunch)
  }
@@ -623,35 +728,35 @@ namespace projector_calibration
   switch (level)
   {
   case (Debug):
-                                                     {
+                                                               {
    ROS_DEBUG_STREAM(msg);
    logging_model_msg << "[DEBUG] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                     }
+                                                               }
   case (Info):
-                                                     {
+                                                               {
    ROS_INFO_STREAM(msg);
    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                     }
+                                                               }
   case (Warn):
-                                                     {
+                                                               {
    ROS_WARN_STREAM(msg);
    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                     }
+                                                               }
   case (Error):
-                                                     {
+                                                               {
    ROS_ERROR_STREAM(msg);
    logging_model_msg << "[ERROR] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                     }
+                                                               }
   case (Fatal):
-                                                     {
+                                                               {
    ROS_FATAL_STREAM(msg);
    logging_model_msg << "[FATAL] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                     }
+                                                               }
   }
   QVariant new_row(QString(logging_model_msg.str().c_str()));
   logging_model.setData(logging_model.index(logging_model.rowCount() - 1),

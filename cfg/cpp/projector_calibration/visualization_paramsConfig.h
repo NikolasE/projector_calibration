@@ -144,13 +144,23 @@ namespace projector_calibration
 //#line 19 "../cfg/params.cfg"
       double sim_viscosity;
 //#line 21 "../cfg/params.cfg"
-      double ant_steepness;
-//#line 22 "../cfg/params.cfg"
-      double ant_cost_factor;
-//#line 23 "../cfg/params.cfg"
-      int ant_use_four;
+      double max_update_dist;
 //#line 24 "../cfg/params.cfg"
+      double ant_steepness;
+//#line 25 "../cfg/params.cfg"
+      double ant_cost_factor;
+//#line 26 "../cfg/params.cfg"
+      int ant_use_four;
+//#line 27 "../cfg/params.cfg"
       double ant_uphill_factor;
+//#line 28 "../cfg/params.cfg"
+      double ant_hillside_factor;
+//#line 29 "../cfg/params.cfg"
+      double ant_path_length_factor;
+//#line 31 "../cfg/params.cfg"
+      int ant_use_smoothing;
+//#line 34 "../cfg/params.cfg"
+      double light_pos;
 //#line 138 "/opt/ros/electric/stacks/driver_common/dynamic_reconfigure/templates/ConfigType.h"
 
     bool __fromMessage__(dynamic_reconfigure::Config &msg)
@@ -272,7 +282,7 @@ namespace projector_calibration
 //#line 15 "../cfg/params.cfg"
       __max__.update_weight = 1.0;
 //#line 15 "../cfg/params.cfg"
-      __default__.update_weight = 0.5;
+      __default__.update_weight = 0.1;
 //#line 15 "../cfg/params.cfg"
       __param_descriptions__.push_back(visualization_paramsConfig::AbstractParamDescriptionConstPtr(new visualization_paramsConfig::ParamDescription<double>("update_weight", "double", 0, "update weight", "", &visualization_paramsConfig::update_weight)));
 //#line 18 "../cfg/params.cfg"
@@ -292,37 +302,77 @@ namespace projector_calibration
 //#line 19 "../cfg/params.cfg"
       __param_descriptions__.push_back(visualization_paramsConfig::AbstractParamDescriptionConstPtr(new visualization_paramsConfig::ParamDescription<double>("sim_viscosity", "double", 0, "viscosity", "", &visualization_paramsConfig::sim_viscosity)));
 //#line 21 "../cfg/params.cfg"
+      __min__.max_update_dist = 0.0;
+//#line 21 "../cfg/params.cfg"
+      __max__.max_update_dist = 0.2;
+//#line 21 "../cfg/params.cfg"
+      __default__.max_update_dist = 0.1;
+//#line 21 "../cfg/params.cfg"
+      __param_descriptions__.push_back(visualization_paramsConfig::AbstractParamDescriptionConstPtr(new visualization_paramsConfig::ParamDescription<double>("max_update_dist", "double", 0, "max_update_dist", "", &visualization_paramsConfig::max_update_dist)));
+//#line 24 "../cfg/params.cfg"
       __min__.ant_steepness = 0.0;
-//#line 21 "../cfg/params.cfg"
+//#line 24 "../cfg/params.cfg"
       __max__.ant_steepness = 90.0;
-//#line 21 "../cfg/params.cfg"
+//#line 24 "../cfg/params.cfg"
       __default__.ant_steepness = 45.0;
-//#line 21 "../cfg/params.cfg"
+//#line 24 "../cfg/params.cfg"
       __param_descriptions__.push_back(visualization_paramsConfig::AbstractParamDescriptionConstPtr(new visualization_paramsConfig::ParamDescription<double>("ant_steepness", "double", 0, "ant_max_angle", "", &visualization_paramsConfig::ant_steepness)));
-//#line 22 "../cfg/params.cfg"
+//#line 25 "../cfg/params.cfg"
       __min__.ant_cost_factor = 0.0;
-//#line 22 "../cfg/params.cfg"
+//#line 25 "../cfg/params.cfg"
       __max__.ant_cost_factor = 10.0;
-//#line 22 "../cfg/params.cfg"
-      __default__.ant_cost_factor = 1.0;
-//#line 22 "../cfg/params.cfg"
+//#line 25 "../cfg/params.cfg"
+      __default__.ant_cost_factor = 3.0;
+//#line 25 "../cfg/params.cfg"
       __param_descriptions__.push_back(visualization_paramsConfig::AbstractParamDescriptionConstPtr(new visualization_paramsConfig::ParamDescription<double>("ant_cost_factor", "double", 0, "ant_cost_factor", "", &visualization_paramsConfig::ant_cost_factor)));
-//#line 23 "../cfg/params.cfg"
+//#line 26 "../cfg/params.cfg"
       __min__.ant_use_four = 0;
-//#line 23 "../cfg/params.cfg"
+//#line 26 "../cfg/params.cfg"
       __max__.ant_use_four = 1;
-//#line 23 "../cfg/params.cfg"
+//#line 26 "../cfg/params.cfg"
       __default__.ant_use_four = 1;
-//#line 23 "../cfg/params.cfg"
+//#line 26 "../cfg/params.cfg"
       __param_descriptions__.push_back(visualization_paramsConfig::AbstractParamDescriptionConstPtr(new visualization_paramsConfig::ParamDescription<int>("ant_use_four", "int", 0, "ant_use_four", "", &visualization_paramsConfig::ant_use_four)));
-//#line 24 "../cfg/params.cfg"
+//#line 27 "../cfg/params.cfg"
       __min__.ant_uphill_factor = 0.0;
-//#line 24 "../cfg/params.cfg"
+//#line 27 "../cfg/params.cfg"
       __max__.ant_uphill_factor = 10.0;
-//#line 24 "../cfg/params.cfg"
+//#line 27 "../cfg/params.cfg"
       __default__.ant_uphill_factor = 3.0;
-//#line 24 "../cfg/params.cfg"
+//#line 27 "../cfg/params.cfg"
       __param_descriptions__.push_back(visualization_paramsConfig::AbstractParamDescriptionConstPtr(new visualization_paramsConfig::ParamDescription<double>("ant_uphill_factor", "double", 0, "ant_uphill_factor", "", &visualization_paramsConfig::ant_uphill_factor)));
+//#line 28 "../cfg/params.cfg"
+      __min__.ant_hillside_factor = 0.0;
+//#line 28 "../cfg/params.cfg"
+      __max__.ant_hillside_factor = 50.0;
+//#line 28 "../cfg/params.cfg"
+      __default__.ant_hillside_factor = 14.0;
+//#line 28 "../cfg/params.cfg"
+      __param_descriptions__.push_back(visualization_paramsConfig::AbstractParamDescriptionConstPtr(new visualization_paramsConfig::ParamDescription<double>("ant_hillside_factor", "double", 0, "ant_hillside_factor", "", &visualization_paramsConfig::ant_hillside_factor)));
+//#line 29 "../cfg/params.cfg"
+      __min__.ant_path_length_factor = 0.0;
+//#line 29 "../cfg/params.cfg"
+      __max__.ant_path_length_factor = 50.0;
+//#line 29 "../cfg/params.cfg"
+      __default__.ant_path_length_factor = 14.0;
+//#line 29 "../cfg/params.cfg"
+      __param_descriptions__.push_back(visualization_paramsConfig::AbstractParamDescriptionConstPtr(new visualization_paramsConfig::ParamDescription<double>("ant_path_length_factor", "double", 0, "ant_path_length_factor", "", &visualization_paramsConfig::ant_path_length_factor)));
+//#line 31 "../cfg/params.cfg"
+      __min__.ant_use_smoothing = 0;
+//#line 31 "../cfg/params.cfg"
+      __max__.ant_use_smoothing = 1;
+//#line 31 "../cfg/params.cfg"
+      __default__.ant_use_smoothing = 0;
+//#line 31 "../cfg/params.cfg"
+      __param_descriptions__.push_back(visualization_paramsConfig::AbstractParamDescriptionConstPtr(new visualization_paramsConfig::ParamDescription<int>("ant_use_smoothing", "int", 0, "ant_use_smoothing", "", &visualization_paramsConfig::ant_use_smoothing)));
+//#line 34 "../cfg/params.cfg"
+      __min__.light_pos = -2.0;
+//#line 34 "../cfg/params.cfg"
+      __max__.light_pos = 2.0;
+//#line 34 "../cfg/params.cfg"
+      __default__.light_pos = 0.0;
+//#line 34 "../cfg/params.cfg"
+      __param_descriptions__.push_back(visualization_paramsConfig::AbstractParamDescriptionConstPtr(new visualization_paramsConfig::ParamDescription<double>("light_pos", "double", 0, "light_pos", "", &visualization_paramsConfig::light_pos)));
 //#line 239 "/opt/ros/electric/stacks/driver_common/dynamic_reconfigure/templates/ConfigType.h"
     
       for (std::vector<visualization_paramsConfig::AbstractParamDescriptionConstPtr>::const_iterator i = __param_descriptions__.begin(); i != __param_descriptions__.end(); i++)

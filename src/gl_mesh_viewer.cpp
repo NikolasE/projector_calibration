@@ -143,17 +143,12 @@ void GL_Mesh_Viewer::drawAnt(Ant* ant){
 
  cv::Point pos = ant->getPosition();
 
- pcl_Point P3 = cloud.at(pos.x, pos.y);
-
- float l = 0.02;
-
- float dz = 0.0;
 
  glLineWidth(10);
 
  // glPointSize(100);
 
- int cnt = 2;
+ int cnt = 4;
 
  glBegin(GL_LINE_STRIP);
 

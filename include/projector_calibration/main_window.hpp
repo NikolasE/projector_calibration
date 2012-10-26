@@ -1,16 +1,16 @@
 /**
- * @file /include/projector_calibration/main_window.hpp
- *
- * @brief Qt based gui for projector_calibration.
- *
- * @date November 2010
- **/
+* @file /include/projector_calibration/main_window.hpp
+*
+* @brief Qt based gui for projector_calibration.
+*
+* @date November 2010
+**/
 #ifndef projector_calibration_MAIN_WINDOW_H
 #define projector_calibration_MAIN_WINDOW_H
 
 /*****************************************************************************
- ** Includes
- *****************************************************************************/
+** Includes
+*****************************************************************************/
 
 #include <QtGui/QMainWindow>
 #include <QApplication>
@@ -26,8 +26,11 @@
 
 
 /*****************parent************************************************************
- ** Namespace
- *****************************************************************************/
+** Namespace
+*****************************************************************************/
+
+
+// #define DO_TIMING
 
 typedef std::stringstream sstream;
 
@@ -149,19 +152,68 @@ namespace projector_calibration {
   Q_OBJECT
 
  private:
-  /* storage for one texture  */
-  GLuint texture[1];
 
+
+
+
+  /// storage for one texture
+  GLuint texture[1];
   cv::Mat texture_cv;
+//  std::vector<cv::Point> path;
+//  std::vector<cv::Vec3b> pathColors;
+
+  std::vector<Line_collection> height_lines;
+
+  /// size of output image
+  int img_width, img_height;
+  float grid_min_x, grid_min_y, grid_width, grid_height;
+
+  Cloud_n normals;
+
+  bool draw_map;
+
+  float light_z_pos;
 
  public:
   GL_Mesh_Viewer( QWidget* parent);
   ~GL_Mesh_Viewer();
 
 
-  cv::Mat M;
-   bool show_texture;
+  std::map<int,Ant>* ants;
 
+  void setLightPos(float z){light_z_pos = z;}
+
+  void initMapSize(int img_width, int img_height, float min_x, float min_y, float width, float height){
+   this->img_width = img_width;
+   this->img_height = img_height;
+   grid_min_x = min_x;
+   grid_min_y = min_y;
+   grid_width = width;
+   grid_height = height;
+  }
+
+
+  void drawMapImage(bool draw_map){this->draw_map = draw_map;}
+
+  cv::Mat proj_matrix;
+  bool show_texture;
+
+  void setNormals(const Cloud_n& normals){this->normals = normals;}
+
+//  void setPath(const std::vector<cv::Point>& path){this->path = path; pathColors.clear();}
+//  void setPathColors(const std::vector<cv::Vec3b>& pathColors){this->pathColors = pathColors;}
+//  void setPathWithColors(const std::vector<cv::Point>& path, const std::vector<cv::Vec3b>& pathColors){
+//   this->path = path;
+//   this->pathColors = pathColors;
+//   assert(this->path.size() == this->pathColors.size());
+//  }
+//
+//
+//  void removePath(){path.clear(); pathColors.clear();}
+
+  void set_height_lines(const std::vector<Line_collection>& height_lines){
+   this->height_lines = height_lines;
+  }
 
   void LoadGLTextures();
  public Q_SLOTS:
@@ -172,14 +224,47 @@ namespace projector_calibration {
  //     void setMesh(const pcl::PolygonMesh* mesh_);
 
 
+ public:
+ // TODO: private
+ /// todo map<int,ants> (with ant id, so that specific ants can be removed or drawn)
+// std::vector<Ant> ants;
+
+
+
 
 
  protected:
+
+
+ void setUpIlumination();
+
+ void setUpMapImage();
+ void setUpProjectorImage();
 
  void drawList(GLuint list_id);
 
  void drawMesh();
  void drawMeshWithTexture();
+
+ /**
+  * @see drawAnt
+  */
+ /// draws all ants
+ void drawAnts();
+
+ /**
+  * @param ant
+  * @see drawAnts
+  */
+ ///Draws a specific ant
+ void drawAnt(Ant* ant);
+
+ void drawPath(Ant* ant);
+
+
+// void drawPathNoGl();
+
+ void drawHeightLines();
 
  void initializeGL();
  void paintGL();
@@ -192,22 +277,27 @@ namespace projector_calibration {
  GLuint makeObject();
  GLuint object;
 
+ /// @todo make private
  pcl::PolygonMesh* mesh;
  };
 
 
  /*****************************************************************************
-  ** Interface [MainWindow]
-  *****************************************************************************/
+ ** Interface [MainWindow]
+ *****************************************************************************/
  /**
-  * @brief Qt central, all operations relating to the view part here.
-  */
+ * @brief Qt central, all operations relating to the view part here.
+ */
  class MainWindow : public QMainWindow {
   Q_OBJECT
 
  public:
   MainWindow(int argc, char** argv, QWidget *parent = 0);
   ~MainWindow();
+
+
+
+
 
   void ReadSettings(); // Load up qt program settings at startup
   void WriteSettings(); // Save qt program settings when closing
@@ -229,8 +319,8 @@ namespace projector_calibration {
 
  public Q_SLOTS:
  /******************************************
-  ** Auto-connections (connectQ_SLOTSByName())
-  *******************************************/
+ ** Auto-connections (connectQ_SLOTSByName())
+ *******************************************/
  void mouse_new_points();
  void show_fullscreen_pattern();
  void select_marker_area();
@@ -249,9 +339,15 @@ namespace projector_calibration {
  void update_proj_image();
  void learn_environment();
  void show_model_openGL();
- void scene_static(bool);
+ void scene_static(double);
  void ant_demo();
+ void got_new_ant(Ant ant);
+ void update_ant();
 
+
+ void setLightPos(float);
+
+ void process_events();
  // void setProjectorPixmap(const QPixmap& pixmap);
 
  void user_interaction_toggled(bool);
@@ -261,6 +357,8 @@ namespace projector_calibration {
  void gl_visualization_toggled(bool);
  void show_texture(bool);
  void water_simulation_toggled(bool);
+
+ void show_height_lines(bool);
 
  // calibration
  void compute_homography();
@@ -277,8 +375,8 @@ namespace projector_calibration {
  void detect_disc();
  void evaluate_pattern();
  /******************************************
-  ** Manual connections
-  *******************************************/
+ ** Manual connections
+ *******************************************/
  void updateLoggingView();
  void sl_received_image();
  void pattern_size_changed();
@@ -304,6 +402,7 @@ namespace projector_calibration {
 
  // only show smaller images on the gui:
  float image_scale;
+
 
  std::vector<ros::Time> frame_update_times;
  static const uint hist_length = 10; // show mean framerate over last n frames

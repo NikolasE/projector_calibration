@@ -1,12 +1,12 @@
 /**
- * File glfractal.cpp
- * Brief Implementation of GLFractal
- * This is a simple QGLWidget displaying an openGL wireframe box
- *
- * The OpenGL code is mostly borrowed from Brian Pauls "spin" example
- * in the Mesa distribution.
- * $ID$
- */
+* File glfractal.cpp
+* Brief Implementation of GLFractal
+* This is a simple QGLWidget displaying an openGL wireframe box
+*
+* The OpenGL code is mostly borrowed from Brian Pauls "spin" example
+* in the Mesa distribution.
+* $ID$
+*/
 
 #include "projector_calibration/main_window.hpp"
 
@@ -17,15 +17,21 @@ using namespace std;
 //#include "projector_calibration/glfractal.h"
 
 /**
- * Constructor that creates a GLFractal widget
- */
+* Constructor that creates a GLFractal widget
+*/
 GL_Mesh_Viewer::GL_Mesh_Viewer( QWidget* parent)
 : QGLWidget(parent)
 {
  object = 0;
  initializeGL();
  show_texture = false;
+ img_width = img_height = -1;
+ draw_map = false;
+ light_z_pos = -1;
 }
+
+
+
 
 GL_Mesh_Viewer::~GL_Mesh_Viewer()
 {
@@ -76,6 +82,207 @@ void GL_Mesh_Viewer::LoadGLTextures() {
 
 
 
+/// draw height lines as red GL_LINES
+/**
+*  @todo: color should depend on height
+*/
+void GL_Mesh_Viewer::drawHeightLines(){
+ if (height_lines.size() == 0) return;
+
+ glColor3f(1,0,0);
+ glLineWidth(3.0);
+
+ glBegin(GL_LINES);
+ for (uint i =0; i<height_lines.size(); ++i){
+  for (uint j=0; j<height_lines[i].size(); ++j){
+   PointPair* pp = &height_lines[i][j];
+
+   glVertex3f(pp->first[0],pp->first[1],pp->first[2]);
+   glVertex3f(pp->second[0],pp->second[1],pp->second[2]);
+  }
+ }
+
+ glEnd();
+
+}
+
+
+
+
+void GL_Mesh_Viewer::drawAnts(){
+
+ // ROS_INFO("Drawing %zu ants", ants.size());
+
+ if (!ants) return;
+
+ for (std::map<int,Ant>::iterator it = ants->begin(); it != ants->end(); ++it){
+  drawAnt(&it->second);
+  drawPath(&it->second);
+ }
+
+}
+
+
+/**
+* @todo store cloud
+* @param ant
+*/
+void GL_Mesh_Viewer::drawAnt(Ant* ant){
+
+ // ROS_INFO("Drawing ant with id %i", ant->getId());
+
+ if (ant->getState() == ANT_NOT_INITIALIZED){
+  ROS_WARN("Can't show uninitialized ant");
+  return;
+ }
+
+
+ // get 3d Position
+ Cloud cloud;
+ pcl::fromROSMsg(mesh->cloud, cloud);
+
+ cv::Point pos = ant->getPosition();
+
+ pcl_Point P3 = cloud.at(pos.x, pos.y);
+
+ float l = 0.02;
+
+ float dz = 0.0;
+
+ glLineWidth(10);
+
+ // glPointSize(100);
+
+ int cnt = 2;
+
+ glBegin(GL_LINE_STRIP);
+
+ for (int foo = -cnt; foo <= cnt; ++foo){
+
+  int x = foo+pos.x;
+
+  if (x<0 || x >= int(cloud.width)) continue;
+
+  pcl_Point P = cloud.at(x, pos.y);
+
+  if (foo == 0)
+   glColor3f(0,1,0);
+  else
+   glColor3f(1,0,0);
+
+  glVertex3f( P.x,P.y,P.z);
+ }
+
+ glEnd();
+
+ glBegin(GL_LINE_STRIP);
+
+ for (int foo = -cnt; foo <= cnt; ++foo){
+
+  int y = foo+pos.y;
+
+  if (y<0 || y >= int(cloud.height)) continue;
+
+  pcl_Point P = cloud.at(pos.x, y);
+
+  if (foo == 0)
+   glColor3f(0,1,0);
+  else
+   glColor3f(1,0,0);
+
+  glVertex3f( P.x,P.y,P.z);
+ }
+
+ glEnd();
+
+
+
+// glColor3f(1,0,0);
+// glVertex3f( P3.x+l,P3.y+l,P3.z+dz);
+//
+// glColor3f(1,0,0);
+// glVertex3f( P3.x,P3.y,P3.z+dz);
+//
+// glColor3f(1,0,0);
+// glVertex3f( P3.x-l,P3.y-l,P3.z+dz);
+//
+// glEnd();
+//
+// glBegin(GL_LINE_STRIP);
+//
+// glColor3f(1,0,0);
+// glVertex3f( P3.x+l,P3.y-l,P3.z+dz);
+//
+// glColor3f(1,0,0);
+// glVertex3f( P3.x,P3.y,P3.z+dz);
+//
+// glColor3f(1,0,0);
+// glVertex3f( P3.x-l,P3.y+l,P3.z+dz);
+//
+// glEnd();
+
+
+
+ //  GLUquadricObj* Sphere = gluNewQuadric();
+ //
+ //  gluSphere(Sphere,0.02,20,20);
+ //  gluDeleteQuadric(Sphere);
+ //
+ //  glPopMatrix();
+
+
+}
+
+
+
+/// Visualize Path
+/**
+* @todo: render as cylinder strip (gluCylinder)
+*/
+void GL_Mesh_Viewer::drawPath(Ant* ant){
+
+// ROS_INFO("draw path for ant %i", ant->getId());
+
+ Cloud cloud;
+ pcl::fromROSMsg(mesh->cloud, cloud);
+
+ assert(cloud.width > 1 && cloud.height > 1);
+
+ glColor3f(0,1,0);
+ glLineWidth(5.0);
+
+ // bool with_colors = (pathColors.size() == path.size());
+ // cv::Vec3b* col;
+
+ glBegin(GL_LINE_STRIP);
+
+ int size = ant->getPathLenth();
+
+// ROS_INFO("Path length: %i", size);
+
+ for (int i=0; i<size; ++i){
+
+  cv::Point pos = ant->getPositionAt(i);
+
+  pcl_Point p = cloud.at(pos.x, pos.y);
+
+  //  ROS_INFO("Path point: %f %f %f", p.x,p.y,p.z);
+  //  if (with_colors){
+  //   col = &pathColors[i];
+  //   glColor3f(col->val[0]/255.0, col->val[1]/255.0, col->val[2]/255.0);
+  //  }
+
+  glVertex3f(p.x,p.y,p.z);
+ }
+
+ glEnd();
+
+
+}
+
+
+
+
 void GL_Mesh_Viewer::drawMeshWithTexture(){
 
  glEnable(GL_TEXTURE_2D);
@@ -103,7 +310,6 @@ void GL_Mesh_Viewer::drawMeshWithTexture(){
 
    int x = idx%cloud.width;
    int y = idx/cloud.width;
-
 
    // ROS_INFO("x,y: %i %i u,v: %f %f", x,y,x/(1.0*(cloud.width-1)), y/(1.0*(cloud.height-1)));
 
@@ -143,26 +349,74 @@ void GL_Mesh_Viewer::drawMeshWithTexture(){
 
 void GL_Mesh_Viewer::drawMesh(){
 
+
+ // 0.06 ms
  Cloud cloud;
  pcl::fromROSMsg(mesh->cloud, cloud);
 
+
+ bool normals_valid = (normals.size() == cloud.size());
+
  glBegin(GL_TRIANGLES);
 
- for (uint i=0; i<mesh->polygons.size(); i++){
-  for (uint j = 0; j<3; ++j){
-   pcl_Point p = cloud.points[mesh->polygons[i].vertices[j]];
-   glColor3f(p.r/255.0, p.g/255.0, p.b/255.0);
-   glVertex3f(p.x, p.y, p.z);
+
+ std::vector<pcl::Vertices>::iterator it = mesh->polygons.begin();
+ std::vector<pcl::Vertices>::iterator end = mesh->polygons.end();
+ pcl_Point* p;
+ pcl_Normal* n;
+
+ int undrawn_triangle_cnt = 0;
+
+ for (;it != end; ++it){
+
+
+  // TODO: compute normals for all points
+  // HACK: use 1,0,0 for points without normals
+  if (normals_valid){
+   bool nan = false;
+   for (uint i=0; i<3; ++i){
+    n = &normals.points[it->vertices[i]];
+    if  (n->normal_x != n->normal_x){
+     undrawn_triangle_cnt++;
+     nan = true;
+     break;
+    }
+   }
+   if (nan) continue;
   }
+
+  for (uint i=0; i<3; ++i){
+   p = &cloud.points[it->vertices[i]];
+   glColor3f(p->r/255.0, p->g/255.0, p->b/255.0);
+
+   if (normals_valid){
+    n = &normals.points[it->vertices[i]];
+    glNormal3f(n->normal_x, n->normal_y, n->normal_z);
+
+    assert(n->normal_x == n->normal_x);
+
+    //     ROS_INFO("pos: %f %f %f, normal: %f %f %f",p->x, p->y, p->z,n->normal_x, n->normal_y, n->normal_z);
+   }
+
+   glVertex3f(p->x, p->y, p->z);
+  }
+
+  //  p = &cloud.points[it->vertices[1]];
+  //  glColor3f(p->r/255.0, p->g/255.0, p->b/255.0);
+  //  glVertex3f(p->x, p->y, p->z);
+  //
+  //  p = &cloud.points[it->vertices[2]];
+  //  glColor3f(p->r/255.0, p->g/255.0, p->b/255.0);
+  //  glVertex3f(p->x, p->y, p->z);
  }
 
  glEnd();
 
+
+ // ROS_INFO("Couldn't draw %i of %zu triangles because of missing normals", undrawn_triangle_cnt,mesh->polygons.size());
+
+
 }
-
-
-
-
 
 
 
@@ -215,7 +469,7 @@ cv::Point2f GL_Mesh_Viewer::simulateGlPipeline(float x, float y, float z){
  cout << "GL_PROJECTION " << endl << P << endl;
 
 
- // ROS_INFO("GL_PROJECTIN");
+ // ROS_INFO("GL_PROJECTION");
  // for (uint x_=0; x_<4; ++x_){
  //  for (uint y=0; y<4; ++y)
  //   cout << v[y*4+x_] << " ";
@@ -253,7 +507,7 @@ cv::Point2f GL_Mesh_Viewer::simulateGlPipeline(float x, float y, float z){
 
  cout << "pixel: " << res.x << "  " << res.y << endl;
 
- cv::Mat cor = M*Pos;
+ cv::Mat cor = proj_matrix*Pos;
 
  cor /= cor.at<double>(2);
 
@@ -265,13 +519,119 @@ cv::Point2f GL_Mesh_Viewer::simulateGlPipeline(float x, float y, float z){
 
 
 
-/*--------------------------------------------------------------------------*/
-/**
- * Paint the box. The actual openGL commands for drawing the box are
- * performed here.
- */
-void GL_Mesh_Viewer::paintGL()
-{
+void GL_Mesh_Viewer::setUpIlumination(){
+
+ // glEnable(GL_COLOR_MATERIAL);
+ glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+
+ GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+ GLfloat mat_shininess[] = { 50.0 };
+ glClearColor (0.0, 0.0, 0.0, 0.0);
+ glShadeModel (GL_SMOOTH);
+
+ glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular);
+ glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mat_shininess);
+
+
+
+ // light_z_pos += 0.01;
+
+ // GLfloat light_position_1[] = { 0.0, 0.0, 2, 1.0 };
+
+ // GLfloat dir_1[] = { 0.0, 0.0, light_z_pos>0?1:-1};
+
+
+ GLfloat color_red[]   = { 1.0, 0.0,  0.0, 1.0 };
+ GLfloat color_blue[]  = { 0.0, 0.0,  1.0, 1.0 };
+ // GLfloat color_green[] = { 0.0, 1.0,  0.0, 1.0 };
+ // GLfloat color_black[] = { 0.0, 0.0,  0.0, 0.0 };
+ // GLfloat white[] = { 1.0, 1.0,  1.0, 1.0 };
+
+
+ // GLfloat color_red[] = { 50.0 };
+ glMatrixMode(GL_MODELVIEW_MATRIX);
+ glPushMatrix();
+ glLoadIdentity();
+ //
+ // // glTranslatef(0,0,light_z_pos);
+ //
+ // gluLookAt(0,0,light_z_pos, 0,0,0,0,1,0);
+
+ ROS_INFO("XXXXXXXXXXXXXXXXX  light pos: %f", light_z_pos);
+
+
+ // glLightfv(GL_LIGHT1, GL_POSITION, light_position_1); // position
+ // glLightfv(GL_LIGHT1, GL_DIFFUSE, diffuse_color_green); // color of diffuse light
+ // glLightfv(GL_LIGHT1, GL_SPECULAR, diffuse_color_green); // color of specular light
+ // glLightfv(GL_LIGHT1, GL_AMBIENT, diffuse_color_blue); // color of ambient light
+
+
+ // glLightfv(GL_LIGHT2, GL_POSITION, light_position_2); // position
+ // glLightfv(GL_LIGHT2, GL_DIFFUSE, diffuse_color_red); // color of diffuse light
+ // glLightfv(GL_LIGHT2, GL_SPECULAR, diffuse_color_green); // color of specular light
+ // glLightfv(GL_LIGHT2, GL_AMBIENT, diffuse_color_red); // color of specular light
+
+
+
+ // glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, dir_1);
+ //
+ // GLfloat angle = 5;
+ // glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, angle);
+
+ // glLightfv(GL_LIGHT2, GL_POSITION, light_position_2);
+ // glLightfv(GL_LIGHT2, GL_DIFFUSE, diffuse_color_blue);
+
+
+ // float x,y,z;
+ // x = 0;
+ // y = light_z_pos;
+ //
+ // light_z_pos += 0.01;
+ //
+ // z = 0.5;
+
+
+ glTranslatef(0,0,1);
+ GLfloat light_position_2[] = { 0, 0, -1, 0.0 };
+ glLightfv(GL_LIGHT0, GL_POSITION, light_position_2);
+ glLightfv(GL_LIGHT0, GL_AMBIENT,  color_blue);
+ glLightfv(GL_LIGHT0, GL_DIFFUSE,  color_red);
+
+ // glLightfv(GL_LIGHT0, GL_SPECULAR, color_green);
+ // glLightfv(GL_LIGHT0, GL_SPOT_DIRECTION, light_position_2);
+ // GLfloat angle = 30;
+ // glLightf(GL_LIGHT0, GL_SPOT_CUTOFF, angle);
+
+ glPopMatrix();
+
+ glEnable(GL_LIGHTING);
+ glEnable(GL_LIGHT0);
+ // glEnable(GL_LIGHT1);
+ // glEnable(GL_LIGHT2);
+ glEnable(GL_DEPTH_TEST);
+
+
+}
+
+
+void GL_Mesh_Viewer::setUpMapImage(){
+
+ glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+ glEnable( GL_DEPTH_TEST );
+
+ glMatrixMode(GL_MODELVIEW_MATRIX);
+ glLoadIdentity();
+
+ glMatrixMode(GL_PROJECTION);
+ glLoadIdentity();
+
+ glOrtho(grid_min_x,grid_min_x+grid_width,grid_min_y+grid_height,grid_min_y,-1,1);
+ glViewport(0,0,img_width,img_height);
+
+}
+
+
+void GL_Mesh_Viewer::setUpProjectorImage(){
 
  glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
  glEnable( GL_DEPTH_TEST );
@@ -279,15 +639,13 @@ void GL_Mesh_Viewer::paintGL()
  GLdouble model_view[16];
 
 
- // cout << "P " << M << endl;
-
  for (uint x=0; x<3; ++x){
   for (uint y=0; y<4; ++y){
 
    if (x < 2)
-    model_view[y*4+x] = M.at<double>(x,y);
+    model_view[y*4+x] = proj_matrix.at<double>(x,y);
    else{
-    model_view[y*4+(x+1)] = M.at<double>(x,y);
+    model_view[y*4+(x+1)] = proj_matrix.at<double>(x,y);
     model_view[y*4+x] = 0;
    }
   }
@@ -295,46 +653,62 @@ void GL_Mesh_Viewer::paintGL()
 
  model_view[10] = 1; // MV(3,3) = 1
 
- // cout << "Modelview" << endl;
- // for (uint x=0; x<4; ++x){
- //  for (uint y=0; y<4; ++y)
- //   cout << model_view[y*4+x] << " ";
- //  cout << endl;
- // }
 
  glMatrixMode(GL_MODELVIEW_MATRIX);
  glLoadIdentity();
  glMultMatrixd(model_view);
 
- // glGetDoublev(GL_MODELVIEW_MATRIX,model_view);
- // ROS_INFO("With openGL");
- // for (uint x=0; x<4; ++x){
- //  for (uint y=0; y<4; ++y)
- //   cout << model_view[y*4+x] << " ";
- //  cout << endl;
- // }
 
  glMatrixMode(GL_PROJECTION);
  glLoadIdentity();
  glOrtho(0,w_,h_,0,-10,10);
+
  glViewport(0,0,w_,h_);
-
- //
-
- if (show_texture)
-  drawMeshWithTexture();
- else
-  drawMesh();
-
- //glCallList(object);
 
 
 }
 
 
-//void GL_Mesh_Viewer::setMesh(pcl::PolygonMesh* mesh_){
-// mesh = mesh_;
-//}
+
+void GL_Mesh_Viewer::paintGL()
+{
+
+ // setUpIlumination();
+
+ // ros::Time now_render = ros::Time::now();
+ if (draw_map)
+  setUpMapImage();
+ else
+  setUpProjectorImage();
+
+
+ // drawing path of ant as GlLine
+ // drawPath();
+
+ drawAnts();
+
+ // drawing rest of scene (texture or glTriangles with height dependent color)
+ drawMesh();
+
+
+
+ // if (height_lines.size() > 0){
+ //  drawHeightLines();
+ // }
+ //
+ //
+ // if (path.size() > 0)
+ //  drawPath();
+ // else {
+ //  if (show_texture)
+ //   drawMeshWithTexture();
+ //  else
+ //   drawMesh();
+ // }
+
+
+}
+
 
 
 GLuint GL_Mesh_Viewer::makeObject()
@@ -433,8 +807,8 @@ GLuint GL_Mesh_Viewer::makeObject()
 
 /*--------------------------------------------------------------------------*/
 /**
- * Set up the OpenGL rendering state, and define display list
- */
+* Set up the OpenGL rendering state, and define display list
+*/
 
 void GL_Mesh_Viewer::initializeGL()
 {
@@ -445,8 +819,8 @@ void GL_Mesh_Viewer::initializeGL()
 
 /*--------------------------------------------------------------------------*/
 /**
- * Set up the OpenGL view port, matrix mode, etc.
- */
+* Set up the OpenGL view port, matrix mode, etc.
+*/
 void GL_Mesh_Viewer::resizeGL( int w, int h )
 {
  w_ = w;

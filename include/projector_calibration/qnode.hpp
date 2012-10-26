@@ -60,17 +60,26 @@ namespace projector_calibration {
   ** Class
   *****************************************************************************/
 
-
+// #define PRINT_TIMING
 
 
  class QNode : public QThread {
   Q_OBJECT
  public:
+  Ant ant;
+  std::map<int,Ant> ants;
+
 
   void imageColCallback(const sensor_msgs::ImageConstPtr& msg);
 
   void imageCallback(const sensor_msgs::ImageConstPtr& msg);
   void paramCallback(const projector_calibration::visualization_paramsConfig& config, uint32_t level);
+
+//  /// Duration since last static frame
+//  ros::Duration durationSinceLastStaticFrame(){ return (ros::Time::now()-time_of_last_static_frame); }
+//
+//  /// Duration since last static frame in s
+// double secondsSinceLastStaticFrame(){ return durationSinceLastStaticFrame().toSec();}
 
 
   cv_bridge::CvImagePtr cv_ptr;
@@ -78,12 +87,14 @@ namespace projector_calibration {
   // the actual calibration object
   Projector_Calibrator calibrator;
   Pinch_detector detector;
+  Grasp_detector grasp_detector;
   Surface_Modeler modeler;
   Mesh_visualizer mesh_visualizer;
   User_Input* user_input;
   Path_planner planner;
 
   void run_ant_demo();
+  void update_ant(cv::Point goal);
 
   uint train_frame_cnt;
   bool train_background;
@@ -94,11 +105,14 @@ namespace projector_calibration {
 //  bool simulator_initialized;
 
 
+  std::vector<cv::Point2f> grasps;
+
   cv::Mat water;
 
   bool init_watersimulation();
   bool step_watersimulation();
   int water_request_id;
+
 
 
   bool loadParameters();
@@ -125,6 +139,9 @@ namespace projector_calibration {
 
   float min_dist, max_dist;
   float color_range;
+  bool show_height_lines;
+  /// if distance between current and new height of a cell is larger than this value, its height will not be updated
+  float max_update_dist;
 
   cv::Mat area_mask;
 
@@ -161,8 +178,14 @@ namespace projector_calibration {
   void received_col_Image();
   void update_projector_image();
   void model_computed();
-  void scene_static(bool);
+  void scene_static(double secs_since_last_static_image);
 //  void newProjectorPixmap(const QPixmap& pixmap);
+  void process_events();
+  void new_light(float);
+
+  void newAnt(Ant ant);
+
+  void sl_update_ant();
 
 
  private:
@@ -174,8 +197,16 @@ namespace projector_calibration {
   float sim_viscosity;
 
 
+
   bool first_depth_callback;
   cv::Mat last_static_depth_image;
+
+  ros::Time time_of_last_static_frame;
+  ros::Duration duration_since_last_static_frame;
+  bool current_frame_static;
+
+  int next_ant_id;
+
 
 
 

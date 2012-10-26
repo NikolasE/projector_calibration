@@ -58,7 +58,11 @@ namespace projector_calibration {
   QObject::connect(&qnode, SIGNAL(received_col_Image()), this, SLOT(sl_received_image()));
   QObject::connect(&qnode, SIGNAL(update_projector_image()), this, SLOT(update_proj_image()));
   QObject::connect(&qnode, SIGNAL(model_computed()), this, SLOT(show_model_openGL()));
-  QObject::connect(&qnode, SIGNAL(scene_static(bool)), this, SLOT(scene_static(bool)));
+  QObject::connect(&qnode, SIGNAL(scene_static(double)), this, SLOT(scene_static(double)));
+  QObject::connect(&qnode, SIGNAL(new_light(float)), this, SLOT(setLightPos(float)));
+  QObject::connect(&qnode, SIGNAL(newAnt(Ant)), this, SLOT(got_new_ant(Ant)));
+  QObject::connect(&qnode, SIGNAL(sl_update_ant()), this, SLOT(update_ant()));
+
 
 
   QObject::connect(&mousehandler_projector, SIGNAL(redraw_image()), this, SLOT(update_proj_image()));
@@ -81,6 +85,8 @@ namespace projector_calibration {
   // Logging
   ui.view_logging->setModel(qnode.loggingModel());
   QObject::connect(&qnode, SIGNAL(loggingUpdated()), this, SLOT(updateLoggingView()));
+  QObject::connect(&qnode, SIGNAL(process_events()), this, SLOT(process_events()));
+
   QObject::connect(&mousehandler_projector, SIGNAL(marker_area_changed()), this, SLOT(select_marker_area()));
   QObject::connect(&mousehandler_points, SIGNAL(new_point()), this, SLOT(mouse_new_points()));
   QObject::connect(&mousehandler_points, SIGNAL(new_point()), this, SLOT( sl_received_image()));
@@ -113,18 +119,43 @@ namespace projector_calibration {
  }
 
 
+ cv::Mat qimage2mat(const QImage& qimage) {
+     cv::Mat mat = cv::Mat(qimage.height(), qimage.width(), CV_8UC4, (uchar*)qimage.bits(), qimage.bytesPerLine());
+     cv::Mat mat2 = cv::Mat(mat.rows, mat.cols, CV_8UC3 );
+     int from_to[] = { 0,0,  1,1,  2,2 };
+     cv::mixChannels( &mat, 1, &mat2, 1, from_to, 3 );
+     return mat2;
+ };
 
+ QImage mat2qimage(const cv::Mat& mat) {
+     cv::Mat rgb;
+     cv::cvtColor(mat, rgb, CV_BGR2RGB);
+     return QImage((const unsigned char*)(rgb.data), rgb.cols, rgb.rows, QImage::Format_RGB888);
+ };
+
+
+ QImage Mat2QImage(const cv::Mat3b &src) {
+  //return mat2qimage(src);
+
+  QImage dest(src.cols, src.rows, QImage::Format_ARGB32);
+  for (int y = 0; y < src.rows; ++y) {
+   const cv::Vec3b *srcrow = src[y];
+   QRgb *destrow = (QRgb*)dest.scanLine(y);
+   for (int x = 0; x < src.cols; ++x) {
+    destrow[x] = qRgba(srcrow[x][2], srcrow[x][1], srcrow[x][0], 255);
+   }
+  }
+  return dest;
+ }
 
 
 
  void MainWindow::show_model_openGL(){
 
-  //  ROS_INFO("show with openGL");
+
+  qApp->processEvents();
 
   ros::Time start_show_openGL = ros::Time::now();
-
-
-  ros::Time now_getmodel = ros::Time::now();
 
 
   if (!qnode.modeler.modelComputed()){
@@ -132,58 +163,126 @@ namespace projector_calibration {
    return;
   }
 
+
+  //  ros::Time now_getmodel = ros::Time::now();
   Cloud model = qnode.modeler.getModel();
+  //  ROS_INFO("getModel: %f ms", (ros::Time::now()-now_getmodel).toSec()*1000);
+
 
   if (model.size() == 0){
    ROS_INFO("Model is not computed (and empty)");
    return;
   }
 
-  ROS_INFO("getModel: %f ms", (ros::Time::now()-now_getmodel).toSec()*1000);
-
   ros::Time now_color = ros::Time::now();
 
-//  double min_, max_;
-//  cv::minMaxLoc(qnode.water, &min_, &max_);
-//  //  ROS_INFO("Water: min: %f, max: %f", min_, max_);
-//  double s = cv::sum(qnode.water).val[0];
-//  ROS_INFO("Updating vis: %f",s);
+  // TODO: create only once after model is initialized
+  cv::Mat color(model.height, model.width, CV_8UC3);
+  color.setTo(0);
 
-  Cloud colored;
-  cv::Mat water;
-  qnode.water.copyTo(water);
-  if (qnode.water.cols == int(model.width))
-   colored = colorizeCloud(model, 100,-1,qnode.color_range,&water,1,0);
-  else
-   colored = colorizeCloud(model, 100,-1,qnode.color_range);
 
+  if (qnode.openGL_visualizationActive){
+   // TODO: don't copy image
+   cv::Mat height = qnode.modeler.getHeightImage();
+   heightVisualization(color, height, 0,100, qnode.color_range,NULL);
+  }
+
+
+  if (qnode.water_simulation_active){
+
+   // white surrounding if no height lines are visualized
+   if (!qnode.openGL_visualizationActive)
+    color.setTo(255);
+
+   if (qnode.water.cols == int(model.width)){
+    //waterVisualization(color, qnode.water, 0.005,0.03,NULL);
+
+    cv::Mat alpha; // todo: don't generate each time
+    waterVisualizationAlpha(color, alpha,qnode.water, 0.0,0.015,NULL);
+
+    cv::imwrite("water.png", color);
+    //    cv::imwrite("alpha.png", alpha);
+   }
+  }
+
+  Cloud colored = transferColorToMesh(color, model,NULL);
+
+#ifdef DO_TIMING
   ROS_INFO("colorizeCloud: %f ms", (ros::Time::now()-now_color).toSec()*1000.0);
-
+#endif
 
 
 
   ros::Time now_mesh = ros::Time::now();
-  float max_length = 100; // max edge length of drawn triangle in m
+  float max_length = 0.05; // max edge length of drawn triangle in m
   pcl::PolygonMesh mesh = qnode.mesh_visualizer.createMesh(colored, max_length);
+#ifdef DO_TIMING
   ROS_INFO("createMesh: %f ms", (ros::Time::now()-now_mesh).toSec()*1000.0);
-
+#endif
 
   //  qnode.mesh_visualizer.visualizeMesh(mesh);
 
   gl_viewer->mesh = &mesh;
-  gl_viewer->M = qnode.calibrator.proj_Matrix;
+  gl_viewer->proj_matrix = qnode.calibrator.proj_Matrix;
+//  gl_viewer->setPathWithColors(qnode.planner.getPath(),qnode.planner.getPathColor());
+
+  //  Cloud_n with_normals;
+  //  computeNormals(model, with_normals);
+  //  gl_viewer->setNormals(with_normals);
+
+
+
+  for (std::map<int,Ant>::iterator it = qnode.ants.begin(); it != qnode.ants.end(); ++it){
+   it->second.walk(5);
+   // todo funding as parameter
+   // todo zeitabhaengig
+  }
+
+
+  // show height lines
+  if (qnode.show_height_lines){
+   ros::Time start_height = ros::Time::now();
+   std::vector<Line_collection> height_lines;
+   qnode.mesh_visualizer.findHeightLines(mesh, height_lines, qnode.modeler.getMinHeight(), qnode.modeler.getMaxHeight(), 0.02);
+   gl_viewer->set_height_lines(height_lines);
+   ROS_INFO("Height lines: %f ms", (ros::Time::now()-start_height).toSec()*1000.0);
+  }else{
+   std::vector<Line_collection> height_lines;
+   gl_viewer->set_height_lines(height_lines);
+  }
 
 
   //  gl_viewer->resize(lb_img.width(),lb_img.height());
+  gl_viewer->drawMapImage(false);
   ros::Time now_render = ros::Time::now();
   QPixmap pix2 = gl_viewer->renderPixmap(lb_img.width(),lb_img.height(),true);
+
+
+#ifdef DO_TIMING
+  ROS_INFO("Rendering: %f ms", (ros::Time::now()-now_render).toSec()*1000.0);
+#endif
+
+
+
+//  pix2.save(QString("fooo.png"),0,100);
+//
+////  cv::Mat cv_img = qimage2mat(QImage(pix2));
+//
+//  cv::Mat cv_img = cv::imread("fooo.png");
+//
+//  cv::circle(cv_img, cv::Point(100,200),30,CV_RGB(255,0,0),-1);
+//
+//  QImage foo = mat2qimage(cv_img);
+//
+//  lb_img.setPixmap(pixmap_col.fromImage(foo, 0));
+//
+
   lb_img.setPixmap(pix2);
   lb_img.repaint();
-  ROS_INFO("Rendering: %f ms", (ros::Time::now()-now_render).toSec()*1000.0);
 
-  //  lb_img.repaint();
-
+#ifdef DO_TIMING
   ROS_INFO("Showing Model with openGL (total): %f ms", (ros::Time::now()-start_show_openGL).toSec()*1000);
+#endif
 
   frame_update_times.push_back(ros::Time::now());
   if (frame_update_times.size() > hist_length){
@@ -192,12 +291,20 @@ namespace projector_calibration {
    ui.lb_framerate->setText(QString::number(int(fr*100)/100.0));
   }
 
-  //  gl_viewer->resize(ui.lb_img_2->width(),ui.lb_img_2->height());
-  //  QPixmap pix = gl_viewer->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
-  //  ui.lb_img_2->setPixmap(pix);
-  //  ui.lb_img_2->repaint();
 
-  // qnode.modeler.reset();
+  // TODO: adapt size of image
+  if (qnode.show_height_lines){
+
+   gl_viewer->drawMapImage(true);
+   // show image on right image-label
+   gl_viewer->initMapSize(ui.lb_img_2->width(),ui.lb_img_2->height(), qnode.modeler.min_x(),qnode.modeler.min_y(),qnode.modeler.getWidth(), qnode.modeler.getHeight());
+   //  gl_viewer->resize(ui.lb_img_2->width(),ui.lb_img_2->height());
+   QPixmap pix = gl_viewer->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
+   ui.lb_img_2->setPixmap(pix);
+   ui.lb_img_2->repaint();
+  }
+
+
 
  }
 
@@ -213,8 +320,30 @@ namespace projector_calibration {
  }
 
 
+ void MainWindow::update_ant(){
+//  ROS_INFO("Updating Ant");
+
+//  if (qnode.ant.getState() == ANT_MOVING)
+//   gl_viewer->ants[qnode.ant.getId()] = qnode.ant;
+
+  gl_viewer->ants = &qnode.ants;
+
+ }
+
+
+ void MainWindow::got_new_ant(Ant ant){
+
+  ROS_INFO("Got new ant %i",ant.getId());
+
+//  if (ant.getState() == ANT_MOVING){
+//   ROS_INFO("Added ant");
+//   gl_viewer->ants[ant.getId()] = ant;
+//  }
+
+ }
+
  void MainWindow::ant_demo(){
-  qnode.run_ant_demo();
+  // qnode.run_ant_demo();
  }
 
  void MainWindow::select_marker_area(){
@@ -379,17 +508,7 @@ namespace projector_calibration {
  }
 
 
- QImage Mat2QImage(const cv::Mat3b &src) {
-  QImage dest(src.cols, src.rows, QImage::Format_ARGB32);
-  for (int y = 0; y < src.rows; ++y) {
-   const cv::Vec3b *srcrow = src[y];
-   QRgb *destrow = (QRgb*)dest.scanLine(y);
-   for (int x = 0; x < src.cols; ++x) {
-    destrow[x] = qRgba(srcrow[x][2], srcrow[x][1], srcrow[x][0], 255);
-   }
-  }
-  return dest;
- }
+
 
 
  // void MainWindow::setProjectorPixmap(const QPixmap& pixmap){
@@ -405,7 +524,7 @@ namespace projector_calibration {
 
 
   assert(qnode.calibrator.projector_image.cols > 0);
-  qimg_proj = Mat2QImage(qnode.calibrator.projector_image);
+  //qimg_proj = Mat2QImage(qnode.calibrator.projector_image);
   lb_img.setPixmap(pixmap_proj.fromImage(qimg_proj, 0));
   lb_img.repaint();
 
@@ -437,10 +556,19 @@ namespace projector_calibration {
  void MainWindow::detect_disc(){   qnode.disc_evaluation();  }
 
 
- void MainWindow::scene_static(bool is_static){
-  ui.lb_static->setText(is_static?"STATIC":"NON STATIC");
+ void MainWindow::scene_static(double secs_since_last_static_image){
+  ui.lb_static->setText(QString::number(int(secs_since_last_static_image*100)/100.0));
+  ui.lb_static->repaint();
  }
 
+
+ void MainWindow::setLightPos(float z){
+  //  ROS_INFO("UPDATING LIGHT POSITION");
+  gl_viewer->setLightPos(z);
+  std::stringstream ss;
+  ss << "light pos " << z;
+  qnode.writeToOutput(ss);
+ }
 
  void MainWindow::mouse_new_points(){
 
@@ -532,7 +660,7 @@ namespace projector_calibration {
   ui.cb_texture->setChecked(gl_viewer->show_texture);
   ui.cb_water->setChecked(qnode.water_simulation_active);
 
-  ROS_INFO("Loading");
+
 
  }
 
@@ -545,7 +673,7 @@ namespace projector_calibration {
   ui.slider_color->setSliderPosition(col_cm);
   qnode.color_range = col_cm/100.0; // now in meter
 
-  ROS_INFO("color slider: %i cm", col_cm);
+  // ROS_INFO("color slider: %i cm", col_cm);
   ui.lb_color->setText(QString::number(col_cm));
 
   qnode.saveParameters();
@@ -579,12 +707,6 @@ namespace projector_calibration {
 
   qnode.saveParameters();
  }
-
-
-
-
-
-
 
  void MainWindow::manual_yaw_changed(int yaw){
   float y = yaw/2.0;
@@ -760,6 +882,14 @@ namespace projector_calibration {
   qnode.writeToOutput(msg);
  }
 
+
+ void MainWindow::show_height_lines(bool status){
+  qnode.show_height_lines = status;
+  qnode.saveParameters();
+ }
+
+
+
  void MainWindow::water_simulation_toggled(bool status){
 
   if (status && !qnode.water_simulation_active){
@@ -789,6 +919,11 @@ namespace projector_calibration {
   //  color_slider_moved(ui.slider_color->value());
 
   qnode.foreGroundVisualizationActive = status;
+ }
+
+ void MainWindow::process_events(){
+  //  ROS_INFO("XXXXXXXXXXXXXX processing");
+  qApp->processEvents();
  }
 
  void MainWindow::pattern_auto_size_toggled(bool status){

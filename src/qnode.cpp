@@ -32,7 +32,8 @@ namespace projector_calibration
  *****************************************************************************/
 
  QNode::QNode(int argc, char** argv) :
-                                                              init_argc(argc), init_argv(argv)
+            init_argc(argc),
+            init_argv(argv)
  {
   init();
  }
@@ -83,8 +84,7 @@ namespace projector_calibration
 
  }
 
- bool
- QNode::init()
+ bool QNode::init()
  {
   ros::init(init_argc, init_argv, "projector_calibration");
   if (!ros::master::check()){
@@ -108,12 +108,19 @@ namespace projector_calibration
   mesh_visualizer = Mesh_visualizer(n);
   restart_modeler = true;
 
+  max_update_dist = 0.1;
+
+  current_frame_static = false;
+  time_of_last_static_frame = ros::TIME_MIN; // earlier than everything
+
+
+  next_ant_id = 0;
+
   start();
   return true;
  }
 
- void
- QNode::writeToOutput(const std::stringstream& msg)
+ void QNode::writeToOutput(const std::stringstream& msg)
  {
 
   ROS_INFO_STREAM(msg.str());
@@ -154,8 +161,8 @@ namespace projector_calibration
   fs << "depth_visualization_active" << depth_visualization_active;
   fs << "show_texture" << show_texture;
   fs << "water_simulation_active" << water_simulation_active;
+  fs << "show_height_lines" << show_height_lines;
  }
-
 
  bool  QNode::loadParameters(){
 
@@ -172,19 +179,14 @@ namespace projector_calibration
   depth_visualization_active = (int)fs["depth_visualization_active"];
   show_texture = (int)fs["show_texture"];
   water_simulation_active  = (int)fs["water_simulation_active"];
+  show_height_lines  = (int)fs["show_height_lines"];
 
-
-  if (openGL_visualizationActive)
-   ROS_INFO("ACTIVE");
 
   return true;
 
  }
 
-
-
- void QNode::imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr,
-   const sensor_msgs::PointCloud2ConstPtr& cloud_ptr)
+ void QNode::imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_msgs::PointCloud2ConstPtr& cloud_ptr)
  {
 
   ros::Time now_callback = ros::Time::now();
@@ -198,6 +200,37 @@ namespace projector_calibration
 
   calibrator.setInputCloud(current_cloud);
   calibrator.setInputImage(current_col_img);
+
+
+  ros::Time start_fg = ros::Time::now();
+  cv::Mat fg = modeler.getFGMask(calibrator.cloud_moved, 0.05);
+#ifdef PRINT_TIMING
+  ROS_INFO("getFGMask: %f ms", (ros::Time::now()-start_fg).toSec()*1000.0);
+#endif
+
+  //   current_col_img = applyMask(current_col_img, fg);
+
+  detectGrasp(fg, grasps, &current_col_img, false);
+
+//  ROS_INFO("Detected %zu grasps", grasps.size());
+
+
+  for (uint i=0; i<grasps.size(); ++i){
+   pcl_Point p3 = calibrator.cloud_moved.at(grasps[i].x,grasps[i].y);
+   cv::Point grid = modeler.grid_pos(p3);
+
+   ROS_INFO("grasp %i 3d: %f %f %f", i, p3.x,p3.y,p3.z);
+   ROS_INFO("grasp %i: %f %f", i, grasps[i].x,grasps[i].y);
+   ROS_INFO("Grid pos: %i %i", grid.x, grid.y);
+
+   if (p3.x == p3.x && grid.x >= 0){
+    ROS_INFO("Updating ant!");
+    update_ant(cv::Point(grid.x, grid.y));
+   }
+
+
+
+  }
 
   Q_EMIT received_col_Image();
 
@@ -288,11 +321,10 @@ namespace projector_calibration
    {
    // ROS_INFO("foreground visulization active");
 
-   ROS_INFO("RANGE from %f to %f", min_dist, max_dist);
+   //   ROS_INFO("RANGE from %f to %f", min_dist, max_dist);
 
-   Cloud changed =
-     detector.removeBackground(calibrator.input_cloud, min_dist, max_dist);
-   ROS_INFO("background: min %f, max: %f",  min_dist, max_dist);
+   Cloud changed =  detector.removeBackground(calibrator.input_cloud, min_dist, max_dist);
+   //   ROS_INFO("background: min %f, max: %f",  min_dist, max_dist);
 
    Cloud trafoed;
    pcl::getTransformedPointCloud(changed,calibrator.getCameraTransformation(),trafoed);
@@ -303,7 +335,7 @@ namespace projector_calibration
    msg->header.stamp = ros::Time::now();
    pub_foreground.publish(msg);
 
-   ROS_INFO("color_range: %f", color_range);
+   //   ROS_INFO("color_range: %f", color_range);
 
    projectCloudIntoImage(trafoed, calibrator.proj_Matrix,
      calibrator.projector_image, -1,-100,  color_range); // -1,-100: all values are accepted
@@ -313,7 +345,7 @@ namespace projector_calibration
 
    //   imwrite("fg.jpg",*detector.getForeground());
 
-   ROS_INFO("Publishing foreground with %zu points", changed.size());
+   //   ROS_INFO("Publishing foreground with %zu points", changed.size());
 
    //   Cloud::Ptr msg = changed.makeShared();
    //   msg->header.frame_id = "/openni_rgb_optical_frame";
@@ -369,14 +401,14 @@ namespace projector_calibration
 
 
  /**
- * @TODO check if there is a good heightmodel
+ * @todo check if there is a good heightmodel
  * @return
  */
  bool QNode::init_watersimulation(){
 
   cv::Mat land = modeler.getHeightImage();
 
-  ROS_INFO("Height: %i %i, viscosity: %f", land.cols, land.rows,sim_viscosity);
+  //  ROS_INFO("Height: %i %i, viscosity: %f", land.cols, land.rows,sim_viscosity);
 
   land.convertTo(land, CV_64FC1,1); // scaling?
 
@@ -410,17 +442,83 @@ namespace projector_calibration
  }
 
 
- void QNode::run_ant_demo(){
+
+
+ void QNode::update_ant(cv::Point goal){
+  // getting and setting height map takes 0.01 ms
+
 
   cv::Mat height = modeler.getHeightImage();
+  planner.setHeightMap(height);
+
+  // only add water if simulation is running
+//  if (water.size() == height.size())
+//   planner.setWaterDepthMap(water);
+
+// todo: add water
+
+
+  cv::Point start;
+  if (ants.size() == 0){
+    start = cv::Point(height.cols/2,height.rows/2); // ant starts at center of grid
+    ant.setId(0);
+    ROS_INFO("ANt is not initrialized");
+  }else{
+   ant = ants[ant.getId()];
+   start = ant.getPosition();
+   ROS_INFO("ant at pos %i ( %i %i)", ant.getPosInPath(), start.x, start.y );
+  }
+
+  ROS_INFO("UPDate: goal: %i %i", goal.x, goal.y);
+  planner.computePolicy(goal,modeler.getCellSize());
+  ROS_INFO("starting at %f %f", start.x, start.y);
+  planner.computePath(start);
+
+  ant.setPath(planner.getPath(),planner.getPathEdges());
+
+  // replaces old ant (since same ID)
+//  Q_EMIT newAnt(ant);
+
+  // currently, only one ant is used
+  ants[ant.getId()] = ant;
+
+
+  Q_EMIT sl_update_ant();
+
+ }
+
+
+ void QNode::run_ant_demo(){
+
+  // getting and setting height map takes 0.01 ms
+  cv::Mat height = modeler.getHeightImage();
+  planner.setHeightMap(height);
+
+  // only add water if simulation is running
+  if (water.size() == height.size())
+   planner.setWaterDepthMap(water);
+
 
   int w = height.cols;
   int h = height.rows;
 
-  planner.setHeightMap(height);
-  planner.computePolicy(cv::Point(w-1,h-1),modeler.getCellSize());
-  planner.setMaxSteepness(45);
-  planner.printPath(cv::Point(10,10));
+  cv::Point goal = cv::Point(w-1,h-1);
+  cv::Point start = cv::Point(15,15);
+
+
+  planner.computePolicy(goal,modeler.getCellSize());
+
+
+
+  planner.computePath(start);
+  //  planner.saveHillSideCostImage();
+
+  Ant ant;
+
+  ant.setPath(planner.getPath(),planner.getPathEdges());
+
+  ant.setId(next_ant_id++);
+  Q_EMIT newAnt(ant);
  }
 
 
@@ -450,7 +548,7 @@ namespace projector_calibration
   cv::Point pos = modeler.grid_pos(0,0); // source at origin
   source.x = pos.x;
   source.y = pos.y;
-  source.radius = 1; // TODO: only a point, not a circle
+  source.radius = 1;
   msg_step.request.sources_sinks.push_back(source);
 
 
@@ -465,8 +563,6 @@ namespace projector_calibration
     cv_ptr = cv_bridge::toCvCopy(msg_step.response.water_img, sensor_msgs::image_encodings::TYPE_64FC1);
 
     cv_ptr->image.copyTo(water);
-
-
     //      cv::imshow("water", cv_ptr->image*10);
     //      cv::waitKey(1);
    }
@@ -480,33 +576,39 @@ namespace projector_calibration
  }
 
 
- void QNode::imageColCallback(const sensor_msgs::ImageConstPtr& msg){
-
-  ROS_INFO("imageColCallback");
-
-  cv_bridge::CvImagePtr col_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-
-  ROS_INFO("FOOBAR: %i %i",cv_ptr->image.cols, cv_ptr->image.rows);
-
-  // cv::Mat * img = &col_ptr->image;
-  cv_ptr->image.copyTo(current_col_img);
-  //  current_col_img = cv_ptr->image;
-
-  //  Q_EMIT received_col_Image();
- }
+// void QNode::imageColCallback(const sensor_msgs::ImageConstPtr& msg){
+//
+//  assert(1==0);
+//
+//  ROS_INFO("imageColCallback");
+//
+//  cv_bridge::CvImagePtr col_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+//
+//  ROS_INFO("FOOBAR: %i %i",cv_ptr->image.cols, cv_ptr->image.rows);
+//
+//  // cv::Mat * img = &col_ptr->image;
+//  cv_ptr->image.copyTo(current_col_img);
+//  //  current_col_img = cv_ptr->image;
+//
+//  //  Q_EMIT received_col_Image();
+// }
 
 
 
 
  /**
  *
- * @todo apply bilinear filtering on image
+ * //@todo apply bilinear filtering on image
  * @param msg
  */
  void QNode::imageCallback(const sensor_msgs::ImageConstPtr& msg)
  {
 
+  Q_EMIT process_events();
+
   //  ROS_INFO("got image");
+
+
 
 
   ros::Time cb_start = ros::Time::now();
@@ -517,33 +619,16 @@ namespace projector_calibration
   cv::Mat * depth = &depth_ptr->image;
 
 
-  //    bool new_static_image = false;
-  //    if (first_depth_callback){
-  //     first_depth_callback = false;
-  //     depth->copyTo(last_static_depth_image);
-  //    }else{
-  //     bool static_ = isSimilar(last_static_depth_image, *depth, &area_mask,0.05,1000);
-  //
-  //     if (static_){
-  ////      ROS_INFO("STATIC");
-  //      depth->copyTo(last_static_depth_image);
-  //  //    new_static_image = true;
-  //
-  //      // return;
-  //
-  //
-  //     }else{
-  ////      ROS_INFO("NOT STATIC");
-  //     }
-  //
-  //
-  //     Q_EMIT scene_static(static_);
-  //
-  //     if (!static_){
-  //      return;
-  //     }
-  //
-  //    }
+  //  int cnt = grasp_detector.updateModel(*depth);
+  //  if (cnt > 3){
+  //   grasp_detector.detectGrasps(grasps, 0.05,depth);
+  //   for (uint i=0; i<grasps.size(); ++i){
+  //    ROS_INFO("Grasp %i at %f %f", i,grasps.at(i).x,grasps.at(i).y);
+  //   }
+  //  }
+
+
+
 
 
   float fx = 525.0;  // focal length x
@@ -568,42 +653,77 @@ namespace projector_calibration
   //  }
 
 
-  modeler.updateHeight(calibrator.cloud_moved);
+  // modeler.updateHeight(calibrator.cloud_moved);
+
+  //  if (current_frame_static){
+  //   run_ant_demo();
+  ////   std::stringstream msg; msg << "";
+  ////   writeToOutput(msg);
+  //   writeToOutput(std::stringstream("new path was computed"));
+  //   Q_EMIT model_computed();
+  //   // todo: Q_EMIT for path visualization
+  //  }
 
 
-  if ((openGL_visualizationActive || water_simulation_active) && calibrator.projMatrixSet()){
+
+  //  pcl_Point center = calibrator.cloud_moved.at(320,240);
+  //  ROS_INFO("center point of moved cloud %f %f %f",center.x,center.y,center.z);
 
 
-   ros::Time start_train = ros::Time::now();
-   modeler.updateHeight(calibrator.cloud_moved);
+  bool emit_new_image = false;
+
+
+
+  //  if (calibrator.projMatrixSet() && (water_simulation_active || openGL_visualizationActive || show_height_lines)){
+  if (calibrator.isKinectTrafoSet()){
+
+   // ros::Time start_train = ros::Time::now();
+   bool current_frame_dynamic = modeler.updateHeight(calibrator.cloud_moved,max_update_dist);
+
+   //   if (current_frame_dynamic)
+   //    ROS_INFO("dynamic scene");
+
+
+   if (current_frame_dynamic){
+    duration_since_last_static_frame = msg->header.stamp - time_of_last_static_frame;
+   }else{
+    time_of_last_static_frame = msg->header.stamp;
+
+    if (duration_since_last_static_frame.toSec() > 0.5)
+     ROS_INFO("Scene static again!");
+
+    duration_since_last_static_frame = ros::Duration(0);
+
+   }
+
+   Q_EMIT scene_static(duration_since_last_static_frame.toSec());
+
+
+#ifdef PRINT_TIMING
    ROS_INFO("Frame Update: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
-
-   // assert(modeler.modelComputed());
-
-
-   if (water_simulation_active){
-    if (restart_modeler){
-     init_watersimulation();
-     restart_modeler = false;
-    }
-    else{
-     ros::Time start_water = ros::Time::now();
-     step_watersimulation();
-     ROS_INFO("Water simulation: %f ms", (ros::Time::now()-start_water).toSec()*1000.0);
-
-     Q_EMIT model_computed();
-    }
-   }
-
-
-   if (openGL_visualizationActive){
-    ROS_INFO("OPENGL");
-    Q_EMIT model_computed();
-   }
-
-   // TODO: Q_EMIT for water_simulation
-
+#endif
+   emit_new_image = true;
   }
+
+
+  if (water_simulation_active && calibrator.projMatrixSet()){
+   if (restart_modeler){
+    init_watersimulation();
+    restart_modeler = false;
+   }
+   else{
+    ros::Time start_water = ros::Time::now();
+    step_watersimulation();
+#ifdef PRINT_TIMING
+    ROS_INFO("Water simulation: %f ms", (ros::Time::now()-start_water).toSec()*1000.0);
+#endif
+   }
+  }
+
+
+  if (emit_new_image)
+   Q_EMIT model_computed();
+
 
 
   //    ROS_INFO("Callback time: %f ms", (ros::Time::now()-cb_start).toSec()*1000.0);
@@ -626,17 +746,27 @@ namespace projector_calibration
   iterations_per_frame = config.sim_iter_cnt;
   sim_viscosity = config.sim_viscosity;
 
+
+  //   ROS_INFO("CONFIG>LIGHT_POS: %f",config.light_pos);
+  Q_EMIT new_light(config.light_pos);
+
+  max_update_dist = config.max_update_dist;
+
   planner.setMaxSteepness(config.ant_steepness);
-  planner.setCostFactor(config.ant_cost_factor);
+  planner.setHeightCostFactor(config.ant_cost_factor);
   planner.setUphillfactor(config.ant_uphill_factor);
   planner.setFourNeighbours(config.ant_use_four == 1);
+  planner.setSmoothing(config.ant_use_smoothing == 1);
+  planner.setHillSideCostFactor(config.ant_hillside_factor);
+  planner.setPathLengthFactor(config.ant_path_length_factor);
+
+
 
   if (abs(modeler_cell_size - config.cell_length_cm/100.0) > 0.00001){
 
-   //   ROS_INFO("updae");
    modeler_cell_size = config.cell_length_cm/100.0;
    // Initializing the modeler:
-   float lx = 0.30;
+   float lx = 0.20;
    float ly = 0.20;
 
    // ros::Time start_init = ros::Time::now();
@@ -647,17 +777,11 @@ namespace projector_calibration
 
  }
 
- /**
- * @todo subscribe to camera info
- */
+
  void
  QNode::run()
  {
   //  ros::Rate loop_rate(40);
-
-
-  ROS_INFO("Starting to run");
-
 
 
   // Initializing the modeler:
@@ -728,35 +852,35 @@ namespace projector_calibration
   switch (level)
   {
   case (Debug):
-                                                               {
+                                                                         {
    ROS_DEBUG_STREAM(msg);
    logging_model_msg << "[DEBUG] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                               }
+                                                                         }
   case (Info):
-                                                               {
+                                                                         {
    ROS_INFO_STREAM(msg);
    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                               }
+                                                                         }
   case (Warn):
-                                                               {
+                                                                         {
    ROS_WARN_STREAM(msg);
    logging_model_msg << "[INFO] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                               }
+                                                                         }
   case (Error):
-                                                               {
+                                                                         {
    ROS_ERROR_STREAM(msg);
    logging_model_msg << "[ERROR] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                               }
+                                                                         }
   case (Fatal):
-                                                               {
+                                                                         {
    ROS_FATAL_STREAM(msg);
    logging_model_msg << "[FATAL] [" << ros::Time::now() << "]: " << msg;
    break;
-                                                               }
+                                                                         }
   }
   QVariant new_row(QString(logging_model_msg.str().c_str()));
   logging_model.setData(logging_model.index(logging_model.rowCount() - 1),

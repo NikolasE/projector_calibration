@@ -9,7 +9,9 @@
 #define PROJECTOR_CALIBRATOR_H_
 
 #include "rgbd_utils/type_definitions.h"
-//#include "calibration_utils.h"
+#include <tf/transform_broadcaster.h>
+
+#include <visualization_msgs/Marker.h>
 
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
@@ -17,6 +19,7 @@
 #include <opencv2/core/core.hpp>
 #include <pcl/common/transform.h>
 #include <opencv2/calib3d/calib3d.hpp>
+#include <stack>
 #include "fstream"
 
 #include "stat_eval.h"
@@ -27,247 +30,258 @@ typedef cv::Rect_<float> cv_RectF;
 class Projector_Calibrator {
 
 
- // trafo cloud s.t. checkerboard is z=0,  middle of board at x=y=0
- // the first trafo is stored and used for all following frames
- Eigen::Affine3f kinect_trafo;
- bool kinect_trafo_valid;
+  // trafo cloud s.t. checkerboard is z=0,  middle of board at x=y=0
+  // the first trafo is stored and used for all following frames
+  Eigen::Affine3f kinect_trafo;
+  bool kinect_trafo_valid;
 
- cv::Mat input_image; // rgb image of kinect
- cv::Mat gray; // gray version of kinect image
-
-
+  cv::Mat input_image; // rgb image of kinect
+  cv::Mat gray; // gray version of kinect image
 
 
- // tilt of kinect (rotation around optical axis)
- float kinect_tilt_angle_deg;
- bool kinect_orientation_valid;
-
- // fit a plane into the pointcloud
- float fitPlaneToCloud(const Cloud& cloud, Eigen::Vector4f& model);
 
 
- // draw a checkerboard with given number of internal corners on the image and store the corners
- // void drawCheckerboard(cv::Mat& img, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
- void drawCheckerboard(cv::Mat& img,cv::Point l1, const cv::Point l2, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
+  // tilt of kinect (rotation around optical axis)
+  float kinect_tilt_angle_deg;
+  bool kinect_orientation_valid;
 
- // Position of internal checkerboard corners
- std::vector<cv::Point2f> current_projector_corners;
+  // fit a plane into the pointcloud
+  float fitPlaneToCloud(const Cloud& cloud, Eigen::Vector4f& model);
 
 
- std::string hom_cv_filename, hom_svd_filename, proj_matrix_filename, kinect_trafo_filename;
+  // draw a checkerboard with given number of internal corners on the image and store the corners
+  // void drawCheckerboard(cv::Mat& img, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
+  void drawCheckerboard(cv::Mat& img,cv::Point l1, const cv::Point l2, const cv::Size size, std::vector<cv::Point2f>& corners_2d);
 
- // bool saveMat(const std::string name, const std::string filename, const cv::Mat& mat);
- // bool loadMat(const std::string name, const std::string filename, cv::Mat& mat);
+  // Position of internal checkerboard corners
+  std::vector<cv::Point2f> current_projector_corners;
 
- bool setupImageProjection(const cv_RectF& wall_area, const cv::Size& img_size);
 
- bool setupImageProjection(float width_m, float height_m, float off_x_m, float off_y_m, const cv::Size& img_size);
- bool setupImageProjection(float width_m, float off_x_m, float off_y_m, const cv::Size& img_size);
+  std::string hom_cv_filename, hom_svd_filename, proj_matrix_filename, kinect_trafo_filename;
 
- const static int unused_pixels_rows = 25;
+  // bool saveMat(const std::string name, const std::string filename, const cv::Mat& mat);
+  // bool loadMat(const std::string name, const std::string filename, cv::Mat& mat);
 
- int max_checkerboard_width,max_checkerboard_height;
+  bool setupImageProjection(const cv_RectF& wall_area, const cv::Size& img_size);
+
+  bool setupImageProjection(float width_m, float height_m, float off_x_m, float off_y_m, const cv::Size& img_size);
+  bool setupImageProjection(float width_m, float off_x_m, float off_y_m, const cv::Size& img_size);
+
+  const static int unused_pixels_rows = 25;
+
+  int max_checkerboard_width,max_checkerboard_height;
 
 
 public:
 
 
- Eigen::Affine3f getCameraTransformation(){
-  assert(kinect_trafo_valid);
-   return kinect_trafo;
- }
+  Eigen::Affine3f getCameraTransformation(){
+    assert(kinect_trafo_valid);
+    return kinect_trafo;
+  }
 
- // point cloud from kinect (still in kinect frame)
- Cloud input_cloud;
+  // point cloud from kinect (still in kinect frame)
+  Cloud input_cloud;
 
 
- void eval_projection_matrix_Checkerboard(Cloud& corners, std::stringstream& ss, const cv::Mat* area_mask);
+  void eval_projection_matrix_Checkerboard(Cloud& corners, std::stringstream& ss, const cv::Mat* area_mask);
 
- void eval_projection_matrix_disc(Cloud& corners, std::stringstream& ss, const cv::Mat* mask = NULL);
+  bool eval_projection_matrix_disc(Cloud& mean_c, std::stringstream& ss,  const cv::Mat* mask = NULL);
 
 
- int eval_brightness_threshold;
+  int eval_brightness_threshold;
 
- cv::Mat projector_position;
 
- void updateProjectorImage();
+  cv::Mat projector_position; /// position of projector in the world system
+  cv::Mat rotMatrix; /// rotation projector in the world system
+  cv::Mat camera_matrix; /// internal camera parameters of projector
 
- // Cloud projectionAreaCorners;
- bool getProjectionAreain3D(std::vector<cv::Mat>& corners);
- bool getProjectionAreain3D(Cloud& corners);
+  cv::Mat rotMatrix_CV; /// rotation projector in the world system
+  cv::Mat projector_position_CV; /// position of projector in the world system
 
- bool saveObservations();
- bool loadObservations();
 
+  void updateProjectorImage();
 
+  // Cloud projectionAreaCorners;
+  bool getProjectionAreain3D(std::vector<cv::Mat>& corners);
+  bool getProjectionAreain3D(Cloud& corners);
 
- bool load_everything_on_startup;
+  bool saveObservations();
+  bool loadObservations();
 
 
- bool removeLastObservations();
 
- int getCurrentProjectorCornerCnt(){ return int(current_projector_corners.size());}
 
- int getNumPairs(){return int(observations_3d.size());}
+  bool load_everything_on_startup;
 
- void translateKinectTrafo(float dz);
- void rotateKinectTrafo(float dyaw);
 
+  void restartCalibration();
+  bool removeLastObservations();
 
- bool saveKinectTrafo(std::stringstream& msg);
+  int getCurrentProjectorCornerCnt(){ return int(current_projector_corners.size());}
 
- // pixel coordinates of the detected checkerboard corners
- std::vector<cv::Point2f> detected_corners;
+  int getNumPairs(){return int(observations_3d.size());}
 
- bool loadKinectTrafo(std::stringstream& msg);
- bool saveHomographyCV(std::stringstream& msg);
- bool saveProjectionMatrix(std::stringstream& msg);
+  void translateKinectTrafo(float dz);
+  void rotateKinectTrafo(float dyaw);
 
 
+  bool saveKinectTrafo(std::stringstream& msg);
 
- float printed_marker_size_mm;
+  // pixel coordinates of the detected checkerboard corners
+  std::vector<cv::Point2f> detected_corners;
 
- // number of inner corners of the board
- cv::Size checkboard_size;
+  bool loadKinectTrafo(std::stringstream& msg);
+  bool saveHomographyCV(std::stringstream& msg);
+  bool saveProjectionMatrix(std::stringstream& msg);
 
- cv::Size proj_size; // size of the projector image in pixels
 
- // image on kinect image showing the area where the first checkerboard was found in white
- // its 8UC1, with board: 255, rest: 0
- cv::Mat mask;
 
+  float printed_marker_size_mm;
 
+  // number of inner corners of the board
+  cv::Size checkboard_size;
 
- // The projection matrix of the projector and the homographies computed via OpenCV and SVD
- cv::Mat  hom_CV, hom_SVD;
+  cv::Size proj_size; // size of the projector image in pixels
 
- // remove all point from the input cloud where mask!=255
- void applyMaskOnInputCloud(Cloud& out);
+  // image on kinect image showing the area where the first checkerboard was found in white
+  // its 8UC1, with board: 255, rest: 0
+  cv::Mat mask;
 
 
- // list of 3d-observations (in the wall-frame) of the checkerboard corners
- // length is a multiple of the number of checkerboardcorners
- Cloud observations_3d;
 
- // to the observations_3d corresponding projector-pixels
- std::vector<cv::Point2f> corners_2d;
+  // The projection matrix of the projector and the homographies computed via OpenCV and SVD
+  cv::Mat  hom_CV, hom_SVD;
 
+  // remove all point from the input cloud where mask!=255
+  void applyMaskOnInputCloud(Cloud& out);
 
- void getCheckerboardArea(std::vector<cv::Point2i>& pts);
 
+  // list of 3d-observations (in the wall-frame) of the checkerboard corners
+  // length is a multiple of the number of checkerboardcorners
+  Cloud observations_3d;
 
- void publish3DPoints();
+  // to the observations_3d corresponding projector-pixels
+  std::vector<cv::Point2f> corners_2d;
 
 
- // should be private
- // point cloud in wall-frame
- Cloud cloud_moved;
- cv::Mat proj_Matrix;
- // image to be shown by the projector
- cv::Mat projector_image;
+  void getCheckerboardArea(std::vector<cv::Point2i>& pts);
 
 
 
- // a simple image for debugging
- cv::Mat test_img;
+  // should be private
+  // point cloud in wall-frame
+  Cloud cloud_moved;
+  cv::Mat proj_Matrix;
 
+  cv::Mat proj_matric_cv;
 
+  // image to be shown by the projector
+  cv::Mat projector_image;
 
- // apply on image
- cv::Mat warp_matrix;
 
- cv_RectF optimal_projection_area;
- bool findOptimalProjectionArea(float ratio, cv_RectF& rect, std::stringstream& msg);
- bool findOptimalProjectionArea2(cv::Mat::MSize img_px_size, std::stringstream& msg);
 
+  // a simple image for debugging
+  cv::Mat test_img;
 
- bool projMatorHomSet(){return projMatrixSet() ||   homOpenCVSet() || homSVDSet();}
 
 
- Cloud* getTransformedCloud(){return &cloud_moved;}
+  // apply on image
+  cv::Mat warp_matrix;
 
- void initFromFile(std::stringstream& msg);
+  cv_RectF optimal_projection_area;
+  bool findOptimalProjectionArea(float ratio, cv_RectF& rect, std::stringstream& msg);
+  bool findOptimalProjectionArea2(cv::Mat::MSize img_px_size, std::stringstream& msg);
 
- bool projMatrixSet(){ return proj_Matrix.cols > 0;}
- bool homOpenCVSet(){ return hom_CV.cols > 0;}
- bool homSVDSet(){ return hom_SVD.cols > 0;}
- bool warpMatrixSet(){ return warp_matrix.cols > 0;}
 
- //   if (calibrator.imageProjectionSet()){
- //#ifdef SHOW_TEST_IMAGE
- //    calibrator.showUnWarpedImage(calibrator.test_img);
- //#else
- //    system("xwd -root | convert - /tmp/screenshot.jpg");
- //    cv::Mat screen = cv::imread("/tmp/screenshot.jpg");
- //    cv::Mat primary_screen = screen(cv::Range(0,mainScreenSize.height), cv::Range(0,mainScreenSize.width));
- //    calibrator.showUnWarpedImage(primary_screen);
- //
- //#endif
- //   }
+  bool projMatorHomSet(){return projMatrixSet() ||   homOpenCVSet() || homSVDSet();}
 
 
- bool imageProjectionSet() { return warp_matrix.cols > 0; }
+  Cloud* getTransformedCloud(){return &cloud_moved;}
 
- // save 3d positions (in wall-frame) of the last checkerboard detection
- bool storeCurrentObservationPairs();
+  void initFromFile(std::stringstream& msg);
 
- // stores the number of detected corners in each image to be able to remove images
- std::vector<int> number_of_features_in_images;
+  bool projMatrixSet(){ return proj_Matrix.cols > 0;}
+  bool homOpenCVSet(){ return hom_CV.cols > 0;}
+  bool homSVDSet(){ return hom_SVD.cols > 0;}
+  bool warpMatrixSet(){ return warp_matrix.cols > 0;}
 
- bool isKinectOrientationSet(){return kinect_orientation_valid;}
- void setKinectOrientation(float angle_deg){kinect_tilt_angle_deg = angle_deg;kinect_orientation_valid = true;}
+  //   if (calibrator.imageProjectionSet()){
+  //#ifdef SHOW_TEST_IMAGE
+  //    calibrator.showUnWarpedImage(calibrator.test_img);
+  //#else
+  //    system("xwd -root | convert - /tmp/screenshot.jpg");
+  //    cv::Mat screen = cv::imread("/tmp/screenshot.jpg");
+  //    cv::Mat primary_screen = screen(cv::Range(0,mainScreenSize.height), cv::Range(0,mainScreenSize.width));
+  //    calibrator.showUnWarpedImage(primary_screen);
+  //
+  //#endif
+  //   }
 
- // compute the transformation that transforms the point cloud from the kinect-frame to the wall frame
- bool computeKinectTransformation(std::stringstream& msg);
 
- bool isKinectTrafoSet(){return kinect_trafo_valid;}
+  bool imageProjectionSet() { return warp_matrix.cols > 0; }
 
- bool mask_valid() {return mask.cols > 0;}
+  // save 3d positions (in wall-frame) of the last checkerboard detection
+  bool storeCurrentObservationPairs();
 
- // calls the openCV checkerboard detector and stores the result internally
- bool findCheckerboardCorners();
+  // stores the number of detected corners in each image to be able to remove images
+  std::vector<int> number_of_features_in_images;
 
- // create the mask on the kinect image that shows the region where the checkerboard was detected
- void createMaskFromDetections();
+  bool isKinectOrientationSet(){return kinect_orientation_valid;}
+  void setKinectOrientation(float angle_deg){kinect_tilt_angle_deg = angle_deg;kinect_orientation_valid = true;}
 
- void setInputImage(cv::Mat& image){input_image = image; detected_corners.clear();}
- void setInputCloud(const Cloud& cloud);
+  // compute the transformation that transforms the point cloud from the kinect-frame to the wall frame
+  bool computeKinectTransformation(std::stringstream& msg);
 
+  bool isKinectTrafoSet(){return kinect_trafo_valid;}
 
+  bool mask_valid() {return mask.cols > 0;}
 
- void showUnWarpedImage(const cv::Mat& img);
+  // calls the openCV checkerboard detector and stores the result internally
+  bool findCheckerboardCorners();
 
- void showUnWarpedImage(){
-  assert(test_img.data);
-  showUnWarpedImage(test_img);
- }
+  // create the mask on the kinect image that shows the region where the checkerboard was detected
+  void createMaskFromDetections();
 
+  void setInputImage(cv::Mat& image){input_image = image;}
+  void setInputCloud(const Cloud& cloud);
 
- cv::Mat* getTestImg(){return &test_img;}
+  bool publishWorldFrame(const std::string& kinect_frame,const std::string& world_frame);
 
+  void showUnWarpedImage(const cv::Mat& img);
 
+  void showUnWarpedImage(){
+    assert(test_img.data);
+    showUnWarpedImage(test_img);
+  }
 
- // pixel coordinates of checkerboard corners
- bool computeProjectionMatrix(float& mean_error);
- bool computeProjectionMatrix_OPENCV(float& mean_error);
 
+  cv::Mat* getTestImg(){return &test_img;}
 
- bool computeHomography_OPENCV(float& mean_error);
- bool computeHomography_SVD();
 
 
+  // pixel coordinates of checkerboard corners
+  bool computeProjectionMatrix(float& mean_error, bool do_scaling);
+  bool computeProjectionMatrix_OPENCV(float& mean_error, bool with_distorion);
 
- void projectFullscreenCheckerboard();
- void projectSmallCheckerboard(cv::Point l1, cv::Point l2);
- void projectUniformBackground(bool white);
+  bool computeHomography_OPENCV(float& mean_error);
+  bool computeHomography_SVD();
 
 
- // void computeKinectTrafoFromMarkerobservations(std::stringstream& msg);
 
- Cloud visualizePointCloud();
+  void projectFullscreenCheckerboard();
+  void projectSmallCheckerboard(cv::Point l1, cv::Point l2);
+  void projectUniformBackground(bool white);
 
 
- Projector_Calibrator();
+  // void computeKinectTrafoFromMarkerobservations(std::stringstream& msg);
+
+  Cloud visualizePointCloud();
+
+  void createProjektorMarker(visualization_msgs::Marker& marker);
+  void createProjektorMarker_CV(visualization_msgs::Marker& marker);
+
+  Projector_Calibrator();
 
 
 

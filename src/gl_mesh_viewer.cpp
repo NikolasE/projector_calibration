@@ -31,15 +31,10 @@ GL_Mesh_Viewer::GL_Mesh_Viewer( QWidget* parent)
 }
 
 
-
-
 GL_Mesh_Viewer::~GL_Mesh_Viewer()
 {
  glDeleteLists( object, 1 );
 }
-
-
-
 
 void GL_Mesh_Viewer::LoadGLTextures() {
 
@@ -59,6 +54,7 @@ void GL_Mesh_Viewer::LoadGLTextures() {
 
  // Create Texture
  glGenTextures(1, &texture[0]);
+ glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
  glBindTexture(GL_TEXTURE_2D, texture[0]);   // 2d texture (x and y size)
 
@@ -66,13 +62,17 @@ void GL_Mesh_Viewer::LoadGLTextures() {
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); // scale linearly when image smalled than texture
 
 
- texture_cv = cv::imread("imgs/test.bmp");
+ texture_cv = cv::imread("imgs/text.bmp");
+ // texture_cv = cv::imread("imgs/test.bmp");
 
- ROS_INFO("texture: %i %i", texture_cv.cols, texture_cv.rows);
+ assert(texture_cv.type() == CV_8UC3);
+
+ // ROS_INFO("texture: %i %i", texture_cv.cols, texture_cv.rows);
+ // cv::cvtColor(texture_cv, texture_cv, CV_BGR2RGB);
 
  // 2d texture, level of detail 0 (normal), 3 components (red, green, blue), x size from image, y size from image,
  // border 0 (normal), rgb color data, unsigned byte data, and finally the data itself.
- glTexImage2D(GL_TEXTURE_2D, 0, 3, texture_cv.cols, texture_cv.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, texture_cv.data);
+ glTexImage2D(GL_TEXTURE_2D, 0, 3, texture_cv.cols, texture_cv.rows, 0, GL_RGB, GL_UNSIGNED_BYTE, texture_cv.data);
 
  // cv::namedWindow("foo");
  // cv::imshow("foo", texture_cv);
@@ -105,8 +105,6 @@ void GL_Mesh_Viewer::drawHeightLines(){
  glEnd();
 
 }
-
-
 
 
 void GL_Mesh_Viewer::drawAnts(){
@@ -192,29 +190,29 @@ void GL_Mesh_Viewer::drawAnt(Ant* ant){
 
 
 
-// glColor3f(1,0,0);
-// glVertex3f( P3.x+l,P3.y+l,P3.z+dz);
-//
-// glColor3f(1,0,0);
-// glVertex3f( P3.x,P3.y,P3.z+dz);
-//
-// glColor3f(1,0,0);
-// glVertex3f( P3.x-l,P3.y-l,P3.z+dz);
-//
-// glEnd();
-//
-// glBegin(GL_LINE_STRIP);
-//
-// glColor3f(1,0,0);
-// glVertex3f( P3.x+l,P3.y-l,P3.z+dz);
-//
-// glColor3f(1,0,0);
-// glVertex3f( P3.x,P3.y,P3.z+dz);
-//
-// glColor3f(1,0,0);
-// glVertex3f( P3.x-l,P3.y+l,P3.z+dz);
-//
-// glEnd();
+ // glColor3f(1,0,0);
+ // glVertex3f( P3.x+l,P3.y+l,P3.z+dz);
+ //
+ // glColor3f(1,0,0);
+ // glVertex3f( P3.x,P3.y,P3.z+dz);
+ //
+ // glColor3f(1,0,0);
+ // glVertex3f( P3.x-l,P3.y-l,P3.z+dz);
+ //
+ // glEnd();
+ //
+ // glBegin(GL_LINE_STRIP);
+ //
+ // glColor3f(1,0,0);
+ // glVertex3f( P3.x+l,P3.y-l,P3.z+dz);
+ //
+ // glColor3f(1,0,0);
+ // glVertex3f( P3.x,P3.y,P3.z+dz);
+ //
+ // glColor3f(1,0,0);
+ // glVertex3f( P3.x-l,P3.y+l,P3.z+dz);
+ //
+ // glEnd();
 
 
 
@@ -236,7 +234,7 @@ void GL_Mesh_Viewer::drawAnt(Ant* ant){
 */
 void GL_Mesh_Viewer::drawPath(Ant* ant){
 
-// ROS_INFO("draw path for ant %i", ant->getId());
+ // ROS_INFO("draw path for ant %i", ant->getId());
 
  Cloud cloud;
  pcl::fromROSMsg(mesh->cloud, cloud);
@@ -253,7 +251,7 @@ void GL_Mesh_Viewer::drawPath(Ant* ant){
 
  int size = ant->getPathLenth();
 
-// ROS_INFO("Path length: %i", size);
+ // ROS_INFO("Path length: %i", size);
 
  for (int i=0; i<size; ++i){
 
@@ -276,6 +274,110 @@ void GL_Mesh_Viewer::drawPath(Ant* ant){
 }
 
 
+/**
+*
+* @param triangles  list of triangles on surface with uv-coordinates for each corner
+* @param uv_values  map of all uv-coordinates
+* @param uv_inv_scale inverse of minimal geodesic distance
+* @param center_id  id of center point of patch
+*/
+void GL_Mesh_Viewer::storeExpMapInfo(const std::vector<cv::Vec3i>& triangles, const cv::Mat& uv_values, float uv_inv_scale,int center_id){
+ this->triangles = triangles;
+ this->uv_values = uv_values;
+ this->uv_inv_scale = uv_inv_scale;
+
+ patch_center_id = center_id;
+
+ // Cloud cloud;
+ // pcl::fromROSMsg(mesh->cloud, cloud);
+ // ROS_INFO("cloud: %zu", cloud.size());
+ // this->patch_center.x = center_id%cloud.width;
+ // this->patch_center.y = center_id/cloud.width;
+ // ROS_INFO("centerid: %i, x: %i y: %i, width: %i", center_id, this->patch_center.x,this->patch_center.y,cloud.width);
+
+}
+
+void GL_Mesh_Viewer::removeExpMapInfo(){ this->triangles.clear();}
+
+
+
+void GL_Mesh_Viewer::showExpMapTexture(){
+
+ if (triangles.empty())
+  return;
+
+
+ assert(uv_values.type() == CV_32FC2);
+
+ glEnable(GL_TEXTURE_2D);
+
+ if (texture_cv.cols != 256)
+  LoadGLTextures();
+
+ Cloud cloud;
+ pcl::fromROSMsg(mesh->cloud, cloud);
+
+ glBindTexture(GL_TEXTURE_2D, texture[0]);   // choose the texture to use.
+
+ glColor3f(1,1,1);
+
+ glBegin(GL_TRIANGLES);
+
+// cv::Point patch_center(patch_center_id%cloud.width,patch_center_id/cloud.width);
+// ROS_INFO("center: %i %i", patch_center.x , patch_center.y);
+
+ for (uint i=0; i<triangles.size(); i++){
+
+  pcl_Point pts[3];
+  float us[3];
+  float vs[3];
+
+  bool all_inside = true;
+
+  for (uint j = 0; j<3; ++j){
+
+   int idx = triangles[i][j];
+
+
+   int x = idx%cloud.width;
+   int y = idx/cloud.width;
+
+   cv::Vec2f uv = uv_values.at<cv::Vec2f>(y,x);
+
+   us[j] = ((uv.val[0]*uv_inv_scale)+1)/2;
+   vs[j] = ((uv.val[1]*uv_inv_scale)+1)/2;
+
+   // only draw triangle if all points are within the [0,1]^2-area
+   if (us[j] < 0 || 1 < us[j] || vs[j] < 0 || 1 < vs[j]){
+    all_inside = false;
+    break;
+   }
+
+   pts[j] = cloud.points[idx];
+  }
+
+  if (all_inside){
+
+   for (uint j=0; j<3; ++j){
+
+//    float diff = norm(sub(pts[j],pts[(j+1)%3]));
+//    if (diff>0.02){
+//     ROS_INFO("Large edge (i=%i): %f %f %f, %f %f %f",i,pts[j].x, pts[j].y, pts[j].z,pts[(j+1)%3].x, pts[(j+1)%3].y, pts[(j+1)%3].z );
+//    }
+
+    glTexCoord2f(us[j],vs[j]);
+    glVertex3f(pts[j].x, pts[j].y, pts[j].z);
+   }
+  }
+
+
+ }
+
+ glEnd();
+
+ glDisable(GL_TEXTURE_2D);
+
+}
 
 
 void GL_Mesh_Viewer::drawMeshWithTexture(){
@@ -340,6 +442,40 @@ void GL_Mesh_Viewer::drawMeshWithTexture(){
 
 
 }
+
+
+/// Draw mesh with Triangle_Strip
+/**
+* @todo check for holes in the mesh
+*/
+void GL_Mesh_Viewer::drawMeshStrip(){
+
+ Cloud cloud;
+ pcl::fromROSMsg(mesh->cloud, cloud);
+
+ pcl_Point p;
+
+ for (uint x = 0; x<cloud.width-1; ++x){
+
+  glBegin(GL_TRIANGLE_STRIP);
+
+  for (uint y = 0; y<cloud.height; ++y){
+   p = cloud.at(x,y);
+   glColor3f(p.r/255.0, p.g/255.0, p.b/255.0);
+   glVertex3f(p.x, p.y, p.z);
+
+
+   p = cloud.at(x+1,y);
+   glColor3f(p.r/255.0, p.g/255.0, p.b/255.0);
+   glVertex3f(p.x, p.y, p.z);
+  }
+
+  glEnd();
+
+ }
+
+}
+
 
 
 void GL_Mesh_Viewer::drawMesh(){
@@ -671,19 +807,25 @@ void GL_Mesh_Viewer::paintGL()
  // setUpIlumination();
 
  // ros::Time now_render = ros::Time::now();
- if (draw_map)
-  setUpMapImage();
- else
-  setUpProjectorImage();
+ // if (draw_map)
+ //  setUpMapImage();
+ // else
+ setUpProjectorImage();
 
 
  // drawing path of ant as GlLine
  // drawPath();
 
- drawAnts();
+ // drawAnts();
 
  // drawing rest of scene (texture or glTriangles with height dependent color)
- drawMesh();
+ // drawMesh();
+
+ if (show_texture){
+  // ROS_INFO("showing texture");
+  showExpMapTexture();
+ }else
+  drawMeshStrip();
 
 
 
@@ -694,8 +836,8 @@ void GL_Mesh_Viewer::paintGL()
  //
  // if (path.size() > 0)
  //  drawPath();
- // else {
  //  if (show_texture)
+ // else {
  //   drawMeshWithTexture();
  //  else
  //   drawMesh();

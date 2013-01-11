@@ -50,18 +50,11 @@
 #include <image_transport/image_transport.h>
 #include <dynamic_reconfigure/server.h>
 
-/*****************************************************************************
- ** Namespaces
- *****************************************************************************/
 
 namespace projector_calibration {
 
- /*****************************************************************************
-  ** Class
-  *****************************************************************************/
 
-// #define PRINT_TIMING
-
+//#define PRINT_TIMING
 
  class QNode : public QThread {
   Q_OBJECT
@@ -88,6 +81,11 @@ namespace projector_calibration {
   Projector_Calibrator calibrator;
   Pinch_detector detector;
   Grasp_detector grasp_detector;
+
+  Grasp_Tracker grasp_Tracker;
+  Piece_Tracker piece_Tracker;
+
+
   Surface_Modeler modeler;
   Mesh_visualizer mesh_visualizer;
   User_Input* user_input;
@@ -105,7 +103,6 @@ namespace projector_calibration {
 //  bool simulator_initialized;
 
 
-  std::vector<cv::Point2f> grasps;
 
   cv::Mat water;
 
@@ -126,6 +123,7 @@ namespace projector_calibration {
   ros::Publisher pub_background; // center of evaluation disc
   ros::Publisher pub_model;
   ros::Publisher pub_foreground;
+  ros::Publisher pub_projector_marker;
 
 
   cv::Mat current_col_img;
@@ -145,8 +143,12 @@ namespace projector_calibration {
 
   cv::Mat area_mask;
 
+  bool hand_visible_in_last_frame;
 
   float modeler_cell_size;
+
+  bool calibration_active;
+
 
   QNode(int argc, char** argv );
   virtual ~QNode();
@@ -182,11 +184,14 @@ namespace projector_calibration {
 //  void newProjectorPixmap(const QPixmap& pixmap);
   void process_events();
   void new_light(float);
-
   void newAnt(Ant ant);
-
   void sl_update_ant();
 
+  void sig_grasp_started(cv::Point2f, int);
+  void sig_grasp_moved(cv::Point2f, int);
+  void sig_grasp_ended(cv::Point2f, int);
+
+  void sig_handvisible(bool visible);
 
  private:
   int init_argc;

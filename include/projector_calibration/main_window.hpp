@@ -23,14 +23,11 @@
 #include <QtOpenGL/qgl.h>
 
 #include "projector_calibration/calib_eval.h"
+#include "rgbd_utils/type_definitions.h"
 
 
-/*****************parent************************************************************
-** Namespace
-*****************************************************************************/
 
-
-// #define DO_TIMING
+//#define DO_TIMING
 
 typedef std::stringstream sstream;
 
@@ -153,14 +150,9 @@ namespace projector_calibration {
 
  private:
 
-
-
-
   /// storage for one texture
   GLuint texture[1];
   cv::Mat texture_cv;
-//  std::vector<cv::Point> path;
-//  std::vector<cv::Vec3b> pathColors;
 
   std::vector<Line_collection> height_lines;
 
@@ -173,6 +165,12 @@ namespace projector_calibration {
   bool draw_map;
 
   float light_z_pos;
+
+  std::vector<cv::Vec3i> triangles;
+  cv::Mat uv_values;
+  float uv_inv_scale;// inverse size of patch size (used to scale uv-Coordinate to [0,1]
+ int patch_center_id;
+
 
  public:
   GL_Mesh_Viewer( QWidget* parent);
@@ -200,17 +198,6 @@ namespace projector_calibration {
 
   void setNormals(const Cloud_n& normals){this->normals = normals;}
 
-//  void setPath(const std::vector<cv::Point>& path){this->path = path; pathColors.clear();}
-//  void setPathColors(const std::vector<cv::Vec3b>& pathColors){this->pathColors = pathColors;}
-//  void setPathWithColors(const std::vector<cv::Point>& path, const std::vector<cv::Vec3b>& pathColors){
-//   this->path = path;
-//   this->pathColors = pathColors;
-//   assert(this->path.size() == this->pathColors.size());
-//  }
-//
-//
-//  void removePath(){path.clear(); pathColors.clear();}
-
   void set_height_lines(const std::vector<Line_collection>& height_lines){
    this->height_lines = height_lines;
   }
@@ -225,12 +212,17 @@ namespace projector_calibration {
 
 
  public:
- // TODO: private
- /// todo map<int,ants> (with ant id, so that specific ants can be removed or drawn)
-// std::vector<Ant> ants;
 
 
-
+ /**
+  *
+  * @param triangles
+  * @param uv_values
+  * @param scale
+  * @see showExpMapTexture, getTriangles (rgbd_utils)
+  */
+ /// copy information that will be used during showExpMapTexture
+ void storeExpMapInfo(const std::vector<cv::Vec3i>& triangles, const cv::Mat& uv_values, float uv_inv_scale, int center_id);
 
 
  protected:
@@ -244,25 +236,34 @@ namespace projector_calibration {
  void drawList(GLuint list_id);
 
  void drawMesh();
+ void drawMeshStrip();
  void drawMeshWithTexture();
 
+
+ /// remove information on expMap
+ void removeExpMapInfo();
+
+ /// use expMap-Information to show texture
+ void showExpMapTexture();
+
+
  /**
-  * @see drawAnt
-  */
+ * @see drawAnt
+ */
  /// draws all ants
  void drawAnts();
 
  /**
-  * @param ant
-  * @see drawAnts
-  */
+ * @param ant
+ * @see drawAnts
+ */
  ///Draws a specific ant
  void drawAnt(Ant* ant);
 
  void drawPath(Ant* ant);
 
 
-// void drawPathNoGl();
+ // void drawPathNoGl();
 
  void drawHeightLines();
 
@@ -343,7 +344,17 @@ namespace projector_calibration {
  void ant_demo();
  void got_new_ant(Ant ant);
  void update_ant();
+ void save_model_obj();
+ void test_expmap();
+ void new_expmap(int);
+ void load_observations();
 
+
+ void sl_handvisible(bool visible);
+
+ void sl_grasp_started(cv::Point2f, int);
+ void sl_grasp_moved(cv::Point2f, int);
+ void sl_grasp_ended(cv::Point2f, int);
 
  void setLightPos(float);
 
@@ -357,7 +368,7 @@ namespace projector_calibration {
  void gl_visualization_toggled(bool);
  void show_texture(bool);
  void water_simulation_toggled(bool);
-
+ void foreground_visualization_toggled(bool);
  void show_height_lines(bool);
 
  // calibration
@@ -370,6 +381,7 @@ namespace projector_calibration {
  void restart_water_simulation();
 
  void projection_opencv();
+ void clear_projection_matrix();
 
 
  void detect_disc();
@@ -386,6 +398,7 @@ namespace projector_calibration {
 
  private:
 
+ double secs_since_last_static_image;
 
  GL_Mesh_Viewer *gl_viewer;
 

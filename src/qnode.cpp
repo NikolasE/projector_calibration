@@ -72,7 +72,7 @@ QNode::eval_projection()
   Cloud corners;
   stringstream ss;
 
-  calibrator.eval_projection_matrix_Checkerboard(corners, ss, &area_mask);
+  calibrator.eval_projection_matrix_Checkerboard(corners, ss);
 
 
   writeToOutput(ss);
@@ -869,7 +869,6 @@ void
 QNode::run()
 {
   //  ros::Rate loop_rate(40);
-
 
   // Initializing the modeler:
   float lx = 0.30;

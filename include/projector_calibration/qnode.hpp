@@ -24,7 +24,6 @@
 
 #include "projector_calibration/projector_calibrator.h"
 #include "projector_calibration/user_input.h"
-#include "projector_calibration/calib_eval.h"
 #include "projector_calibration/visualization_paramsConfig.h"
 
 #include "rgbd_utils/calibration_utils.h"
@@ -43,8 +42,9 @@
 #include <message_filters/subscriber.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
+#include <sensor_msgs/CameraInfo.h>
 #include <opencv/cv.h>
-
+#include <image_geometry/pinhole_camera_model.h>
 
 #include <QtOpenGL/qgl.h>
 #include <image_transport/image_transport.h>
@@ -56,9 +56,9 @@ namespace projector_calibration {
 
 //#define PRINT_TIMING
 
- class QNode : public QThread {
+class QNode : public QThread {
   Q_OBJECT
- public:
+public:
   Ant ant;
   std::map<int,Ant> ants;
 
@@ -68,12 +68,14 @@ namespace projector_calibration {
   void imageCallback(const sensor_msgs::ImageConstPtr& msg);
   void paramCallback(const projector_calibration::visualization_paramsConfig& config, uint32_t level);
 
-//  /// Duration since last static frame
-//  ros::Duration durationSinceLastStaticFrame(){ return (ros::Time::now()-time_of_last_static_frame); }
-//
-//  /// Duration since last static frame in s
-// double secondsSinceLastStaticFrame(){ return durationSinceLastStaticFrame().toSec();}
+  //  /// Duration since last static frame
+  //  ros::Duration durationSinceLastStaticFrame(){ return (ros::Time::now()-time_of_last_static_frame); }
+  //
+  //  /// Duration since last static frame in s
+  // double secondsSinceLastStaticFrame(){ return durationSinceLastStaticFrame().toSec();}
 
+
+  ros::Subscriber sub_cam_info;
 
   cv_bridge::CvImagePtr cv_ptr;
 
@@ -100,7 +102,7 @@ namespace projector_calibration {
   bool foreGroundVisualizationActive;
   bool show_texture;
   bool water_simulation_active;
-//  bool simulator_initialized;
+  //  bool simulator_initialized;
 
 
 
@@ -110,7 +112,7 @@ namespace projector_calibration {
   bool step_watersimulation();
   int water_request_id;
 
-
+  image_geometry::PinholeCameraModel depth_cam_model;
 
   bool loadParameters();
   void saveParameters();
@@ -128,6 +130,9 @@ namespace projector_calibration {
 
   cv::Mat current_col_img;
   Cloud current_cloud;
+
+
+  void depthCamInfoCB(const sensor_msgs::CameraInfoConstPtr& cam_info);
   void imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_msgs::PointCloud2ConstPtr& cloud_ptr);
   void writeToOutput(const std::stringstream& msg);
   bool user_interaction_active;
@@ -164,24 +169,24 @@ namespace projector_calibration {
    ** Logging
    **********************/
   enum LogLevel {
-   Debug,
-   Info,
-   Warn,
-   Error,
-   Fatal
+    Debug,
+    Info,
+    Warn,
+    Error,
+    Fatal
   };
 
   QStringListModel* loggingModel() { return &logging_model; }
   void log( const LogLevel &level, const std::string &msg);
 
-  Q_SIGNALS:
+Q_SIGNALS:
   void loggingUpdated();
   void rosShutdown();
   void received_col_Image();
   void update_projector_image();
   void model_computed();
   void scene_static(double secs_since_last_static_image);
-//  void newProjectorPixmap(const QPixmap& pixmap);
+  //  void newProjectorPixmap(const QPixmap& pixmap);
   void process_events();
   void new_light(float);
   void newAnt(Ant ant);
@@ -193,7 +198,7 @@ namespace projector_calibration {
 
   void sig_handvisible(bool visible);
 
- private:
+private:
   int init_argc;
   char** init_argv;
   QStringListModel logging_model;
@@ -215,7 +220,7 @@ namespace projector_calibration {
 
 
 
- };
+};
 
 }  // namespace projector_calibration
 

@@ -587,15 +587,13 @@ void MainWindow::projection_opencv(){
 
 
   float mean_error;
-  qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error,false);
+  qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error,true);
   stringstream ss; ss << "Opencv WITH distortion coeffs: " << mean_error;
   qnode.writeToOutput(ss);
 
-
-//  qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error,false);
-//  stringstream ss2; ss2 << "Opencv WITHOUT distortion coeffs: " << mean_error;
-//  qnode.writeToOutput(ss2);
-
+  qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error,false);
+  stringstream ss2; ss2 << "Opencv WITHOUT distortion coeffs: " << mean_error;
+  qnode.writeToOutput(ss2);
 
   if (qnode.pub_projector_marker.getNumSubscribers()>0){
     visualization_msgs::Marker marker;

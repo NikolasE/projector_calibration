@@ -21,10 +21,16 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <stack>
 #include "fstream"
-
+#include <image_geometry/pinhole_camera_model.h>
 #include "stat_eval.h"
 
 typedef cv::Rect_<float> cv_RectF;
+
+
+
+enum INTERPOLATION_TYPE {INTER_NON, INTER_SIMPLE,INTER_BI};
+
+
 
 
 class Projector_Calibrator {
@@ -37,9 +43,6 @@ class Projector_Calibrator {
 
   cv::Mat input_image; // rgb image of kinect
   cv::Mat gray; // gray version of kinect image
-
-
-
 
   /// tilt of kinect (rotation around optical axis)
   float kinect_tilt_angle_deg;
@@ -71,8 +74,15 @@ class Projector_Calibrator {
 
   int max_checkerboard_width,max_checkerboard_height;
 
+  image_geometry::PinholeCameraModel depth_cam_model; /// model for depth camera
 
 public:
+  bool depth_cam_model_set;
+
+  void setDepthCameraModel(const sensor_msgs::CameraInfoConstPtr& cam_info){
+    depth_cam_model.fromCameraInfo(cam_info);
+    depth_cam_model_set = true;
+  }
 
 
   /// returns current Kinect Transformation
@@ -240,7 +250,10 @@ public:
   // bool imageProjectionSet() { return warp_matrix.cols > 0; }
 
   // save 3d positions (in wall-frame) of the last checkerboard detection
-  bool storeCurrentObservationPairs();
+  bool storeCurrentObservationPairs(INTERPOLATION_TYPE inter_type = INTER_BI, int interpolation_size = 3);
+
+
+  pcl_Point getInterpolatedPoint(cv::Point2f pos);
 
   // stores the number of detected corners in each image to be able to remove images
   std::vector<int> number_of_features_in_images;

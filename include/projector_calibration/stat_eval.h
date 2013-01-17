@@ -8,16 +8,31 @@
 #ifndef STAT_EVAL_H_
 #define STAT_EVAL_H_
 
-
+/**
+ * Basic Implementation of normal distribution
+ */
 template <class T>
 struct Normal_dist {
 
+ /// samples from the distribution
  std::vector<T> values;
+
+ /// mean value of distribution
  T mean;
+
+ /// variance of distribution
  T variance;
 
+ /// all stored values are deleted
  void reset(){values.clear();}
+
+ /// a new measurement is added
  void add(T value){values.push_back(value);}
+
+ /**
+  * @brief Computation of first moments of normal distribution
+  * @return true if data was given
+  */
  bool evaluate(){
   mean = 0;
 
@@ -43,8 +58,9 @@ struct Normal_dist {
  }
 
 
+ /// return abs(mean) < variance;
  bool isProbablyZeroCentered(){
-  return abs(mean) < 3*variance;
+  return abs(mean) < variance;
  }
 
 

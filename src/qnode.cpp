@@ -193,10 +193,17 @@ bool QNode::loadParameters(){
   return true;
 }
 
+
+void QNode::depthCamInfoCB(const sensor_msgs::CameraInfoConstPtr& cam_info){
+  if (!calibrator.depth_cam_model_set){
+    ROS_INFO("Got pinhole model for depth camera");
+    calibrator.setDepthCameraModel(cam_info);
+  }
+}
+
+
 void QNode::imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_msgs::PointCloud2ConstPtr& cloud_ptr)
 {
-
-  // ROS_INFO("new msgs");
 
   ros::Time now_callback = ros::Time::now();
 
@@ -891,6 +898,8 @@ QNode::run()
   message_filters::Synchronizer<policy> sync(policy(2), image_sub, cloud_sub);
   sync.registerCallback(boost::bind(&QNode::imgCloudCB, this, _1, _2));
 
+
+  sub_cam_info = nh.subscribe("/camera/depth/camera_info", 1, &QNode::depthCamInfoCB,this);
 
 
 

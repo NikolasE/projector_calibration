@@ -22,7 +22,6 @@
 
 #include <QtOpenGL/qgl.h>
 
-#include "projector_calibration/calib_eval.h"
 #include "rgbd_utils/type_definitions.h"
 
 

@@ -51,9 +51,11 @@ namespace projector_calibration {
    if( event->type() == QMouseEvent::MouseButtonRelease)
     {
     QMouseEvent *mouseEvent = static_cast<QMouseEvent*>( event );
-    pts.push_back(cv::Point2i(mouseEvent->x(), mouseEvent->y()));
-    ROS_INFO("new point: %i %i", pts[pts.size()-1].x,pts[pts.size()-1].y);
 
+    if (pts.size() == 4) pts.clear(); // foobar
+
+    pts.push_back(cv::Point2i(mouseEvent->x(), mouseEvent->y()));
+    //ROS_INFO("new point: %i %i", pts[pts.size()-1].x,pts[pts.size()-1].y);
     Q_EMIT new_point();
     }
    return false;
@@ -143,6 +145,8 @@ namespace projector_calibration {
   char *data;
  };
 
+
+
  class GL_Mesh_Viewer : public QGLWidget
  {
   Q_OBJECT
@@ -178,28 +182,19 @@ namespace projector_calibration {
 
   std::map<int,Ant>* ants;
 
-  void setLightPos(float z){light_z_pos = z;}
+  void setLightPos(float z);
 
-  void initMapSize(int img_width, int img_height, float min_x, float min_y, float width, float height){
-   this->img_width = img_width;
-   this->img_height = img_height;
-   grid_min_x = min_x;
-   grid_min_y = min_y;
-   grid_width = width;
-   grid_height = height;
-  }
+  void initMapSize(int img_width, int img_height, float min_x, float min_y, float width, float height);
 
 
-  void drawMapImage(bool draw_map){this->draw_map = draw_map;}
+  void drawMapImage(bool draw_map);
 
   cv::Mat proj_matrix;
   bool show_texture;
 
-  void setNormals(const Cloud_n& normals){this->normals = normals;}
+  void setNormals(const Cloud_n& normals);
 
-  void set_height_lines(const std::vector<Line_collection>& height_lines){
-   this->height_lines = height_lines;
-  }
+  void set_height_lines(const std::vector<Line_collection>& height_lines);
 
   void LoadGLTextures();
  public Q_SLOTS:
@@ -314,8 +309,13 @@ namespace projector_calibration {
   QImage qimg_proj, qimg_col, qimg_p;
 
 
+
+
   QLabel lb_img;
   bool pattern_size_auto;
+
+
+  void drawDetections(QImage* img);
 
  public Q_SLOTS:
  /******************************************
@@ -347,7 +347,8 @@ namespace projector_calibration {
  void test_expmap();
  void new_expmap(int);
  void load_observations();
-
+ void toggle_update_elevationmap(bool);
+ void visualizeDetectionsOnSurface();
 
  void sl_handvisible(bool visible);
 
@@ -360,7 +361,9 @@ namespace projector_calibration {
  void process_events();
  // void setProjectorPixmap(const QPixmap& pixmap);
 
- void user_interaction_toggled(bool);
+ void save_elevation_map();
+
+ // void user_interaction_toggled(bool);
  void depth_visualzation_toggled(bool);
  void pattern_auto_size_toggled(bool);
  void foreGroundVisualizationToggled(bool);
@@ -368,6 +371,7 @@ namespace projector_calibration {
  void show_texture(bool);
  void water_simulation_toggled(bool);
  void foreground_visualization_toggled(bool);
+ void toggle_update_model(bool);
  void show_height_lines(bool);
 
  // calibration
@@ -382,6 +386,8 @@ namespace projector_calibration {
  void projection_opencv();
  void clear_projection_matrix();
 
+
+ void start_water_node();
 
  void detect_disc();
  void evaluate_pattern();
@@ -404,6 +410,8 @@ namespace projector_calibration {
  QApplication *qAppff;
 
  cv::Mat small, cpy;
+ cv::Mat darker,inv; /// helper images (8UC3 and 8UC1)
+
 
  Ui::MainWindowDesign ui;
  QNode qnode;
@@ -413,8 +421,8 @@ namespace projector_calibration {
  // bool mouse_selection_active;
 
  // only show smaller images on the gui:
- float image_scale;
-
+ float rgb_image_scale;
+ float projector_image_scale;
 
  std::vector<ros::Time> frame_update_times;
  static const uint hist_length = 10; // show mean framerate over last n frames

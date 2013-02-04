@@ -43,9 +43,15 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   lb_img.showFullScreen();
 
 
+
+  darker = cv::Mat(480,640,CV_8UC3);
+  inv = cv::Mat(480,640,CV_8UC1);
+
+
   manual_z_change = 0;
 
-  image_scale = 1;//0.5;
+  rgb_image_scale = 1;
+  projector_image_scale = 0.5;
 
   ui.setupUi(this); // Calling this incidentally connects all ui's triggers to on_...() callbacks in this class.
   QObject::connect(ui.actionAbout_Qt, SIGNAL(triggered(bool)), qApp, SLOT(aboutQt())); // qApp is a global variable for the application
@@ -69,6 +75,8 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   QObject::connect(&qnode, SIGNAL(sig_grasp_moved(cv::Point2f, int)), this, SLOT(sl_grasp_moved(cv::Point2f, int)));
   QObject::connect(&qnode, SIGNAL(sig_grasp_ended(cv::Point2f, int)), this, SLOT(sl_grasp_ended(cv::Point2f, int)));
   QObject::connect(&qnode, SIGNAL(sig_handvisible(bool)), this, SLOT(  sl_handvisible(bool)));
+  QObject::connect(&qnode, SIGNAL(visualize_Detections()), this, SLOT(  visualizeDetectionsOnSurface()));
+
 
 
   secs_since_last_static_image = 0;
@@ -76,16 +84,6 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
 
   QObject::connect(&mousehandler_projector, SIGNAL(redraw_image()), this, SLOT(update_proj_image()));
 
-
-
-  if (qnode.calibrator.load_everything_on_startup){
-    sstream msg;
-    qnode.calibrator.initFromFile(msg);
-    qnode.writeToOutput(msg);
-    if (qnode.calibrator.isKinectTrafoSet()){
-      activateSlider();
-    }
-  }
 
 
   show_fullscreen_pattern();
@@ -102,7 +100,6 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
 
 
 
-
   ui.lb_img_2->installEventFilter(&mousehandler_projector);
   ui.lb_kinect_image->installEventFilter(&mousehandler_points);
 
@@ -114,7 +111,7 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   ui.ed_corners_y->setText(QString::number(qnode.calibrator.checkboard_size.height));
   ui.ed_markersize->setText(QString::number(qnode.calibrator.printed_marker_size_mm));
 
-  qnode.user_interaction_active = ui.cb_user->isChecked();
+  // qnode.user_interaction_active = ui.cb_user->isChecked();
   qnode.depth_visualization_active = ui.cb_depth_visualization->isChecked();
   qnode.foreGroundVisualizationActive = ui.cb_foreground->isChecked();
   pattern_size_auto = ui.cb_autosize->isChecked();
@@ -150,13 +147,13 @@ cv::Mat qimage2mat(const QImage& qimage) {
   int from_to[] = { 0,0,  1,1,  2,2 };
   cv::mixChannels( &mat, 1, &mat2, 1, from_to, 3 );
   return mat2;
-};
+}
 
 QImage mat2qimage(const cv::Mat& mat) {
   cv::Mat rgb;
   cv::cvtColor(mat, rgb, CV_BGR2RGB);
   return QImage((const unsigned char*)(rgb.data), rgb.cols, rgb.rows, QImage::Format_RGB888);
-};
+}
 
 QImage Mat2QImage(const cv::Mat3b &src) {
   //return mat2qimage(src);
@@ -290,17 +287,32 @@ void MainWindow::show_model_openGL(){
 
   qApp->processEvents();
 
-  ros::Time start_show_openGL = ros::Time::now();
+  timing_start("open_gl");
 
-
-  if (!qnode.modeler.modelComputed()){
+  if (!qnode.elevation_map.modelComputed()){
     ROS_INFO("Model is not computed");
     return;
   }
 
 
+
+
   //  ros::Time now_getmodel = ros::Time::now();
-  Cloud model = qnode.modeler.getModel();
+  Cloud model;
+  qnode.elevation_map.getModel(model);
+
+
+  //  Cloud model = qnode.pixel_modeler.getModel(qnode.modeler.min_x(),qnode.modeler.min_y(),
+  //                                             qnode.modeler.cell_size(),qnode.modeler.cell_size());
+
+
+
+  //   Cloud model;
+  //   qnode.pixel_modeler.getCloudRepresentation(qnode.current_cloud,model,-1);
+
+  //   pcl::getTransformedPointCloud(model,qnode.calibrator.kinect_trafo,model);
+
+
   //  ROS_INFO("getModel: %f ms", (ros::Time::now()-now_getmodel).toSec()*1000);
 
 
@@ -309,38 +321,52 @@ void MainWindow::show_model_openGL(){
     return;
   }
 
-  ros::Time now_color = ros::Time::now();
+
+  if (!(qnode.openGL_visualizationActive || qnode.water_simulation_active)){
+    return;
+  }
 
   // TODO: create only once after model is initialized
   cv::Mat color(model.height, model.width, CV_8UC3);
   color.setTo(0);
 
-
   if (qnode.openGL_visualizationActive){
+
     // TODO: don't copy image
-    cv::Mat height = qnode.modeler.getHeightImage();
-    heightVisualization(color, height, 0,100, qnode.color_range,NULL);
+    cv::Mat height = qnode.elevation_map.getHeightImage();
+
+    //    cv::Mat height;
+    //    qnode.pixel_modeler.getMeans(height);
+
+
+    heightVisualization(color, height, 0,500, qnode.color_range,NULL);
+
   }
 
+
+  cv::imwrite("height.png", color);
 
   if (qnode.water_simulation_active){
 
     // white surrounding if no height lines are visualized
-    if (!qnode.openGL_visualizationActive)
-      color.setTo(255);
+    //    if (!qnode.openGL_visualizationActive)
+    //      color.setTo(255);
+
+    // ROS_INFO("water cols: %i, model: %i", qnode.water.cols, model.width);
 
     if (qnode.water.cols == int(model.width)){
       //waterVisualization(color, qnode.water, 0.005,0.03,NULL);
 
       cv::Mat alpha; // todo: don't generate each time
       waterVisualizationAlpha(color, alpha,qnode.water, 0.0,0.015,NULL);
-
-      // cv::imwrite("water.png", color);
+      cv::imwrite("water.png", color);
       //    cv::imwrite("alpha.png", alpha);
+    }else{
+      ROS_ERROR("qnode.water.cols == int(model.width)");
     }
   }
 
-  Cloud colored = transferColorToMesh(color, model,NULL);
+  Cloud colored = transferColorToMesh(color, model, NULL);
 
 #ifdef DO_TIMING
   ROS_INFO("colorizeCloud: %f ms", (ros::Time::now()-now_color).toSec()*1000.0);
@@ -349,8 +375,8 @@ void MainWindow::show_model_openGL(){
 
 
   ros::Time now_mesh = ros::Time::now();
-  float max_length = 0.05; // max edge length of drawn triangle in m
-  pcl::PolygonMesh mesh = qnode.mesh_visualizer.createMesh(colored, max_length);
+  float max_edge_length = 0.05; // max edge length of drawn triangle in m
+  pcl::PolygonMesh mesh = qnode.mesh_visualizer.createMesh(colored, max_edge_length);
 #ifdef DO_TIMING
   ROS_INFO("createMesh: %f ms", (ros::Time::now()-now_mesh).toSec()*1000.0);
 #endif
@@ -378,7 +404,7 @@ void MainWindow::show_model_openGL(){
   if (qnode.show_height_lines){
     ros::Time start_height = ros::Time::now();
     std::vector<Line_collection> height_lines;
-    qnode.mesh_visualizer.findHeightLines(mesh, height_lines, qnode.modeler.getMinHeight(), qnode.modeler.getMaxHeight(), 0.02);
+    qnode.mesh_visualizer.findHeightLines(mesh, height_lines, qnode.elevation_map.getMinHeight(), qnode.elevation_map.getMaxHeight(), 0.02);
     gl_viewer->set_height_lines(height_lines);
     ROS_INFO("Height lines: %f ms", (ros::Time::now()-start_height).toSec()*1000.0);
   }else{
@@ -388,13 +414,24 @@ void MainWindow::show_model_openGL(){
 
 
   //  gl_viewer->resize(lb_img.width(),lb_img.height());
-  gl_viewer->drawMapImage(false);
+  //  gl_viewer->drawMapImage(false);
+
+  //  gl_viewer->drawMeshStrip();
+
   ros::Time now_render = ros::Time::now();
+
+
   QPixmap pix2 = gl_viewer->renderPixmap(lb_img.width(),lb_img.height(),true);
+
+  ROS_INFO("visualizing tracks");
+  qnode.visualizeTracks(&pix2);
+
+
+
 
 
 #ifdef DO_TIMING
-  ROS_INFO("Rendering: %f ms", (ros::Time::now()-now_render).toSec()*1000.0);
+  timing_end("open_gl");
 #endif
 
 
@@ -421,20 +458,15 @@ void MainWindow::show_model_openGL(){
   ROS_INFO("Showing Model with openGL (total): %f ms", (ros::Time::now()-start_show_openGL).toSec()*1000);
 #endif
 
-  frame_update_times.push_back(ros::Time::now());
-  if (frame_update_times.size() > hist_length){
-    ros::Time earlier = frame_update_times[frame_update_times.size()-1-hist_length];
-    double fr = hist_length/(frame_update_times[frame_update_times.size()-1]-earlier).toSec();
-    ui.lb_framerate->setText(QString::number(int(fr*100)/100.0));
-  }
+
 
 
   // TODO: adapt size of image
   if (qnode.show_height_lines){
 
-    gl_viewer->drawMapImage(true);
+    // gl_viewer->drawMapImage(true);
     // show image on right image-label
-    gl_viewer->initMapSize(ui.lb_img_2->width(),ui.lb_img_2->height(), qnode.modeler.min_x(),qnode.modeler.min_y(),qnode.modeler.getWidth(), qnode.modeler.getHeight());
+    gl_viewer->initMapSize(ui.lb_img_2->width(),ui.lb_img_2->height(), qnode.elevation_map.min_x(),qnode.elevation_map.min_y(),qnode.elevation_map.getWidth(), qnode.elevation_map.getHeight());
     //  gl_viewer->resize(ui.lb_img_2->width(),ui.lb_img_2->height());
     QPixmap pix = gl_viewer->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
     ui.lb_img_2->setPixmap(pix);
@@ -494,8 +526,8 @@ void MainWindow::select_marker_area(){
 
 
   // undo shrinking!
-  cv::Point l1(mousehandler_projector.down.x/image_scale,mousehandler_projector.down.y/image_scale);
-  cv::Point l2(mousehandler_projector.up.x/image_scale,mousehandler_projector.up.y/image_scale);
+  cv::Point l1(mousehandler_projector.down.x/projector_image_scale,mousehandler_projector.down.y/projector_image_scale);
+  cv::Point l2(mousehandler_projector.up.x/projector_image_scale,mousehandler_projector.up.y/projector_image_scale);
 
   if (pattern_size_auto){
     // set new pattern_size
@@ -524,8 +556,8 @@ void MainWindow::select_marker_area(){
 }
 
 void MainWindow::learn_environment(){
-  qnode.detector.reset();
-  qnode.modeler.reset();
+  // qnode.detector.reset();
+  qnode.elevation_map.reset();
   qnode.train_background = true;
 }
 
@@ -562,7 +594,6 @@ void MainWindow::compute_trafo(){
   qnode.calibrator.setInputImage(qnode.current_col_img);
   qnode.calibrator.setInputCloud(qnode.current_cloud);
 
-
   if(!qnode.calibrator.findCheckerboardCorners()){
     ss << "Could not detect Marker";
     qnode.writeToOutput(ss);
@@ -577,14 +608,12 @@ void MainWindow::compute_trafo(){
     ss << "Computation of Kinect Trafo failed";
   }
 
-
   qnode.writeToOutput(ss);
 }
 
 
 
 void MainWindow::projection_opencv(){
-
 
   float mean_error;
   qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error,true);
@@ -658,17 +687,6 @@ void MainWindow::pattern_size_changed(){
   qnode.calibrator.checkboard_size = cv::Size(ui.ed_corners_x->text().toInt(), ui.ed_corners_y->text().toInt());
 }
 
-
-
-//  void MainWindow::setProjectorPixmap(const QPixmap& pixmap){
-//   ROS_INFO("PROJECTOR PIXMAP");
-//
-//   lb_img.setPixmap(pixmap);
-//   lb_img.repaint();
-//  }
-
-
-
 void MainWindow::update_proj_image(){
 
 
@@ -677,15 +695,10 @@ void MainWindow::update_proj_image(){
   lb_img.setPixmap(pixmap_proj.fromImage(qimg_proj, 0));
   lb_img.repaint();
 
-  // cv::imwrite("projector_image.jpg", qnode.calibrator.projector_image);
-
-  // ROS_INFO("Setting image of projector");
-
-
   // draw projector image on right label
   if (qnode.calibrator.projector_image.cols > 0){
     cv::Mat small2;
-    cv::resize(qnode.calibrator.projector_image, small2, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
+    cv::resize(qnode.calibrator.projector_image, small2, cv::Size(),projector_image_scale,projector_image_scale, CV_INTER_CUBIC);
 
     if (mousehandler_projector.area_marked())
       cv::rectangle(small2,  mousehandler_projector.down, mousehandler_projector.move, mousehandler_projector.area_marked()?CV_RGB(0,255,0):CV_RGB(255,0,0),2);
@@ -732,19 +745,24 @@ void MainWindow::mouse_new_points(){
 
   for (uint i=0; i<mousehandler_points.pts.size(); ++i){
     cv::Point pi = mousehandler_points.pts[i];
-    normal_sized.push_back( cv::Point(pi.x/image_scale, pi.y/image_scale));
+    normal_sized.push_back( cv::Point(pi.x/rgb_image_scale, pi.y/rgb_image_scale));
   }
 
   if (qnode.current_col_img.rows == 0) return;
 
-  qnode.area_mask = cv::Mat(qnode.current_col_img.rows, qnode.current_col_img.cols, CV_8UC1);
-  ROS_INFO("mask: %i %i", qnode.area_mask.rows, qnode.area_mask.cols);
+  qnode.area_mask = cv::Mat(qnode.current_col_img.size(), CV_8UC1);
   qnode.area_mask.setTo(0);
   cv::fillConvexPoly(qnode.area_mask, normal_sized, cv::Scalar::all(255));
 
-  mousehandler_points.pts.clear();
 
-  //  cv::imwrite("mask.jpg", qnode.area_mask);
+  qnode.detector.setDetectionArea(qnode.area_mask);
+  qnode.pixel_modeler.setMask(qnode.area_mask);
+
+
+  // mousehandler_points.pts.clear();
+
+  ROS_INFO("saving area mask to data/kinect_mask.png");
+  cv::imwrite("data/kinect_mask.png", qnode.area_mask);
   //  cv::namedWindow("bar");
   //  cv::imshow("bar", qnode.area_mask);
   //  cv::waitKey(10);
@@ -754,41 +772,53 @@ void MainWindow::mouse_new_points(){
 
 void MainWindow::sl_received_image(){
 
+  frame_update_times.push_back(ros::Time::now());
+  if (frame_update_times.size() > hist_length){
+    ros::Time earlier = frame_update_times[frame_update_times.size()-1-hist_length];
+    double fr = hist_length/(frame_update_times[frame_update_times.size()-1]-earlier).toSec();
+    ui.lb_framerate->setText(QString::number(int(fr*100)/100.0));
+  }
+
+  timing_start("draw image");
+
   if (qnode.current_col_img.cols == 0){
     return;
   }
 
-
   // draw kinect image on left label
-
   cpy = qnode.current_col_img.clone();
   if (qnode.calibrator.detected_corners.size() > 0){
     cv::drawChessboardCorners(cpy, qnode.calibrator.checkboard_size, qnode.calibrator.detected_corners, true);
   }
 
-
   /*
    * Draw region not withing the marked region darker
    */
-  if (qnode.area_mask.cols == cpy.cols){
-    cv::Mat darker = cpy*0.5;
-    cv::Mat inv = 255- qnode.area_mask;
-    darker.copyTo(cpy,inv);
+  timing_start("dark");
+  //  if (qnode.area_mask.cols == cpy.cols){
+  //    darker = cpy*0.5;
+  //    inv = 255- qnode.area_mask;
+  //    darker.copyTo(cpy,inv);
+  //  }
+  //timing_end("dark");
+
+  bool resize = abs(rgb_image_scale-1.0) > 0.01;
+
+  if (resize){
+    ROS_INFO("resizing iamge");
+    cv::resize(cpy, small, cv::Size(),rgb_image_scale,rgb_image_scale, CV_INTER_CUBIC);
   }
+  //  for (uint i=0; i< mousehandler_points.pts.size(); ++i){
+  //    cv::Point2f p = cv::Point2f(mousehandler_points.pts[i].x,mousehandler_points.pts[i].y);
+  //    cv::circle(resize?small:cpy, p, 10, CV_RGB(255,0,0),3);
+  //  }
 
-
-
-  cv::resize(cpy, small, cv::Size(),image_scale,image_scale, CV_INTER_CUBIC);
-
-  for (uint i=0; i< mousehandler_points.pts.size(); ++i){
-    cv::Point2f p = cv::Point2f(mousehandler_points.pts[i].x,mousehandler_points.pts[i].y);
-    cv::circle(small, p, 10, CV_RGB(255,0,0),3);
-  }
-
-
-  qimg_col = Mat2QImage(small);
+  timing_start("qt");
+  qimg_col = Mat2QImage(resize?small:cpy);
   ui.lb_kinect_image->setPixmap(pixmap_col.fromImage(qimg_col, 0));
   ui.lb_kinect_image->repaint();
+  //timing_end("qt");
+  // timing_end("draw image");
 
   //qApp->processEvents();
 }
@@ -811,6 +841,10 @@ void MainWindow::loadParameters(){
 
 
 
+}
+
+void MainWindow::toggle_update_elevationmap(bool status){
+  qnode.update_elevation_map = status;
 }
 
 
@@ -861,6 +895,62 @@ void MainWindow::z_max_changed(int z_max){
 }
 
 
+
+void MainWindow::drawDetections(QImage* img){
+
+
+
+
+
+
+}
+
+void MainWindow::visualizeDetectionsOnSurface(){
+
+  // ROS_INFO("visualizeDetectionsOnSurface");
+
+
+  //  for (GraspTrack_it it = qnode.grasp_tracker.tracks.begin(); it != grasp_tracker.tracks.end(); ++it){
+  //    if (it->second.state == Track_Active){
+  //      it->second.visualizeOnImage(current_col_img,getColor(it->first));
+  //      pcl_Point center = it->second.last_detection().position_world;
+  //      grasps.push_back(center);
+  //      ROS_INFO("Found grasp at: %f %f %f", center.x,center.y, center.z);
+  //    }
+  //  }
+
+
+
+  //  for (PieceTrack_it it = qnode.piece_tracker.tracks.begin(); it != piece_tracker.tracks.end(); ++it){
+  //    if (it->second.state == Track_Active){
+  //      it->second.visualizeOnImage(current_col_img,getColor(it->first));
+  //      pcl_Point center = it->second.last_detection().position_world;
+  //      ROS_INFO("Found Piece (%i) at: %f %f %f", it->first, center.x,center.y, center.z);
+  //    }
+  //  }
+
+
+  //  for (FingerTrack_it it = qnode.fingertip_tracker.tracks.begin(); it != fingertip_tracker.tracks.end(); ++it){
+  //    // if (it->second.state == Track_Active)
+  //    //it->second.visualizeOnImage(current_col_img,getColor(it->first),TT_FINGERTIP);
+  //    pcl_Point center = it->second.last_detection().position_kinect;
+
+  //    cv::Point2f c = applyPerspectiveTrafo(center, qnode.calibrator.proj_Matrix);
+
+
+  //    ROS_INFO("Found finger at: %f %f %f", center.x,center.y, center.z);
+  //  }
+
+
+}
+
+
+
+void MainWindow::start_water_node(){
+  int foo = system("rosrun water_simulation simulation &");
+  cout << "started water_simulation with return value " << foo << endl;
+}
+
 void MainWindow::load_observations(){
   qnode.calibrator.loadObservations();
 }
@@ -875,6 +965,24 @@ void MainWindow::manual_yaw_changed(int yaw){
   ROS_INFO("Manual yaw: %f", manual_yaw_change);
   ui.lb_yaw->setText(QString::number(manual_yaw_change));
 }
+
+
+void MainWindow::save_elevation_map(){
+  cv::Mat height = qnode.elevation_map.getHeightImage();
+  cv::imwrite("img/height.png",height*255);
+  ROS_INFO("wrote height image to img/height.png");
+  double min_val,max_val;
+  cv::minMaxLoc(height, &min_val, &max_val);
+  cv::Mat scaled = (height-min_val)/(max_val-min_val);
+
+  ROS_INFO("Height: %f %f", min_val, max_val);
+
+  cv::imwrite("img/height_scaled.png",scaled*255);
+
+  cv::minMaxLoc(scaled, &min_val, &max_val);
+  ROS_INFO("Height2: %f %f", min_val, max_val);
+}
+
 
 
 void MainWindow::manual_z_changed(int z){
@@ -1057,6 +1165,10 @@ void MainWindow::show_height_lines(bool status){
 
 
 
+void MainWindow::toggle_update_model(bool status){
+  qnode.update_pixel_model = status;
+}
+
 void MainWindow::foreground_visualization_toggled(bool status){
   qnode.calibration_active = status;
 }
@@ -1079,21 +1191,20 @@ void MainWindow::gl_visualization_toggled(bool status){
   qnode.saveParameters();
 }
 
-void MainWindow::user_interaction_toggled(bool status){
-  qnode.user_interaction_active = status;
-}
+//void MainWindow::user_interaction_toggled(bool status){
+//  qnode.user_interaction_active = status;
+//}
 
 void MainWindow::foreGroundVisualizationToggled(bool status){
 
   //  min_dist_changed(ui.slider_mindist->value());
   //  z_max_changed(ui.slider_z_max->value());
   //  color_slider_moved(ui.slider_color->value());
-
+  qnode.calibration_active = status;
   qnode.foreGroundVisualizationActive = status;
 }
 
 void MainWindow::process_events(){
-  //  ROS_INFO("XXXXXXXXXXXXXX processing");
   qApp->processEvents();
 }
 
@@ -1126,8 +1237,8 @@ void MainWindow::show_texture(bool status){
 
 void MainWindow::delete_last_img(){
   qnode.calibrator.restartCalibration();
-//  if (!qnode.calibrator.removeLastObservations())
-//    qnode.writeToOutput(sstream("No image to remove"));
+  //  if (!qnode.calibrator.removeLastObservations())
+  //    qnode.writeToOutput(sstream("No image to remove"));
 }
 
 

@@ -104,10 +104,10 @@ endif (WITH_LIBGEOMETRY)
 #${OPENGL_LIBRARIES} ${GLUT_LIBRARIES}
    
    
-   
+
    
 rosbuild_add_executable(calibration_app ${QT_SOURCES} ${QT_RESOURCES_CPP} ${QT_FORMS_HPP} ${QT_MOC_HPP})
-target_link_libraries(calibration_app ${QT_LIBRARIES} rgbd_utils pinch GL GLU  ${QT_LIBRARIES} ${QT_QTOPENGL_LIBRARY} ${GLUT_LIBRARY} ${OPENGL_LIBRARY})
+target_link_libraries(calibration_app ${QT_LIBRARIES} rgbd_utils GL GLU  ${QT_LIBRARIES} ${QT_QTOPENGL_LIBRARY} ${GLUT_LIBRARY} ${OPENGL_LIBRARY})
 
 if (WITH_LIBGEOMETRY)
 target_link_libraries(calibration_app  ${GEO_FOLDER}/Testing/liblibGeometry.a ${GEO_FOLDER}/WildMagic4/SDK/Library/Release/libWm4Foundation.a )

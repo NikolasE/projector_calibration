@@ -22,7 +22,6 @@
   <rosdep name="qt4"/>
  <depend package="visualization_msgs"/>
 
-  <depend package="pinch_recognition"/>
   
 <depend package="image_geometry"/>
 

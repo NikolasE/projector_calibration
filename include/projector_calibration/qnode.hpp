@@ -23,7 +23,6 @@
 
 
 #include "projector_calibration/projector_calibrator.h"
-#include "projector_calibration/user_input.h"
 #include "projector_calibration/visualization_paramsConfig.h"
 
 #include "rgbd_utils/calibration_utils.h"
@@ -31,7 +30,7 @@
 #include "rgbd_utils/type_definitions.h"
 #include "rgbd_utils/ants.h"
 
-#include "pinch_recognition/pinch_detection.h"
+#include "rgbd_utils/pinch_detection.h"
 
 #include "water_simulation/simulator_init.h"
 #include "water_simulation/simulator_step.h"
@@ -63,10 +62,6 @@ public:
   std::map<int,Ant> ants;
 
 
-  void imageColCallback(const sensor_msgs::ImageConstPtr& msg);
-
-  void imageCallback(const sensor_msgs::ImageConstPtr& msg);
-  void paramCallback(const projector_calibration::visualization_paramsConfig& config, uint32_t level);
 
   //  /// Duration since last static frame
   //  ros::Duration durationSinceLastStaticFrame(){ return (ros::Time::now()-time_of_last_static_frame); }
@@ -75,22 +70,21 @@ public:
   // double secondsSinceLastStaticFrame(){ return durationSinceLastStaticFrame().toSec();}
 
 
-  ros::Subscriber sub_cam_info;
+  ros::Subscriber sub_cam_info, sub_cloud, sub_col_image;
 
   cv_bridge::CvImagePtr cv_ptr;
 
-  // the actual calibration object
   Projector_Calibrator calibrator;
-  Pinch_detector detector;
-  Grasp_detector grasp_detector;
 
-  Grasp_Tracker grasp_Tracker;
-  Piece_Tracker piece_Tracker;
+  Detector detector;
 
+  Object_tracker<Grasp,Track<Grasp> > grasp_tracker;
+  Object_tracker<Playing_Piece,Track<Playing_Piece> > piece_tracker;
+  Object_tracker<Fingertip,Track<Fingertip> > fingertip_tracker;
 
-  Surface_Modeler modeler;
+  PixelEnvironmentModel pixel_modeler;
+  Elevation_map elevation_map;
   Mesh_visualizer mesh_visualizer;
-  User_Input* user_input;
   Path_planner planner;
 
   void run_ant_demo();
@@ -105,6 +99,9 @@ public:
   //  bool simulator_initialized;
 
 
+  void runDetector();
+  cv::Mat pixel_foreground;
+  cv::Mat current_norm; // depth map in Kinect Frame
 
   cv::Mat water;
 
@@ -126,16 +123,24 @@ public:
   ros::Publisher pub_model;
   ros::Publisher pub_foreground;
   ros::Publisher pub_projector_marker;
+  ros::Publisher pub_gauss_foreground;
+  ros::Publisher pub_surface_foreground;
+  ros::Publisher pub_hand;
 
 
   cv::Mat current_col_img;
   Cloud current_cloud;
 
-
+  void cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr);
   void depthCamInfoCB(const sensor_msgs::CameraInfoConstPtr& cam_info);
   void imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_msgs::PointCloud2ConstPtr& cloud_ptr);
+  void imageCallback(const sensor_msgs::ImageConstPtr& msg);
+  void paramCallback(const projector_calibration::visualization_paramsConfig& config, uint32_t level);
+
+
+
+
   void writeToOutput(const std::stringstream& msg);
-  bool user_interaction_active;
   bool depth_visualization_active;
 
   bool restart_modeler;
@@ -148,12 +153,14 @@ public:
 
   cv::Mat area_mask;
 
-  bool hand_visible_in_last_frame;
+  cv::Mat objectMask; /// shows last observation of tracks
 
   float modeler_cell_size;
 
   bool calibration_active;
 
+  bool update_pixel_model;
+  bool update_elevation_map;
 
   QNode(int argc, char** argv );
   virtual ~QNode();
@@ -164,6 +171,10 @@ public:
 
   void disc_evaluation();
   void eval_projection();
+
+
+  void visualizeTracks(QPixmap* img);
+
 
   /*********************
    ** Logging
@@ -198,7 +209,12 @@ Q_SIGNALS:
 
   void sig_handvisible(bool visible);
 
+  void visualize_Detections();
+
 private:
+
+  int frame_cnt;
+
   int init_argc;
   char** init_argv;
   QStringListModel logging_model;

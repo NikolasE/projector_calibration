@@ -38,7 +38,7 @@ class Projector_Calibrator {
 
   // trafo cloud s.t. checkerboard is z=0,  middle of board at x=y=0
   // the first trafo is stored and used for all following frames
-  Eigen::Affine3f kinect_trafo;
+
   bool kinect_trafo_valid;
 
   cv::Mat input_image; // rgb image of kinect
@@ -77,6 +77,9 @@ class Projector_Calibrator {
   image_geometry::PinholeCameraModel depth_cam_model; /// model for depth camera
 
 public:
+
+  Eigen::Affine3f kinect_trafo;
+
   bool depth_cam_model_set;
 
   void setDepthCameraModel(const sensor_msgs::CameraInfoConstPtr& cam_info){

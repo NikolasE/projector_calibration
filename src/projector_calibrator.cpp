@@ -51,6 +51,9 @@ float Projector_Calibrator::eval_projection_matrix_Checkerboard(Cloud& corners, 
     cv::Point2f pr = applyPerspectiveTrafo(mean, proj_Matrix);
     cv::Point2f px_true = current_projector_corners[i];
 
+
+    ROS_INFO("Mean: %f %f %f px: %f %f", mean.x,mean.y,mean.z, pr.x,pr.y);
+
     error += sqrt(pow(px_true.x-pr.x,2)+pow(px_true.y-pr.y,2));
 
 
@@ -273,8 +276,6 @@ bool Projector_Calibrator::loadObservations(){
 }
 
 
-
-
 Projector_Calibrator::Projector_Calibrator(){
   kinect_orientation_valid = false;
   kinect_trafo_valid = false;
@@ -339,13 +340,12 @@ Projector_Calibrator::Projector_Calibrator(){
  */
 void Projector_Calibrator::initFromFile(std::stringstream& msg){
 
-  // mask = cv::imread("data/kinect_mask.png",0);
-  // if (mask.data){
-  //  ROS_INFO("Found mask (%i %i)", mask.cols, mask.rows);
-  // }else {
-  //  ROS_INFO("Could not find mask at data/kinect_mask.png");
-  // }
-
+  mask = cv::imread("data/kinect_mask.png",0);
+  if (mask.data){
+    ROS_INFO("Found mask (%i %i)", mask.cols, mask.rows);
+  }else {
+    ROS_INFO("Could not find mask at data/kinect_mask.png");
+  }
 
   // Check for Kinect trafo:
   char fn[100]; sprintf(fn, "data/%s.txt",kinect_trafo_filename.c_str());
@@ -1136,6 +1136,7 @@ cout << "new_pose " << new_pose << endl;
 bool Projector_Calibrator::findCheckerboardCorners(){
   // #define SHOW_DETECTIONS
   detected_corners.clear();
+
   if (input_image.rows == 0){  ROS_WARN("can't find corners on empty image!"); return false;  }
 
   ROS_INFO("Looking for checkerboard with %i %i corners img: %i %i", checkboard_size.width, checkboard_size.height, input_image.cols, input_image.rows);
@@ -1147,6 +1148,9 @@ bool Projector_Calibrator::findCheckerboardCorners(){
 
   cv::cvtColor(input_image, gray, CV_BGR2GRAY);
   cv::cornerSubPix(gray, detected_corners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 2000, 0.0001));
+
+  createMaskFromDetections();
+
 
 #ifdef SHOW_DETECTIONS
   cv::Mat cpy = input_image.clone();
@@ -1206,7 +1210,10 @@ bool Projector_Calibrator::saveProjectionMatrix(std::stringstream& msg){
 
 pcl_Point Projector_Calibrator::getInterpolatedPoint(cv::Point2f pos){
   // todo: also interpolate point at border of image!
-  assert(pos.x > 0 && pos.y > 0 && pos.x < input_cloud.height-1 && pos.y < input_cloud.width-1);
+  ROS_INFO("POS: %f %f size: %i %i", pos.x, pos.y, input_cloud.height, input_cloud.width);
+  assert(pos.x > 0 && pos.y > 0 && pos.x < input_cloud.width-1 && pos.y < input_cloud.height-1);
+  assert(depth_cam_model_set);
+
 
   pcl_Point mean;
 
@@ -1241,7 +1248,7 @@ pcl_Point Projector_Calibrator::getInterpolatedPoint(cv::Point2f pos){
  * @brief Extraction of the corresponding 3d-points to the detected chessboard corners
  * @return true if points have been extracted
  * @param interpolation_size size of interpolatio area of depth value
- *
+ * @param inter_type interpolation type (simple: mean point of surronding pixels, INTER_BI: bilinear interpolation)
  * for each detected point in (detected_corners), the corresponding point in cloud_moved is extracted and stored in
  *
  */
@@ -1505,8 +1512,8 @@ Cloud Projector_Calibrator::visualizePointCloud(){
  * - call this function
  * - a plane is fitted to all points within the area of the pattern (defining z-plane)
  * - center point of pattern is used as origin of new world-system
- * - rightmost corner of patten (with same height as center point) is used to calculate x-direction
- * - y is computed to create right-handed system
+ * - rightmost corner of patten (with same height as center point) is used to calculate y-direction
+ * - x is computed to create right-handed system
  *
  * @see kinect_trafo
  */
@@ -1530,37 +1537,29 @@ bool  Projector_Calibrator::computeKinectTransformation(std::stringstream& msg){
   Eigen::Vector4f plane_model;
   fitPlaneToCloud(filtered, plane_model);
 
-  int m = (checkboard_size.height/2*checkboard_size.width)+(checkboard_size.width-1)/2;
+  int w = checkboard_size.width;
+  int h = checkboard_size.height;
+
+  int m = (h/2*w)+(w-1)/2; // center of pattern
+  int right = (h/2*w)+(w-1); // rightmost corner with same height as center point
+
 
   pcl_Point p  = input_cloud.at(detected_corners[m].x, detected_corners[m].y);
-  pcl_Point p2 = input_cloud.at(detected_corners[m].x+sin(-kinect_tilt_angle_deg/180*M_PI)*100, detected_corners[m].y-cos(-kinect_tilt_angle_deg/180*M_PI)*100);
+  pcl_Point p2 = input_cloud.at(detected_corners[right].x, detected_corners[right].y);
+  //  pcl_Point p2 = input_cloud.at(detected_corners[m].x+sin(-kinect_tilt_angle_deg/180*M_PI)*100, detected_corners[m].y-cos(-kinect_tilt_angle_deg/180*M_PI)*100);
 
   if ( p2.x != p2.x){
-    msg << "NAN in pointcloud, no calculation of new wall-system" << endl;
-    ROS_WARN("NAN in pointcloud, no calculation of new wall-system");
+    msg << "NAN in pointcloud, no calculation of new world-frame" << endl;
+    ROS_WARN("NAN in pointcloud, no calculation of new world-frame");
     return false;
   }
 
   Eigen::Vector3f pl_center = Eigen::Vector3f(p.x,p.y,p.z);
-  Eigen::Vector3f pl_upwards = Eigen::Vector3f(p2.x-p.x,p2.y-p.y,p2.z-p.z);
+  Eigen::Vector3f pl_right = Eigen::Vector3f(p2.x-p.x,p2.y-p.y,p2.z-p.z);
 
-  float plane_direction = plane_model.head<3>()[2]>0?1:-1;
+  float plane_direction = plane_model.head<3>()[2]>0?1:-1;   // z-axis upwards
 
-  // compute trafo without pcl
-
-
-  // z-axis towards camera
-  computeTransformationFromYZVectorsAndOrigin(pl_upwards,-plane_direction*plane_model.head<3>(), pl_center,kinect_trafo);
-  // PCL alternative
-  //pcl::getTransformationFromTwoUnitVectorsAndOrigin(-pl_upwards,plane_direction*plane_model.head<3>(), pl_center, kinect_trafo);
-
-
-  // save to file
-  // char fn[100]; sprintf(fn, "data/%s.txt",kinect_trafo_filename.c_str());
-  // if (saveAffineTrafo(kinect_trafo,fn))
-  //  ROS_INFO("Wrote kinect_trafo to %s", fn);
-  //
-  // printTrafo(kinect_trafo);
+  computeTransformationFromYZVectorsAndOrigin(pl_right,-plane_direction*plane_model.head<3>(), pl_center,kinect_trafo);
 
   pcl::getTransformedPointCloud(input_cloud,kinect_trafo,cloud_moved);
   kinect_trafo_valid = true;
@@ -1583,22 +1582,25 @@ bool Projector_Calibrator::publishWorldFrame(const std::string& kinect_frame, co
   }
 
   Eigen::Affine3f inv = pcl::getInverse(kinect_trafo);
+  sendTrafo(kinect_frame,world_frame, inv);
 
-  static tf::TransformBroadcaster br;
-  tf::Transform transform;
+  //
 
-  transform.setOrigin( tf::Vector3(inv.translation()(0),inv.translation()(1),inv.translation()(2) )  );
-  Eigen::Quaternionf quat(inv.rotation());
+  //  static tf::TransformBroadcaster br;
+  //  tf::Transform transform;
 
-  tf::Quaternion tf_quat;
+  //  transform.setOrigin( tf::Vector3(inv.translation()(0),inv.translation()(1),inv.translation()(2) )  );
+  //  Eigen::Quaternionf quat(inv.rotation());
 
-  tf_quat.setX(quat.x());
-  tf_quat.setY(quat.y());
-  tf_quat.setZ(quat.z());
-  tf_quat.setW(quat.w());
+  //  tf::Quaternion tf_quat;
 
-  transform.setRotation( tf_quat );
-  br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), kinect_frame, world_frame));
+  //  tf_quat.setX(quat.x());
+  //  tf_quat.setY(quat.y());
+  //  tf_quat.setZ(quat.z());
+  //  tf_quat.setW(quat.w());
+
+  //  transform.setRotation( tf_quat );
+  //  br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), kinect_frame, world_frame));
 
   return true;
 }
@@ -2004,7 +2006,7 @@ void Projector_Calibrator::setInputCloud(const Cloud& cloud){
  * @see getCheckerboardArea, detected_corners
  */
 void Projector_Calibrator::createMaskFromDetections(){
-  // #define SHOW_MASK_IMAGE
+  //#define SHOW_MASK_IMAGE
 
   if (detected_corners.size() != uint(checkboard_size.width*checkboard_size.height)){
     ROS_INFO("can't create mask if the corners were not detected!"); return; }
@@ -2014,10 +2016,9 @@ void Projector_Calibrator::createMaskFromDetections(){
   vector<cv::Point2i> c;
   getCheckerboardArea(c);
 
-
   cv::fillConvexPoly(mask,c,CV_RGB(255,255,255));
 
-  ROS_INFO("Writing kinect_mask to data/kinect_mask.png");
+  // ROS_INFO("Writing kinect_mask to data/kinect_mask.png");
   cv::imwrite("data/kinect_mask.png", mask);
 
 

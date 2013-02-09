@@ -337,7 +337,6 @@ namespace projector_calibration {
  void sl_threshold_changed(int threshold);
  void find_projection_area();
  void update_proj_image();
- void learn_environment();
  void show_model_openGL();
  void scene_static(double);
  void ant_demo();
@@ -366,13 +365,14 @@ namespace projector_calibration {
  // void user_interaction_toggled(bool);
  void depth_visualzation_toggled(bool);
  void pattern_auto_size_toggled(bool);
- void foreGroundVisualizationToggled(bool);
  void gl_visualization_toggled(bool);
  void show_texture(bool);
  void water_simulation_toggled(bool);
  void foreground_visualization_toggled(bool);
  void toggle_update_model(bool);
  void show_height_lines(bool);
+ void gesture_toggled(bool);
+ void path_toggled(bool);
 
  // calibration
  void compute_homography();

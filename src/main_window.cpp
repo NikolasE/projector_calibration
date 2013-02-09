@@ -112,9 +112,15 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   ui.ed_markersize->setText(QString::number(qnode.calibrator.printed_marker_size_mm));
 
   // qnode.user_interaction_active = ui.cb_user->isChecked();
-  qnode.depth_visualization_active = ui.cb_depth_visualization->isChecked();
-  qnode.foreGroundVisualizationActive = ui.cb_foreground->isChecked();
+  //  qnode.depth_visualization_active = ui.cb_depth_visualization->isChecked();
+  //  qnode.foreGroundVisualizationActive = ui.cb_foreground->isChecked();
   pattern_size_auto = ui.cb_autosize->isChecked();
+
+
+
+
+
+
 
   loadParameters();
 
@@ -337,10 +343,7 @@ void MainWindow::show_model_openGL(){
 
     //    cv::Mat height;
     //    qnode.pixel_modeler.getMeans(height);
-
-
     heightVisualization(color, height, 0,500, qnode.color_range,NULL);
-
   }
 
 
@@ -355,10 +358,10 @@ void MainWindow::show_model_openGL(){
     // ROS_INFO("water cols: %i, model: %i", qnode.water.cols, model.width);
 
     if (qnode.water.cols == int(model.width)){
-      //waterVisualization(color, qnode.water, 0.005,0.03,NULL);
+      waterVisualization(color, qnode.water, 0.005,0.02,NULL);
 
-      cv::Mat alpha; // todo: don't generate each time
-      waterVisualizationAlpha(color, alpha,qnode.water, 0.0,0.015,NULL);
+      //      cv::Mat alpha; // todo: don't generate each time
+      //      waterVisualizationAlpha(color, alpha,qnode.water, 0.005,0.02,NULL);
       cv::imwrite("water.png", color);
       //    cv::imwrite("alpha.png", alpha);
     }else{
@@ -385,19 +388,7 @@ void MainWindow::show_model_openGL(){
 
   gl_viewer->mesh = &mesh;
   gl_viewer->proj_matrix = qnode.calibrator.proj_Matrix;
-  //  gl_viewer->setPathWithColors(qnode.planner.getPath(),qnode.planner.getPathColor());
 
-  //  Cloud_n with_normals;
-  //  computeNormals(model, with_normals);
-  //  gl_viewer->setNormals(with_normals);
-
-
-
-  //  for (std::map<int,Ant>::iterator it = qnode.ants.begin(); it != qnode.ants.end(); ++it){
-  //   it->second.walk(5);
-  //   // todo funding as parameter
-  //   // todo zeitabhaengig
-  //  }
 
 
   // show height lines
@@ -423,12 +414,8 @@ void MainWindow::show_model_openGL(){
 
   QPixmap pix2 = gl_viewer->renderPixmap(lb_img.width(),lb_img.height(),true);
 
-  ROS_INFO("visualizing tracks");
   qnode.visualizeTracks(&pix2);
-
-
-
-
+  qnode.visualizePlanner(&pix2);
 
 #ifdef DO_TIMING
   timing_end("open_gl");
@@ -555,11 +542,6 @@ void MainWindow::select_marker_area(){
 
 }
 
-void MainWindow::learn_environment(){
-  // qnode.detector.reset();
-  qnode.elevation_map.reset();
-  qnode.train_background = true;
-}
 
 
 void MainWindow::save_kinect_trafo(){
@@ -833,18 +815,23 @@ void MainWindow::loadParameters(){
 
   ui.cb_depth_visualization_GL->setChecked(qnode.openGL_visualizationActive);
 
-  ui.cb_depth_visualization->setChecked(qnode.depth_visualization_active);
+  //  ui.cb_depth_visualization->setChecked(qnode.depth_visualization_active);
   ui.cb_calibration_active->setChecked(qnode.calibration_active);
   gl_viewer->show_texture = qnode.show_texture;
   ui.cb_texture->setChecked(gl_viewer->show_texture);
   ui.cb_water->setChecked(qnode.water_simulation_active);
 
 
+  ui.fg_update_model->setChecked(qnode.update_pixel_model);
+  ui.cb_gesture->setChecked(qnode.do_gesture_recognition);
+  ui.fg_update_map->setChecked(qnode.update_elevation_map);
+  ui.cb_water->setChecked(qnode.water_simulation_active);
 
 }
 
 void MainWindow::toggle_update_elevationmap(bool status){
   qnode.update_elevation_map = status;
+  qnode.saveParameters();
 }
 
 
@@ -881,6 +868,8 @@ void MainWindow::min_dist_changed(int min_dist){
   ui.slider_mindist->setSliderPosition(min_dist);
   qnode.min_dist = min_dist/1000.0;
   ui.lb_mindist->setText(QString::number(min_dist));
+
+  ROS_INFO("Detection Min dist: %f", qnode.min_dist);
 
   qnode.saveParameters();
 }
@@ -1164,13 +1153,42 @@ void MainWindow::show_height_lines(bool status){
 }
 
 
+void MainWindow::path_toggled(bool status){
+  qnode.with_path_planning = status;
+  if (status){
+    ui.cb_gesture->setChecked(false);
+    ui.fg_update_model->setChecked(false);
+  }
+}
+
+
+void MainWindow::gesture_toggled(bool status){
+  qnode.do_gesture_recognition = status;
+
+  // don't update model while tracking objects
+  if (!qnode.do_gesture_recognition){
+    ui.fg_update_model->setChecked(false);
+    ui.cb_path->setChecked(false);
+  }
+
+  ui.lb_handvisible->setText("??");
+
+
+  qnode.saveParameters();
+}
+
 
 void MainWindow::toggle_update_model(bool status){
   qnode.update_pixel_model = status;
+  if (status){
+    ui.cb_gesture->setChecked(false);
+  }
+  qnode.saveParameters();
 }
 
 void MainWindow::foreground_visualization_toggled(bool status){
   qnode.calibration_active = status;
+  qnode.saveParameters();
 }
 
 void MainWindow::water_simulation_toggled(bool status){
@@ -1184,6 +1202,7 @@ void MainWindow::water_simulation_toggled(bool status){
   }
 
   qnode.water_simulation_active = status;
+  qnode.saveParameters();
 }
 
 void MainWindow::gl_visualization_toggled(bool status){
@@ -1195,14 +1214,14 @@ void MainWindow::gl_visualization_toggled(bool status){
 //  qnode.user_interaction_active = status;
 //}
 
-void MainWindow::foreGroundVisualizationToggled(bool status){
+//void MainWindow::foreGroundVisualizationToggled(bool status){
 
-  //  min_dist_changed(ui.slider_mindist->value());
-  //  z_max_changed(ui.slider_z_max->value());
-  //  color_slider_moved(ui.slider_color->value());
-  qnode.calibration_active = status;
-  qnode.foreGroundVisualizationActive = status;
-}
+//  //  min_dist_changed(ui.slider_mindist->value());
+//  //  z_max_changed(ui.slider_z_max->value());
+//  //  color_slider_moved(ui.slider_color->value());
+//  qnode.calibration_active = status;
+//  qnode.foreGroundVisualizationActive = status;
+//}
 
 void MainWindow::process_events(){
   qApp->processEvents();

@@ -29,6 +29,8 @@
 #include "rgbd_utils/surface_modeler.h"
 #include "rgbd_utils/type_definitions.h"
 #include "rgbd_utils/ants.h"
+// #include "/usr/gast/engelhan/ros/rgbd_utils/cfg/cpp/rgbd_utils/path_paramsConfig.h"
+
 
 #include "rgbd_utils/pinch_detection.h"
 
@@ -96,6 +98,7 @@ public:
   bool foreGroundVisualizationActive;
   bool show_texture;
   bool water_simulation_active;
+  bool with_path_planning;
   //  bool simulator_initialized;
 
 
@@ -126,6 +129,7 @@ public:
   ros::Publisher pub_gauss_foreground;
   ros::Publisher pub_surface_foreground;
   ros::Publisher pub_hand;
+  ros::Publisher pub_path, pub_path_model;
 
 
   cv::Mat current_col_img;
@@ -139,6 +143,7 @@ public:
 
 
 
+  bool do_gesture_recognition;
 
   void writeToOutput(const std::stringstream& msg);
   bool depth_visualization_active;
@@ -174,7 +179,7 @@ public:
 
 
   void visualizeTracks(QPixmap* img);
-
+  void visualizePlanner(QPixmap* img);
 
   /*********************
    ** Logging

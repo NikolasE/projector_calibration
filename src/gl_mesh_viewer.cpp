@@ -850,9 +850,11 @@ void GL_Mesh_Viewer::paintGL()
 
 
 
-  // if (height_lines.size() > 0){
-  //  drawHeightLines();
-  // }
+  if (height_lines.size() > 0){
+    drawHeightLines();
+  }
+  
+  
   //
   //
   // if (path.size() > 0)

@@ -269,8 +269,6 @@ void QNode::runDetector(){
   detector.analyseScene();
 
 
-
-
   grasp_tracker.update_tracks(detector.grasp_detections);
   fingertip_tracker.update_tracks(detector.finger_detections);
 
@@ -278,9 +276,6 @@ void QNode::runDetector(){
   if ( !detector.handVisibleInLastFrame()){
     piece_tracker.update_tracks(detector.object_detections);
   }
-
-
-
 
   // visualize tracks
   Cloud grasps;
@@ -317,10 +312,7 @@ void QNode::runDetector(){
     ROS_INFO("Finger Track (%i) at: %f %f %f",it->first, center.x,center.y, center.z);
   }
 
-
-  // Q_EMIT visualize_Detections();
-  Q_EMIT received_col_Image();
-
+  Q_EMIT received_col_Image(); // visualisation of Kinect-Color-Image
 
   timing_end("detector");
 
@@ -330,8 +322,6 @@ void QNode::visualizePlanner(QPixmap* img){
 
   if (!with_path_planning)
     return;
-
-
 
   // simple mutex: (otherwise callback updates height map)
   with_path_planning = false;
@@ -513,13 +503,9 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
     return;
 
 
+    bool render_opengl = false;
+    bool update_detection_visualization = false;
 
-  bool update_visualization = false;
-
-
-  if (with_path_planning){
-    update_visualization = true;
-  }
 
   if (update_pixel_model){
 
@@ -533,7 +519,7 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
   if (do_gesture_recognition && !update_pixel_model){
     ROS_INFO("RUNNING DETECTOR");
     runDetector();
-    update_visualization = true;
+    update_detection_visualization = true;
   }
 
 
@@ -551,6 +537,7 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
     }
 
     elevation_map.updateHeight(calibrator.cloud_moved,0.1);
+    render_opengl = true;
 
     if (with_path_planning){
       // ROS_INFO("QNode: updating planner with cellsize %f", elevation_map.cell_size());
@@ -567,7 +554,6 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
 
     timing_end("up_model");
 
-    update_visualization = true;
   }
 
 
@@ -584,13 +570,27 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
       ROS_INFO("Water simulation: %f ms", (ros::Time::now()-start_water).toSec()*1000.0);
 #endif
 
-      update_visualization = true;
+      render_opengl = true;
     }
   }
 
-  if (update_visualization)
-    Q_EMIT model_computed();
 
+  if (!render_opengl && !update_detection_visualization)
+    return;
+
+
+  if (render_opengl) {
+     ROS_INFO("Rerendering Scene");   
+     Q_EMIT model_computed(); // render new scene
+  }
+     
+  if (update_detection_visualization){
+    Q_EMIT show_Detections(); // show objects on rendered image
+    ROS_INFO("Visualizing detections"); 
+  }
+   
+  Q_EMIT copy_projector_image(); // update the GUI showing the rendered image on the projector
+  
   return;
 }
 

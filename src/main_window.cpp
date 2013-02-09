@@ -375,8 +375,6 @@ void MainWindow::show_model_openGL(){
   ROS_INFO("colorizeCloud: %f ms", (ros::Time::now()-now_color).toSec()*1000.0);
 #endif
 
-
-
   ros::Time now_mesh = ros::Time::now();
   float max_edge_length = 0.05; // max edge length of drawn triangle in m
   pcl::PolygonMesh mesh = qnode.mesh_visualizer.createMesh(colored, max_edge_length);
@@ -384,38 +382,15 @@ void MainWindow::show_model_openGL(){
   ROS_INFO("createMesh: %f ms", (ros::Time::now()-now_mesh).toSec()*1000.0);
 #endif
 
-  //  qnode.mesh_visualizer.visualizeMesh(mesh);
-
   gl_viewer->mesh = &mesh;
   gl_viewer->proj_matrix = qnode.calibrator.proj_Matrix;
 
-
-
-  // show height lines
-  if (qnode.show_height_lines){
-    ros::Time start_height = ros::Time::now();
-    std::vector<Line_collection> height_lines;
-    qnode.mesh_visualizer.findHeightLines(mesh, height_lines, qnode.elevation_map.getMinHeight(), qnode.elevation_map.getMaxHeight(), 0.02);
-    gl_viewer->set_height_lines(height_lines);
-    ROS_INFO("Height lines: %f ms", (ros::Time::now()-start_height).toSec()*1000.0);
-  }else{
-    std::vector<Line_collection> height_lines;
-    gl_viewer->set_height_lines(height_lines);
-  }
-
-
-  //  gl_viewer->resize(lb_img.width(),lb_img.height());
-  //  gl_viewer->drawMapImage(false);
-
-  //  gl_viewer->drawMeshStrip();
-
   ros::Time now_render = ros::Time::now();
 
+	// draws mesh and heigt_lines (if set)
+  projector_image_gl = gl_viewer->renderPixmap(lb_img.width(),lb_img.height(),true);
+  projector_image = projector_image_gl_gl;
 
-  QPixmap pix2 = gl_viewer->renderPixmap(lb_img.width(),lb_img.height(),true);
-
-  qnode.visualizeTracks(&pix2);
-  qnode.visualizePlanner(&pix2);
 
 #ifdef DO_TIMING
   timing_end("open_gl");
@@ -424,30 +399,21 @@ void MainWindow::show_model_openGL(){
 
 
   //  pix2.save(QString("fooo.png"),0,100);
-  //
   ////  cv::Mat cv_img = qimage2mat(QImage(pix2));
-  //
   //  cv::Mat cv_img = cv::imread("fooo.png");
-  //
   //  cv::circle(cv_img, cv::Point(100,200),30,CV_RGB(255,0,0),-1);
-  //
   //  QImage foo = mat2qimage(cv_img);
-  //
   //  lb_img.setPixmap(pixmap_col.fromImage(foo, 0));
-  //
 
-
-  //  ROS_INFO("Opengl update");
-  lb_img.setPixmap(pix2);
-  lb_img.repaint();
 
 #ifdef DO_TIMING
   ROS_INFO("Showing Model with openGL (total): %f ms", (ros::Time::now()-start_show_openGL).toSec()*1000);
 #endif
 
 
+  ROS_INFO("Call updateProjectorImage to copy Image to projector-Label");
 
-
+/*
   // TODO: adapt size of image
   if (qnode.show_height_lines){
 
@@ -459,14 +425,50 @@ void MainWindow::show_model_openGL(){
     ui.lb_img_2->setPixmap(pix);
     ui.lb_img_2->repaint();
   }
-
+*/
 
 
 }
 
+
 /*****************************************************************************
   ** Implementation [Slots]
   *****************************************************************************/
+
+void MainWindow::updateHeightLines(){
+
+	if (qnode.show_height_lines){
+    timing_start("height_lines");
+    std::vector<Line_collection> height_lines;
+    qnode.mesh_visualizer.findHeightLines(mesh, height_lines, qnode.elevation_map.getMinHeight(), qnode.elevation_map.getMaxHeight(), qnode.height_line_distance);
+    // todo add height_line_distance to qnode
+    gl_viewer->set_height_lines(height_lines);
+    timing_end("height_lines");
+  }else{
+    std::vector<Line_collection> height_lines;
+    gl_viewer->set_height_lines(height_lines);
+  }
+  
+}
+
+void MainWindow::updateProjectorImage(){
+timing_start("CopyToProjector");
+  lb_img.setPixmap(projector_image);
+  lb_img.repaint();
+timing_end("CopyToProjector");
+}
+
+
+
+void MainWindow::visualizeTracksAndPlanner(){
+ 
+  // remove last visualizations
+  projector_image = projector_image_gl;
+  
+
+  qnode.visualizeTracks(&projector_image);
+  qnode.visualizePlanner(&projector_image);
+}
 
 void MainWindow::showNoMasterMessage() {
   QMessageBox msgBox;

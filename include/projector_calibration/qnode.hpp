@@ -21,9 +21,9 @@
 #include <QThread>
 #include <QStringListModel>
 
-
-#include "projector_calibration/projector_calibrator.h"
 #include "projector_calibration/visualization_paramsConfig.h"
+
+#include "rgbd_utils/projector_calibrator.h"
 
 #include "rgbd_utils/calibration_utils.h"
 #include "rgbd_utils/surface_modeler.h"
@@ -92,7 +92,7 @@ public:
   void run_ant_demo();
   void update_ant(cv::Point goal);
 
-  uint train_frame_cnt;
+  // uint train_frame_cnt;
   bool train_background;
   bool openGL_visualizationActive;
   bool foreGroundVisualizationActive;
@@ -127,10 +127,11 @@ public:
   ros::Publisher pub_foreground;
   ros::Publisher pub_projector_marker;
   ros::Publisher pub_gauss_foreground;
-  ros::Publisher pub_surface_foreground;
+  ros::Publisher pub_detection_foreground;
   ros::Publisher pub_hand;
   ros::Publisher pub_path, pub_path_model;
-
+  ros::Publisher pub_pixel_model;
+  ros::Publisher pub_ant_model, pub_ant_range;
 
   cv::Mat current_col_img;
   Cloud current_cloud;
@@ -142,6 +143,8 @@ public:
   void paramCallback(const projector_calibration::visualization_paramsConfig& config, uint32_t level);
 
 
+  float planner_max_dist;
+  float planner_scaling_factor;
 
   bool do_gesture_recognition;
 
@@ -155,6 +158,9 @@ public:
   bool show_height_lines;
   /// if distance between current and new height of a cell is larger than this value, its height will not be updated
   float max_update_dist;
+
+
+  float height_line_distance;
 
   cv::Mat area_mask;
 
@@ -215,6 +221,7 @@ Q_SIGNALS:
   void sig_handvisible(bool visible);
 
   void visualize_Detections();
+  void copy_projector_image();
 
 private:
 

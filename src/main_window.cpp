@@ -43,6 +43,12 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   lb_img.showFullScreen();
 
 
+  ROS_INFO("Projecotkr image initied to %i %i",qnode.calibrator.checkboard_size.width,qnode.calibrator.checkboard_size.width);
+  projector_image_gl = QPixmap(qnode.calibrator.checkboard_size.width,qnode.calibrator.checkboard_size.width);
+  // draw black background
+  QPainter painter(&projector_image_gl);
+  painter.setBrush((QBrush(QColor(0,0,0))));
+  painter.drawRect(0,0,qnode.calibrator.checkboard_size.width,qnode.calibrator.checkboard_size.width);
 
   darker = cv::Mat(480,640,CV_8UC3);
   inv = cv::Mat(480,640,CV_8UC1);
@@ -75,7 +81,8 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   QObject::connect(&qnode, SIGNAL(sig_grasp_moved(cv::Point2f, int)), this, SLOT(sl_grasp_moved(cv::Point2f, int)));
   QObject::connect(&qnode, SIGNAL(sig_grasp_ended(cv::Point2f, int)), this, SLOT(sl_grasp_ended(cv::Point2f, int)));
   QObject::connect(&qnode, SIGNAL(sig_handvisible(bool)), this, SLOT(  sl_handvisible(bool)));
-  QObject::connect(&qnode, SIGNAL(visualize_Detections()), this, SLOT(  visualizeDetectionsOnSurface()));
+  QObject::connect(&qnode, SIGNAL(visualize_Detections()), this, SLOT(  visualizeTracksAndPlanner()));
+  QObject::connect(&qnode, SIGNAL(copy_projector_image()), this, SLOT(  updateProjectorImage()));
 
 
 
@@ -387,14 +394,28 @@ void MainWindow::show_model_openGL(){
 
   ros::Time now_render = ros::Time::now();
 
-	// draws mesh and heigt_lines (if set)
+  // draws mesh and heigt_lines (if set)
   projector_image_gl = gl_viewer->renderPixmap(lb_img.width(),lb_img.height(),true);
-  projector_image = projector_image_gl_gl;
+  projector_image = projector_image_gl;
 
 
 #ifdef DO_TIMING
   timing_end("open_gl");
 #endif
+
+
+
+  if (qnode.show_height_lines){
+    timing_start("height_lines");
+    std::vector<Line_collection> height_lines;
+    qnode.mesh_visualizer.findHeightLines(mesh, height_lines, qnode.elevation_map.getMinHeight(), qnode.elevation_map.getMaxHeight(), qnode.height_line_distance);
+    // todo add height_line_distance to qnode
+    gl_viewer->set_height_lines(height_lines);
+    timing_end("height_lines");
+  }else{
+    std::vector<Line_collection> height_lines;
+    gl_viewer->set_height_lines(height_lines);
+  }
 
 
 
@@ -410,10 +431,7 @@ void MainWindow::show_model_openGL(){
   ROS_INFO("Showing Model with openGL (total): %f ms", (ros::Time::now()-start_show_openGL).toSec()*1000);
 #endif
 
-
-  ROS_INFO("Call updateProjectorImage to copy Image to projector-Label");
-
-/*
+  /*
   // TODO: adapt size of image
   if (qnode.show_height_lines){
 
@@ -437,31 +455,19 @@ void MainWindow::show_model_openGL(){
 
 void MainWindow::updateHeightLines(){
 
-	if (qnode.show_height_lines){
-    timing_start("height_lines");
-    std::vector<Line_collection> height_lines;
-    qnode.mesh_visualizer.findHeightLines(mesh, height_lines, qnode.elevation_map.getMinHeight(), qnode.elevation_map.getMaxHeight(), qnode.height_line_distance);
-    // todo add height_line_distance to qnode
-    gl_viewer->set_height_lines(height_lines);
-    timing_end("height_lines");
-  }else{
-    std::vector<Line_collection> height_lines;
-    gl_viewer->set_height_lines(height_lines);
-  }
+
   
 }
 
 void MainWindow::updateProjectorImage(){
-timing_start("CopyToProjector");
   lb_img.setPixmap(projector_image);
   lb_img.repaint();
-timing_end("CopyToProjector");
 }
 
 
 
 void MainWindow::visualizeTracksAndPlanner(){
- 
+
   // remove last visualizations
   projector_image = projector_image_gl;
   
@@ -723,7 +729,9 @@ void MainWindow::setLightPos(float z){
 
 void MainWindow::mouse_new_points(){
 
-  if (mousehandler_points.pts.size() < 4) return;
+  // ROS_INFO("mouse_new_points> %zu", mousehandler_points.pts.size());
+
+  if (mousehandler_points.pts.size() < 4) { return; }
 
   vector<cv::Point> normal_sized;
 
@@ -731,6 +739,7 @@ void MainWindow::mouse_new_points(){
     cv::Point pi = mousehandler_points.pts[i];
     normal_sized.push_back( cv::Point(pi.x/rgb_image_scale, pi.y/rgb_image_scale));
   }
+
 
   if (qnode.current_col_img.rows == 0) return;
 
@@ -756,6 +765,9 @@ void MainWindow::mouse_new_points(){
 
 void MainWindow::sl_received_image(){
 
+
+  // ROS_INFO("Updating image on GUI");
+
   frame_update_times.push_back(ros::Time::now());
   if (frame_update_times.size() > hist_length){
     ros::Time earlier = frame_update_times[frame_update_times.size()-1-hist_length];
@@ -779,11 +791,11 @@ void MainWindow::sl_received_image(){
    * Draw region not withing the marked region darker
    */
   timing_start("dark");
-  //  if (qnode.area_mask.cols == cpy.cols){
-  //    darker = cpy*0.5;
-  //    inv = 255- qnode.area_mask;
-  //    darker.copyTo(cpy,inv);
-  //  }
+  if (qnode.area_mask.cols == cpy.cols){
+    darker = cpy*0.5;
+    inv = 255- qnode.area_mask;
+    darker.copyTo(cpy,inv);
+  }
   //timing_end("dark");
 
   bool resize = abs(rgb_image_scale-1.0) > 0.01;
@@ -825,8 +837,12 @@ void MainWindow::loadParameters(){
 
 
   ui.fg_update_model->setChecked(qnode.update_pixel_model);
-  ui.cb_gesture->setChecked(qnode.do_gesture_recognition);
-  ui.fg_update_map->setChecked(qnode.update_elevation_map);
+  ui.cb_gesture->setChecked(false);  // qnode.do_gesture_recognition);
+  qnode.do_gesture_recognition = false;
+  ui.fg_update_map->setChecked(true);// qnode.update_elevation_map);
+  qnode.update_elevation_map = true;
+
+
   ui.cb_water->setChecked(qnode.water_simulation_active);
 
 }
@@ -1157,10 +1173,15 @@ void MainWindow::show_height_lines(bool status){
 
 void MainWindow::path_toggled(bool status){
   qnode.with_path_planning = status;
+
   if (status){
-    ui.cb_gesture->setChecked(false);
-    ui.fg_update_model->setChecked(false);
+    qnode.planner.setHeightMap(qnode.elevation_map.mean,qnode.elevation_map.cell_size());
   }
+
+  //  if (status){
+  //    ui.cb_gesture->setChecked(false);
+  //    ui.fg_update_model->setChecked(false);
+  //  }
 }
 
 
@@ -1168,10 +1189,10 @@ void MainWindow::gesture_toggled(bool status){
   qnode.do_gesture_recognition = status;
 
   // don't update model while tracking objects
-  if (!qnode.do_gesture_recognition){
-    ui.fg_update_model->setChecked(false);
-    ui.cb_path->setChecked(false);
-  }
+  //  if (!qnode.do_gesture_recognition){
+  //    ui.fg_update_model->setChecked(false);
+  //    ui.cb_path->setChecked(false);
+  //  }
 
   ui.lb_handvisible->setText("??");
 
@@ -1182,9 +1203,9 @@ void MainWindow::gesture_toggled(bool status){
 
 void MainWindow::toggle_update_model(bool status){
   qnode.update_pixel_model = status;
-  if (status){
-    ui.cb_gesture->setChecked(false);
-  }
+  //  if (status){
+  //    ui.cb_gesture->setChecked(false);
+  //  }
   qnode.saveParameters();
 }
 
@@ -1270,7 +1291,7 @@ void MainWindow::restart_water_simulation(){
 
 
 /*****************************************************************************
-  ** Implemenation [Slots][manually connected]
+  ** Implemenation [Slots][manually (connect)ed]
   *****************************************************************************/
 
 /**

@@ -592,7 +592,7 @@ void GL_Mesh_Viewer::initMapSize(int img_width, int img_height, float min_x, flo
 
 
 void GL_Mesh_Viewer::set_height_lines(const std::vector<Line_collection>& height_lines){
- this->height_lines = height_lines;
+  this->height_lines = height_lines;
 }
 
 
@@ -828,7 +828,7 @@ void GL_Mesh_Viewer::paintGL()
   // setUpIlumination();
 
   // ros::Time now_render = ros::Time::now();
-//   if (draw_map)
+  //   if (draw_map)
   //  setUpMapImage();
   // else
   setUpProjectorImage();

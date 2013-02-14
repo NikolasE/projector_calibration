@@ -110,7 +110,7 @@ bool QNode::init()
 
 
   objectMask = cv::Mat(480,640,CV_8UC1);
-  pixel_modeler.init(640,480,10);
+  pixel_modeler.init(480,640,10);
 
   if (calibrator.mask_valid()){
     ROS_INFO("calibrator mask: %i %i",calibrator.mask.cols,calibrator.mask.rows );
@@ -119,11 +119,13 @@ bool QNode::init()
     pixel_modeler.setMask(calibrator.mask);
   }
 
-  train_frame_cnt = 1;
+  //train_frame_cnt = 1;
   train_background = true;
 
-
+  planner_max_dist = 100;
   frame_cnt = 0;
+
+  planner_scaling_factor = 1;
 
   // foreGroundVisualizationActive = false;
   modeler_cell_size = 1/100.0; // given in m
@@ -141,6 +143,7 @@ bool QNode::init()
   update_elevation_map = false;
 
   next_ant_id = 0;
+  height_line_distance = 0.05;
 
   start();
   return true;
@@ -248,7 +251,23 @@ void QNode::runDetector(){
 
   //  timing_start("fg_pixel");
   // 4ms
-  pixel_modeler.getForeground_dist(current_cloud,min_dist,pixel_foreground);
+  cv::Mat dists1;
+  pixel_modeler.getForeground_dist(current_cloud,min_dist,pixel_foreground,&dists1);
+
+  //  double m1,x1;
+  //  cv::minMaxLoc(dists1,&m1,&x1);
+
+  //  ROS_INFO("dists within foreground region: %f %f ",m1,x1);
+
+  if (pub_detection_foreground.getNumSubscribers()){
+    cv_bridge::CvImage out_msg;
+    out_msg.header.stamp   = ros::Time::now();
+    out_msg.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
+
+    out_msg.image    = pixel_foreground;
+    pub_detection_foreground.publish(out_msg.toImageMsg());
+  }
+
   //  timing_end("fg_pixel");
 
   if (pixel_foreground.cols == 0){
@@ -256,25 +275,53 @@ void QNode::runDetector(){
   }
 
 
-  pixel_modeler.getNorm(current_cloud,current_norm);
+
+  if (pub_pixel_model.getNumSubscribers() > 0){
+    Cloud model;
+    pixel_modeler.getCloudRepresentation(current_cloud,model,1);
+    Cloud::Ptr msg = model.makeShared();
+    msg->header.frame_id = "/fixed_frame";
+    msg->header.stamp = ros::Time::now();
+    pub_pixel_model.publish(msg);
+  }
+
+
 
   // ROS_INFO("fg: %i %i  norm: %i %i", pixel_foreground.cols, pixel_foreground.cols, current_norm.cols, current_norm.rows);
 
+  //  cv::Mat dists;
+  //  pixel_modeler.getDistance(calibrator.input_cloud,dists);
 
-  detector.newFrame(pixel_foreground,current_norm, &calibrator.input_cloud);
+  // creates depth-map for all pixels within masked region
+  // (does not depend on current estimated model)
+  //  pixel_modeler.getNorm(current_cloud,current_norm);
 
+  //  cv::Mat mean;
+  //  pixel_modeler.getMeans(mean);
+
+
+  //  cv::Mat dists = mean-current_norm;
+  //  double m,x;
+  //  cv::minMaxLoc(dists,&m,&x);
+  //  ROS_INFO("dists: %f %f",m,x);
+
+
+  detector.newFrame(pixel_foreground,dists1, &calibrator.input_cloud);
 
   Q_EMIT sig_handvisible(detector.handVisibleInLastFrame());
+
 
   detector.analyseScene();
 
 
-  grasp_tracker.update_tracks(detector.grasp_detections);
-  fingertip_tracker.update_tracks(detector.finger_detections);
+  grasp_tracker.update_tracks(detector.grasp_detections,true);
+
+  // don't start new tracks while the elevation map can change. Otherwise moved sand could be accepted as new object
+  fingertip_tracker.update_tracks(detector.finger_detections, !update_elevation_map);
 
   // only update objects if hand was not visible (since objects could be occluded)
   if ( !detector.handVisibleInLastFrame()){
-    piece_tracker.update_tracks(detector.object_detections);
+    piece_tracker.update_tracks(detector.object_detections, !update_elevation_map);
   }
 
   // visualize tracks
@@ -282,7 +329,7 @@ void QNode::runDetector(){
   for (GraspTrack_it it = grasp_tracker.tracks.begin(); it != grasp_tracker.tracks.end(); ++it){
     if (it->second.state == Track_Active){
       it->second.visualizeOnImage(current_col_img,getColor(it->first));
-      pcl_Point center = it->second.last_detection().position_world;
+      pcl_Point center = it->second.last_detection()->position_world;
       grasps.push_back(center);
       ROS_INFO("Grasp Track (%i) at: %f %f %f", it->first, center.x,center.y, center.z);
     }
@@ -299,8 +346,8 @@ void QNode::runDetector(){
   for (PieceTrack_it it = piece_tracker.tracks.begin(); it != piece_tracker.tracks.end(); ++it){
     if (it->second.state == Track_Active){
       it->second.visualizeOnImage(current_col_img,getColor(it->first));
-      pcl_Point center = it->second.last_detection().position_world;
-      ROS_INFO("Piece Track (%i) at: %f %f %f", it->first, center.x,center.y, center.z);
+      pcl_Point center = it->second.last_detection()->position_world;
+      // ROS_INFO("Piece Track (%i) at: %f %f %f", it->first, center.x,center.y, center.z);
     }
   }
 
@@ -308,18 +355,19 @@ void QNode::runDetector(){
   for (FingerTrack_it it = fingertip_tracker.tracks.begin(); it != fingertip_tracker.tracks.end(); ++it){
     // if (it->second.state == Track_Active)
     it->second.visualizeOnImage(current_col_img,getColor(it->first),TT_FINGERTIP);
-    pcl_Point center = it->second.last_detection().position_world;
+    pcl_Point center = it->second.last_detection()->position_world;
     ROS_INFO("Finger Track (%i) at: %f %f %f",it->first, center.x,center.y, center.z);
   }
 
-  Q_EMIT received_col_Image(); // visualisation of Kinect-Color-Image
+  //timing_end("detector");
 
-  timing_end("detector");
+  Q_EMIT received_col_Image(); // visualisation of Kinect-Color-Image
 
 }
 
 void QNode::visualizePlanner(QPixmap* img){
 
+  ROS_INFO("Showing paths");
   if (!with_path_planning)
     return;
 
@@ -329,64 +377,102 @@ void QNode::visualizePlanner(QPixmap* img){
 
   timing_start("planner");
 
-  ROS_INFO("Showing paths");
-
   Cloud model = elevation_map.getModel();
 
-  if (planner.height_map.cols != int(model.width)){
-    ROS_WARN("PLANNER HAS WRONG SIZE (%i %i)", planner.height_map.cols, model.width);
-    with_path_planning = true;
-    return;
+  if (pub_ant_model.getNumSubscribers()){
+    ROS_INFO("sending ant model %zu",planner.model.size());
+    Cloud::Ptr msg = planner.model.makeShared();
+    msg->header.frame_id = "/fixed_frame";
+    msg->header.stamp = ros::Time::now ();
+    pub_ant_model.publish(msg);
   }
+
+//  if (planner.height_map.cols != int(model.width)){
+//    ROS_WARN("PLANNER HAS WRONG SIZE (%i %i)", planner.height_map.cols, model.width);
+//    with_path_planning = true;
+//    return;
+//  }
 
   QPainter painter(img);
 
+  //  if (piece_tracker.tracks.size() < 2)
+  //    continue;
 
-  for (GraspTrack_it it = grasp_tracker.tracks.begin(); it != grasp_tracker.tracks.end(); ++it){
+  //  // use first and second piece as start and end position of path
+  //  PieceTrack_it it = piece_tracker.tracks.begin();
+  //  pcl_Point start = it->second.last_detection()->position_world;
+  //  it++;
+  //  pcl_Point end = it->second.last_detection()->position_world;
 
-    cv::Scalar color =  getColor(it->first);
-
-    painter.setPen(QPen(QColor(color.val[0],color.val[1],color.val[2]),10));
-
-
-    if (it->second.state != Track_Active)
-      continue;
-
-    pcl_Point end = it->second.last_detection().position_world;
-    pcl_Point start = it->second.detections[0].position_world;
+  //  cv::Scalar color =  getColor(it->first);
 
 
-    cv::Point s = elevation_map.grid_pos(end); // walk from current position to start of grasp
-    cv::Point goal = elevation_map.grid_pos(start);
+
+  //  cv::Point s = elevation_map.grid_pos(end); // walk from current position to start of grasp
+  //  cv::Point goal = elevation_map.grid_pos(start);
+
+  cv::Point s = cv::Point(0,0);
+  cv::Point goal = cv::Point(elevation_map.mean.cols*0.7,elevation_map.mean.rows*0.7);
+
+  ROS_INFO("Computing path from %i %i to %i %i", s.x,s.y,goal.x,goal.y);
 
 
-    // todo: don't do every time
-    planner.computePolicy(goal);
-    planner.computePath(s);
+  planner.printParameters();
+
+  // todo: don't do every time
+  planner.computePolicy(goal);
+  planner.computePath(s);
 
 
-    //    int w = model.width;
-    //    int h = model.height;
-    //    planner.computePolicy(cv::Point(w-10,h-10));
-    //    planner.computePath(cv::Point(10,10));
+  std::vector<cv::Point> contour;
+  painter.setPen(QPen(QColor(0,0,255),10));
+  planner.getRangeOfMotion(planner_max_dist,contour);
 
+  visualization_msgs::Marker marker;
 
-    std::vector<cv::Point> path = planner.getPath();
-    ROS_INFO("Vsualing path with %zu entries", path.size());
-    for (uint i=0; i<path.size()-1; ++i){
-      cv::Point p1 = path[i];
-      pcl_Point P1 = model.at(p1.x,p1.y);
+  if (pub_ant_range.getNumSubscribers()){
+    planner.createRangeMarker(marker, contour);
+    pub_ant_range.publish(marker);
+  }
 
-      cv::Point p2 = path[i+1];
-      pcl_Point P2 = model.at(p2.x,p2.y);
-
+  uint N = contour.size();
+  if (N>0){
+    for (uint i=0; i<N; ++i){
+      pcl_Point P1 = model.at(contour[i].x,contour[i].y);
       cv::Point2f px1 = applyPerspectiveTrafo(P1, calibrator.proj_Matrix);
-      cv::Point2f px2 = applyPerspectiveTrafo(P2, calibrator.proj_Matrix);
-      //  ROS_INFO("pixel pos: %f %f", px1.x,px1.y);
+
+      pcl_Point P2 = model.at(contour[(i+1)%N].x,contour[(i+1)%N].y);
+      cv::Point2f px2= applyPerspectiveTrafo(P2, calibrator.proj_Matrix);
+
       painter.drawLine(QPoint(px1.x,px1.y),QPoint(px2.x,px2.y));
     }
-
   }
+
+
+  //    int w = model.width;
+  //    int h = model.height;
+  //    planner.computePolicy(cv::Point(w-10,h-10));
+  //    planner.computePath(cv::Point(10,10));
+
+  painter.setPen(QPen(QColor(255,0,0),10));
+  std::vector<cv::Point> path = planner.getPath();
+  ROS_INFO("Visualizing path with %zu entries", path.size());
+  for (uint i=0; i<path.size()-1; ++i){
+    cv::Point p1 = path[i];
+    pcl_Point P1 = model.at(p1.x,p1.y);
+
+    cv::Point p2 = path[i+1];
+    pcl_Point P2 = model.at(p2.x,p2.y);
+
+    cv::Point2f px1 = applyPerspectiveTrafo(P1, calibrator.proj_Matrix);
+    cv::Point2f px2 = applyPerspectiveTrafo(P2, calibrator.proj_Matrix);
+    //  ROS_INFO("pixel pos: %f %f", px1.x,px1.y);
+    painter.drawLine(QPoint(px1.x,px1.y),QPoint(px2.x,px2.y));
+  }
+
+
+  timing_end("planner");
+
 
   if (pub_path.getNumSubscribers()){
     //ROS_INFO("Sending ath markar");
@@ -396,20 +482,19 @@ void QNode::visualizePlanner(QPixmap* img){
     pub_path.publish(marker);
   }
 
-  timing_end("planner");
+
 
 
   with_path_planning = true;
 
 }
 
-
 void QNode::visualizeTracks(QPixmap* img){
 
   for (PieceTrack_it it = piece_tracker.tracks.begin(); it != piece_tracker.tracks.end(); ++it){
     // if (it->second.state == Track_Active)
     //it->second.visualizeOnImage(current_col_img,getColor(it->first),TT_FINGERTIP);
-    pcl_Point center = it->second.last_detection().position_world;
+    pcl_Point center = it->second.last_detection()->position_world;
     cv::Point2f px = applyPerspectiveTrafo(center, calibrator.proj_Matrix);
 
     QPainter painter(img);
@@ -428,14 +513,14 @@ void QNode::visualizeTracks(QPixmap* img){
     }
 
 
-    ROS_INFO("Visualizing Object at: %f %f %f (visualized at %f %f)", center.x,center.y, center.z, px.x,px.y);
+    // ROS_INFO("Visualizing Object at: %f %f %f (visualized at %f %f)", center.x,center.y, center.z, px.x,px.y);
   }
 
 
   for (FingerTrack_it it = fingertip_tracker.tracks.begin(); it != fingertip_tracker.tracks.end(); ++it){
     // if (it->second.state == Track_Active)
     //it->second.visualizeOnImage(current_col_img,getColor(it->first),TT_FINGERTIP);
-    pcl_Point center = it->second.last_detection().position_world;
+    pcl_Point center = it->second.last_detection()->position_world;
     cv::Point2f px = applyPerspectiveTrafo(center, calibrator.proj_Matrix);
 
     QPainter painter(img);
@@ -454,14 +539,14 @@ void QNode::visualizeTracks(QPixmap* img){
     }
 
 
-    ROS_INFO("Visualizing Object at: %f %f %f (visualized at %f %f)", center.x,center.y, center.z, px.x,px.y);
+    //ROS_INFO("Visualizing Object at: %f %f %f (visualized at %f %f)", center.x,center.y, center.z, px.x,px.y);
   }
 
 
   for (GraspTrack_it it = grasp_tracker.tracks.begin(); it != grasp_tracker.tracks.end(); ++it){
     // if (it->second.state == Track_Active)
     //it->second.visualizeOnImage(current_col_img,getColor(it->first),TT_FINGERTIP);
-    pcl_Point center = it->second.last_detection().position_world;
+    pcl_Point center = it->second.last_detection()->position_world;
     cv::Point2f px = applyPerspectiveTrafo(center, calibrator.proj_Matrix);
 
     QPainter painter(img);
@@ -471,7 +556,7 @@ void QNode::visualizeTracks(QPixmap* img){
     int size = 100;
     painter.drawEllipse(QPoint(px.x,px.y),size,size);
 
-    ROS_INFO("Visualizing Object at: %f %f %f (visualized at %f %f)", center.x,center.y, center.z, px.x,px.y);
+    // ROS_INFO("Visualizing Object at: %f %f %f (visualized at %f %f)", center.x,center.y, center.z, px.x,px.y);
   }
 
 
@@ -479,8 +564,10 @@ void QNode::visualizeTracks(QPixmap* img){
 
 void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
 
+
   if (calibration_active)
     return;
+
 
   pcl::fromROSMsg(*cloud_ptr, current_cloud);
   calibrator.setInputCloud(current_cloud);
@@ -503,36 +590,39 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
     return;
 
 
-    bool render_opengl = false;
-    bool update_detection_visualization = false;
+  bool render_opengl = false;
+  bool update_detection_visualization = false;
 
-
-  if (update_pixel_model){
-
-    timing_start("up_pixel");
-    pixel_modeler.update(current_cloud,&objectMask);
-    timing_end("up_pixel");
-
-    // ROS_INFO("update cnt: %i", pixel_modeler.update_cnt);
-  }
-
-  if (do_gesture_recognition && !update_pixel_model){
-    ROS_INFO("RUNNING DETECTOR");
+  if (do_gesture_recognition){
     runDetector();
     update_detection_visualization = true;
   }
 
 
-  if (update_elevation_map){
+  if (piece_tracker.tracks.size() == 0)
+    elevation_map.unLockCells();
+  else{
+    // ROS_INFO("Locking cells! (%zu objects)", piece_tracker.tracks.size() );
+    drawObjectContours(piece_tracker,objectMask);
+    //    cv::namedWindow("locked");
+    //    cv::imshow("locked",objectMask);
+  }
+
+  if (update_pixel_model){
+    if (detector.handVisibleInLastFrame()){
+      ROS_INFO("Hand visible, pixel model is not updated!");
+    }else{
+      timing_start("up_pixel");
+      pixel_modeler.update(current_cloud,&objectMask);
+      //timing_end("up_pixel");
+    }
+  }
+
+
+  if (update_elevation_map && !detector.handVisibleInLastFrame()){
     timing_start("up_model");
 
-    objectMask.setTo(0);
-
-    if (piece_tracker.tracks.size() == 0)
-      elevation_map.unLockCells();
-    else{
-      ROS_INFO("Locking cells! (%zu objects)", piece_tracker.tracks.size() );
-      drawObjectContours(piece_tracker,objectMask);
+    if (piece_tracker.tracks.size() > 0){
       elevation_map.lockCells(objectMask,calibrator.cloud_moved);
     }
 
@@ -540,7 +630,7 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
     render_opengl = true;
 
     if (with_path_planning){
-      // ROS_INFO("QNode: updating planner with cellsize %f", elevation_map.cell_size());
+      ROS_INFO("QNode: updating planner with cellsize %f", elevation_map.cell_size());
       planner.setHeightMap(elevation_map.mean, elevation_map.cell_size());
     }
 
@@ -552,7 +642,7 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
       pub_model.publish(msg);
     }
 
-    timing_end("up_model");
+    // timing_end("up_model");
 
   }
 
@@ -580,25 +670,23 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
 
 
   if (render_opengl) {
-     ROS_INFO("Rerendering Scene");   
-     Q_EMIT model_computed(); // render new scene
+    Q_EMIT model_computed(); // render new scene
   }
-     
+
   if (update_detection_visualization){
-    Q_EMIT show_Detections(); // show objects on rendered image
-    ROS_INFO("Visualizing detections"); 
+    Q_EMIT visualize_Detections(); // show objects on rendered image
   }
-   
+
   Q_EMIT copy_projector_image(); // update the GUI showing the rendered image on the projector
-  
+
   return;
 }
 
 void QNode::imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_msgs::PointCloud2ConstPtr& cloud_ptr)
 {
 
-  if (!calibration_active)
-    return;
+  if (!calibration_active) { return; }
+
 
   timing_start("callback");
   pcl::fromROSMsg(*cloud_ptr, current_cloud);
@@ -610,7 +698,7 @@ void QNode::imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_m
 
   // timing_start("input");
   calibrator.setInputCloud(current_cloud);
-  calibrator.setInputImage(current_col_img);
+  calibrator.setInputImage(current_col_img,&area_mask);
   // timing_end("input");
 
 
@@ -754,6 +842,117 @@ void QNode::imgCloudCB(const sensor_msgs::ImageConstPtr& img_ptr, const sensor_m
 
   //  Q_EMIT received_col_Image();
 
+}
+
+/**
+  *
+  * @param msg rgb image from Kinect
+  */
+void QNode::imageCallback(const sensor_msgs::ImageConstPtr& msg)
+{
+
+  if (calibration_active) { return; }
+
+
+  cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+  current_col_img = cv_ptr->image;
+
+  // if the model is not updated, then the detector is applied and emits the received_col_Image
+  //if (!update_pixel_model)
+  //if (frame_cnt++%5){
+  Q_EMIT process_events();
+
+  // otherwise it is emmited at the end of run_detector!
+  if (!do_gesture_recognition){
+    Q_EMIT received_col_Image();
+  }
+
+  return;
+
+
+
+
+
+  ros::Time cb_start = ros::Time::now();
+
+
+  // < 1 ms
+  //  cv_bridge::CvImagePtr depth_ptr = cv_bridge::toCvCopy(msg);
+  //  cv::Mat * depth = &depth_ptr->image;
+
+
+
+  //  bool emit_new_image = false;
+
+
+  //  if (water_simulation_active)
+  //   ROS_INFO("water_simulation_active");
+  //
+  //  if (openGL_visualizationActive)
+  //     ROS_INFO("openGL_visualizationActive");
+  //
+  //  if (show_height_lines)
+  //     ROS_INFO("show_height_lines");
+
+
+  if (calibrator.projMatrixSet() && (water_simulation_active || openGL_visualizationActive || show_height_lines)){
+    //  if (calibrator.isKinectTrafoSet()){
+
+    ros::Time start_train = ros::Time::now();
+    bool current_frame_dynamic = elevation_map.updateHeight(calibrator.cloud_moved,max_update_dist);
+#ifdef PRINT_TIMING
+    ROS_INFO("Frame Update: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
+#endif
+
+    //   ros::Time start_obj = ros::Time::now();
+    //   modeler.saveAsObj("foo.obj");
+    //#ifdef PRINT_TIMING
+    //   ROS_INFO("Creating Object file: %f ms", (ros::Time::now()-start_obj).toSec()*1000.0);
+    //#endif
+
+    //   if (current_frame_dynamic)
+    //    ROS_INFO("dynamic scene");
+
+
+    if (current_frame_dynamic){
+      duration_since_last_static_frame = msg->header.stamp - time_of_last_static_frame;
+    }else{
+      time_of_last_static_frame = msg->header.stamp;
+
+      if (duration_since_last_static_frame.toSec() > 0.5)
+        ROS_INFO("Scene static again!");
+
+      duration_since_last_static_frame = ros::Duration(0);
+    }
+
+    Q_EMIT scene_static(duration_since_last_static_frame.toSec());
+
+
+    // emit_new_image = true;
+  }
+
+
+  if (water_simulation_active && calibrator.projMatrixSet()){
+    if (restart_modeler){
+      init_watersimulation();
+      restart_modeler = false;
+    }
+    else{
+      ros::Time start_water = ros::Time::now();
+      step_watersimulation();
+#ifdef PRINT_TIMING
+      ROS_INFO("Water simulation: %f ms", (ros::Time::now()-start_water).toSec()*1000.0);
+#endif
+    }
+  }
+
+
+  //  if (emit_new_image)
+  //    Q_EMIT model_computed();
+
+#ifdef PRINT_TIMING
+  ROS_INFO("Callback time: %f ms", (ros::Time::now()-cb_start).toSec()*1000.0);
+#endif
 }
 
 /**
@@ -903,7 +1102,7 @@ bool QNode::step_watersimulation(){
   for (PieceTrack_it it = piece_tracker.tracks.begin(); it != piece_tracker.tracks.end(); ++it){
     if (it->second.state == Track_Active){
       it->second.visualizeOnImage(current_col_img,getColor(it->first));
-      pcl_Point center = it->second.last_detection().position_world;
+      pcl_Point center = it->second.last_detection()->position_world;
       cv::Point pos = elevation_map.grid_pos(center);
       source.x = pos.x;
       source.y = pos.y;
@@ -931,122 +1130,13 @@ bool QNode::step_watersimulation(){
 
 /**
   *
-  * @param msg rgb image from Kinect
-  */
-void QNode::imageCallback(const sensor_msgs::ImageConstPtr& msg)
-{
-
-  if (calibration_active) {
-    return;
-  }
-
-  cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-  current_col_img = cv_ptr->image;
-
-  // if the model is not updated, then the detector is applied and emits the received_col_Image
-  if (!update_pixel_model)
-    if (frame_cnt++%5){
-      Q_EMIT process_events();
-      Q_EMIT received_col_Image();
-    }
-
-  return;
-
-
-
-
-
-  ros::Time cb_start = ros::Time::now();
-
-
-  // < 1 ms
-  //  cv_bridge::CvImagePtr depth_ptr = cv_bridge::toCvCopy(msg);
-  //  cv::Mat * depth = &depth_ptr->image;
-
-
-
-  //  bool emit_new_image = false;
-
-
-  //  if (water_simulation_active)
-  //   ROS_INFO("water_simulation_active");
-  //
-  //  if (openGL_visualizationActive)
-  //     ROS_INFO("openGL_visualizationActive");
-  //
-  //  if (show_height_lines)
-  //     ROS_INFO("show_height_lines");
-
-
-  if (calibrator.projMatrixSet() && (water_simulation_active || openGL_visualizationActive || show_height_lines)){
-    //  if (calibrator.isKinectTrafoSet()){
-
-    ros::Time start_train = ros::Time::now();
-    bool current_frame_dynamic = elevation_map.updateHeight(calibrator.cloud_moved,max_update_dist);
-#ifdef PRINT_TIMING
-    ROS_INFO("Frame Update: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
-#endif
-
-    //   ros::Time start_obj = ros::Time::now();
-    //   modeler.saveAsObj("foo.obj");
-    //#ifdef PRINT_TIMING
-    //   ROS_INFO("Creating Object file: %f ms", (ros::Time::now()-start_obj).toSec()*1000.0);
-    //#endif
-
-    //   if (current_frame_dynamic)
-    //    ROS_INFO("dynamic scene");
-
-
-    if (current_frame_dynamic){
-      duration_since_last_static_frame = msg->header.stamp - time_of_last_static_frame;
-    }else{
-      time_of_last_static_frame = msg->header.stamp;
-
-      if (duration_since_last_static_frame.toSec() > 0.5)
-        ROS_INFO("Scene static again!");
-
-      duration_since_last_static_frame = ros::Duration(0);
-    }
-
-    Q_EMIT scene_static(duration_since_last_static_frame.toSec());
-
-
-    // emit_new_image = true;
-  }
-
-
-  if (water_simulation_active && calibrator.projMatrixSet()){
-    if (restart_modeler){
-      init_watersimulation();
-      restart_modeler = false;
-    }
-    else{
-      ros::Time start_water = ros::Time::now();
-      step_watersimulation();
-#ifdef PRINT_TIMING
-      ROS_INFO("Water simulation: %f ms", (ros::Time::now()-start_water).toSec()*1000.0);
-#endif
-    }
-  }
-
-
-  //  if (emit_new_image)
-  //    Q_EMIT model_computed();
-
-#ifdef PRINT_TIMING
-  ROS_INFO("Callback time: %f ms", (ros::Time::now()-cb_start).toSec()*1000.0);
-#endif
-}
-
-/**
-  *
   * @param config
   * @param level
   */
 void QNode::paramCallback(const projector_calibration::visualization_paramsConfig& config, uint32_t level){
   //  ROS_INFO("new config: %f cm, hist: %i", config.cell_length_cm, config.hist_length);
 
-  train_frame_cnt = config.hist_length;
+  // train_frame_cnt = config.hist_length;
   elevation_map.weight = config.update_weight;
 
   //  ROS_INFO("cell size: %f, new size: %f", modeler_cell_size,config.cell_length_cm/100.0);
@@ -1056,20 +1146,20 @@ void QNode::paramCallback(const projector_calibration::visualization_paramsConfi
 
 
   //   ROS_INFO("CONFIG>LIGHT_POS: %f",config.light_pos);
-  Q_EMIT new_light(config.light_pos);
+  // Q_EMIT new_light(config.light_pos);
 
   max_update_dist = config.max_update_dist;
 
   planner.setMaxSteepness(config.ant_steepness);
   planner.setHeightCostFactor(config.ant_heightcost_factor);
   planner.setUphillfactor(config.ant_uphill_factor);
-  planner.setFourNeighbours(config.ant_use_four == 1);
-  planner.setSmoothing(config.ant_use_smoothing == 1);
+  planner.setFourNeighbours(config.ant_use_four);
+  planner.setSmoothing(config.ant_use_smoothing);
   planner.setHillSideCostFactor(config.ant_hillside_factor);
   planner.setPathLengthFactor(config.ant_path_length_factor);
   planner.enemy_factor = config.ant_enemy_factor;
-
-
+  planner_max_dist = config.ant_dist_threshold;
+  planner.setScale(config.ant_scale_factor);
 
   if (abs(modeler_cell_size - config.cell_length_cm/100.0) > 0.00001){
 
@@ -1138,13 +1228,19 @@ QNode::run()
   pub_foreground  = nh.advertise<Cloud> ("foreground", 1);
   pub_hand = nh.advertise<Cloud>("grasp_detections",1);
 
+
+  pub_pixel_model = nh.advertise<Cloud>("detection/model",1);
+
+
   pub_gauss_foreground = nh.advertise<sensor_msgs::Image>("gauss_foreground",1);
-  pub_surface_foreground = nh.advertise<sensor_msgs::Image>("surface_foreground",1);
+  // pub_surface_foreground = nh.advertise<sensor_msgs::Image>("surface_foreground",1);
 
   pub_projector_marker = nh.advertise<visualization_msgs::Marker>("projector_pose",2);
-
+  pub_detection_foreground  = nh.advertise<sensor_msgs::Image>("detection/foreground",1);
 
   pub_path = nh.advertise<visualization_msgs::Marker>("/ant/path", 1);
+  pub_ant_model = nh.advertise<Cloud>("/ant/model",1);
+  pub_ant_range = nh.advertise<visualization_msgs::Marker>("/ant/range", 1);
 
   first_depth_callback = true;
 

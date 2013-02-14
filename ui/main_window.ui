@@ -197,6 +197,13 @@
           </property>
          </widget>
         </item>
+        <item row="6" column="3">
+         <widget class="QCheckBox" name="cb_calibration_active">
+          <property name="text">
+           <string>Calibration Active</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
      </layout>
@@ -1181,19 +1188,6 @@
          <string>radius</string>
         </property>
        </widget>
-       <widget class="QCheckBox" name="cb_calibration_active">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>220</y>
-          <width>181</width>
-          <height>22</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Calibration Active</string>
-        </property>
-       </widget>
        <widget class="QPushButton" name="pushButton_25">
         <property name="geometry">
          <rect>
@@ -2096,22 +2090,6 @@
    </hints>
   </connection>
   <connection>
-   <sender>cb_calibration_active</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>MainWindowDesign</receiver>
-   <slot>foreground_visualization_toggled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>66</x>
-     <y>306</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>817</x>
-     <y>590</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>pushButton_24</sender>
    <signal>clicked()</signal>
    <receiver>MainWindowDesign</receiver>
@@ -2204,6 +2182,22 @@
     <hint type="destinationlabel">
      <x>755</x>
      <y>350</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cb_calibration_active</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>foreground_visualization_toggled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>826</x>
+     <y>467</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>656</x>
+     <y>573</y>
     </hint>
    </hints>
   </connection>

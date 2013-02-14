@@ -194,6 +194,7 @@ namespace projector_calibration {
 
   void setNormals(const Cloud_n& normals);
 
+/// use updateHeightLines
   void set_height_lines(const std::vector<Line_collection>& height_lines);
 
   void LoadGLTextures();
@@ -400,6 +401,15 @@ namespace projector_calibration {
  void color_slider_moved(int);
 
  void loadParameters();
+ 
+ void visualizeTracksAndPlanner();
+
+ /// copies content of 'projector_image' to the label on the second screen 
+ void updateProjectorImage();
+ 
+ /// computes heighlines using mesh_visualizer.findHeightLines
+ /// and adds them to the gl_viewer
+ void updateHeightLines();
 
  private:
 
@@ -407,10 +417,18 @@ namespace projector_calibration {
 
  GL_Mesh_Viewer *gl_viewer;
 
- QApplication *qAppff;
+ // QApplication *qAppff;
 
  cv::Mat small, cpy;
  cv::Mat darker,inv; /// helper images (8UC3 and 8UC1)
+
+ /// the image that will be shown on the projector
+ QPixmap projector_image;
+ 
+ /// result of OpenGL visualization
+ QPixmap projector_image_gl;
+ 
+
 
 
  Ui::MainWindowDesign ui;

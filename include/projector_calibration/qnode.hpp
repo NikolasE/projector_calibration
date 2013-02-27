@@ -127,7 +127,7 @@ public:
   ros::Publisher pub_foreground;
   ros::Publisher pub_projector_marker;
   ros::Publisher pub_gauss_foreground;
-  ros::Publisher pub_detection_foreground;
+  ros::Publisher pub_detection_foreground,pub_detection_foreground2;
   ros::Publisher pub_hand;
   ros::Publisher pub_path, pub_path_model;
   ros::Publisher pub_pixel_model;

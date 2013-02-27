@@ -29,6 +29,7 @@ int main(int argc, char **argv) {
 //    w.app = &app;
 
     w.show();
+
     app.connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit()));
     int result = app.exec();
 

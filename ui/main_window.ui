@@ -91,6 +91,9 @@
       </item>
       <item>
        <layout class="QGridLayout" name="gridLayout">
+        <property name="horizontalSpacing">
+         <number>7</number>
+        </property>
         <property name="rightMargin">
          <number>0</number>
         </property>
@@ -107,7 +110,7 @@
           </property>
          </widget>
         </item>
-        <item row="4" column="3">
+        <item row="5" column="3">
          <widget class="QLabel" name="lb_static">
           <property name="text">
            <string>TextLabel</string>
@@ -127,14 +130,14 @@
           </property>
          </widget>
         </item>
-        <item row="5" column="1">
+        <item row="6" column="1">
          <widget class="QLabel" name="label_18">
           <property name="text">
            <string>Show Heightlines</string>
           </property>
          </widget>
         </item>
-        <item row="5" column="3">
+        <item row="6" column="3">
          <widget class="QCheckBox" name="cb_showHeightLines">
           <property name="text">
            <string/>
@@ -155,28 +158,28 @@
           </property>
          </widget>
         </item>
-        <item row="4" column="1">
+        <item row="5" column="1">
          <widget class="QLabel" name="label_16">
           <property name="text">
            <string>Scene Static:</string>
           </property>
          </widget>
         </item>
-        <item row="4" column="4">
+        <item row="5" column="4">
          <widget class="QCheckBox" name="fg_update_model">
           <property name="text">
            <string>update Gesture Background</string>
           </property>
          </widget>
         </item>
-        <item row="6" column="4">
+        <item row="7" column="4">
          <widget class="QCheckBox" name="fg_update_map">
           <property name="text">
            <string>update Elevationmap</string>
           </property>
          </widget>
         </item>
-        <item row="5" column="4">
+        <item row="6" column="4">
          <widget class="QCheckBox" name="cb_gesture">
           <property name="text">
            <string>Gesture Recognition</string>
@@ -197,10 +200,31 @@
           </property>
          </widget>
         </item>
-        <item row="6" column="3">
+        <item row="7" column="3">
          <widget class="QCheckBox" name="cb_calibration_active">
           <property name="text">
            <string>Calibration Active</string>
+          </property>
+         </widget>
+        </item>
+        <item row="7" column="1">
+         <widget class="QCheckBox" name="checkBox">
+          <property name="text">
+           <string>CheckBox</string>
+          </property>
+         </widget>
+        </item>
+        <item row="9" column="1">
+         <widget class="QCheckBox" name="checkBox_2">
+          <property name="text">
+           <string>CheckBox</string>
+          </property>
+         </widget>
+        </item>
+        <item row="8" column="1">
+         <widget class="QCheckBox" name="cb_dark">
+          <property name="text">
+           <string>show box</string>
           </property>
          </widget>
         </item>
@@ -248,7 +272,7 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>4</number>
+       <number>2</number>
       </property>
       <property name="documentMode">
        <bool>false</bool>
@@ -1472,8 +1496,8 @@
    <slot>pattern_size_changed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>242</x>
-     <y>143</y>
+     <x>120</x>
+     <y>144</y>
     </hint>
     <hint type="destinationlabel">
      <x>561</x>
@@ -1488,8 +1512,8 @@
    <slot>pattern_size_changed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>425</x>
-     <y>143</y>
+     <x>120</x>
+     <y>144</y>
     </hint>
     <hint type="destinationlabel">
      <x>584</x>
@@ -2201,6 +2225,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>cb_dark</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>dark_toggled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>703</x>
+     <y>492</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>660</x>
+     <y>650</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>show_fullscreen_pattern()</slot>
@@ -2253,5 +2293,6 @@
   <slot>save_elevation_map()</slot>
   <slot>gesture_toggled(bool)</slot>
   <slot>path_toggled(bool)</slot>
+  <slot>dark_toggled(bool)</slot>
  </slots>
 </ui>

@@ -33,31 +33,17 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   , qnode(argc,argv)
 {
 
-
-  // open label fullscreen on secondary monitor
-  lb_img.setParent(NULL);
   QRect screenres = QApplication::desktop()->screenGeometry(1);
-  //  ROS_INFO("screenres 1: %i %i", screenres.x(), screenres.y());
-  lb_img.move(QPoint(screenres.x(), screenres.y()));
-  lb_img.showFullScreen();
 
   gl_viewer = new GL_Mesh_Viewer(parent);
-  gl_viewer->resize(256,256);
+  gl_viewer->resize(250,500);
   gl_viewer->show();
-  //  gl_viewer->move(QPoint(screenres.x(), screenres.y()));
-  //gl_viewer->showFullScreen();
+  gl_viewer->move(QPoint(screenres.x(), screenres.y()));
+  gl_viewer->showFullScreen();
 
-
-  ROS_INFO("Projector image initied to %i %i",qnode.calibrator.checkboard_size.width,qnode.calibrator.checkboard_size.width);
-  projector_image_gl = QPixmap(qnode.calibrator.checkboard_size.width,qnode.calibrator.checkboard_size.width);
-  // draw black background
-  QPainter painter(&projector_image_gl);
-  painter.setBrush((QBrush(QColor(0,0,0))));
-  painter.drawRect(0,0,qnode.calibrator.checkboard_size.width,qnode.calibrator.checkboard_size.width);
 
   darker = cv::Mat(480,640,CV_8UC3);
   inv = cv::Mat(480,640,CV_8UC1);
-
 
   pixmap_col = QPixmap(640,480);
 
@@ -65,6 +51,7 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
 
   rgb_image_scale = 1;
   projector_image_scale = 0.5;
+
 
   ui.setupUi(this); // Calling this incidentally connects all ui's triggers to on_...() callbacks in this class.
   QObject::connect(ui.actionAbout_Qt, SIGNAL(triggered(bool)), qApp, SLOT(aboutQt())); // qApp is a global variable for the application
@@ -82,6 +69,9 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   QObject::connect(&qnode, SIGNAL(newAnt(Ant)), this, SLOT(got_new_ant(Ant)));
   QObject::connect(&qnode, SIGNAL(sl_update_ant()), this, SLOT(update_ant()));
 
+
+  //  QObject::connect(&gl_viewer,SIGNAL())
+
   qRegisterMetaType<cv::Point2f>("cv::Point2f");
 
   QObject::connect(&qnode, SIGNAL(sig_grasp_started(cv::Point2f, int)), this, SLOT(sl_grasp_started(cv::Point2f, int)));
@@ -92,13 +82,9 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   QObject::connect(&qnode, SIGNAL(copy_projector_image()), this, SLOT(  updateProjectorImage()));
 
 
-
   secs_since_last_static_image = 0;
 
-
   QObject::connect(&mousehandler_projector, SIGNAL(redraw_image()), this, SLOT(update_proj_image()));
-
-
 
   show_fullscreen_pattern();
   update_proj_image();
@@ -112,6 +98,10 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   QObject::connect(&mousehandler_points, SIGNAL(new_point()), this, SLOT(mouse_new_points()));
   QObject::connect(&mousehandler_points, SIGNAL(new_point()), this, SLOT( sl_received_image()));
 
+
+
+  ui.cb_map->setChecked(false);
+  show_map_image = false;
 
 
   ui.lb_img_2->installEventFilter(&mousehandler_projector);
@@ -131,8 +121,14 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   pattern_size_auto = ui.cb_autosize->isChecked();
 
 
-  loadParameters();
 
+
+  gl_viewer->grasp_tracker = &qnode.grasp_tracker;
+  gl_viewer->piece_tracker = &qnode.piece_tracker;
+  gl_viewer->fingertip_tracker = &qnode.fingertip_tracker;
+
+
+  loadParameters();
 }
 
 MainWindow::~MainWindow() {
@@ -299,10 +295,12 @@ void MainWindow::save_model_obj(){
 
 void MainWindow::show_model_openGL(){
 
-
   qApp->processEvents();
 
   timing_start("open_gl");
+
+  gl_viewer->renderScene(false);
+
 
   if (!qnode.elevation_map.modelComputed()){
     ROS_INFO("Model is not computed");
@@ -338,23 +336,23 @@ void MainWindow::show_model_openGL(){
   }
 
 
-  if (!(qnode.openGL_visualizationActive || qnode.water_simulation_active)){
-    return;
-  }
+  //  if (!(qnode.openGL_visualizationActive || qnode.water_simulation_active)){
+  //    return;
+  //  }
 
   // TODO: create only once after model is initialized
   cv::Mat color(model.height, model.width, CV_8UC3);
   color.setTo(0);
 
-  if (qnode.openGL_visualizationActive){
+  //  if (qnode.openGL_visualizationActive){
 
-    // TODO: don't copy image
-    cv::Mat height = qnode.elevation_map.getHeightImage();
+  // TODO: don't copy image
+  cv::Mat height = qnode.elevation_map.getHeightImage();
 
-    //    cv::Mat height;
-    //    qnode.pixel_modeler.getMeans(height);
-    heightVisualization(color, height, 0,500, qnode.color_range,NULL);
-  }
+  //    cv::Mat height;
+  //    qnode.pixel_modeler.getMeans(height);
+  heightVisualization(color, height, 0,500, qnode.color_range,NULL);
+  //  }
 
 
   // cv::imwrite("height.png", color);
@@ -413,8 +411,18 @@ void MainWindow::show_model_openGL(){
   if (qnode.show_height_lines){
     timing_start("height_lines");
     std::vector<Line_collection> height_lines;
-    qnode.mesh_visualizer.findHeightLines(gl_viewer->mesh, height_lines, qnode.elevation_map.getMinHeight(), qnode.elevation_map.getMaxHeight(), qnode.height_line_distance);
-    // todo add height_line_distance to qnode
+
+    float min_height =  qnode.elevation_map.getMinHeight();
+    float max_height =  qnode.elevation_map.getMaxHeight();
+    float dist = qnode.height_line_distance;
+
+    // get first and last visible height line:
+    float min_ = ceil(min_height/dist)*dist;
+    float max_ = floor(max_height/dist)*dist;
+
+
+    qnode.mesh_visualizer.findHeightLines(gl_viewer->mesh, height_lines, min_,max_,dist);
+
     gl_viewer->set_height_lines(height_lines);
     timing_end("height_lines");
   }else{
@@ -429,16 +437,21 @@ void MainWindow::show_model_openGL(){
   gl_viewer->updateGL();
   timing_end("Rendering");
 
-  //  timing_start("grabFrameBuffer");
-  //  QImage bar = gl_viewer->grabFrameBuffer();
-  ////  projector_image_gl.fromImage(bar);
-  //  timing_end("grabFrameBuffer");
 
+  // Optional: Also render ortographic projection (geographical Map)
+  if (show_map_image){
+    int w = ui.lb_img_2->width();
+    int h = ui.lb_img_2->height();
 
-  //  timing_start("rendering_GL");
-  //  //projector_image_gl = gl_viewer->renderPixmap(lb_img.width(),lb_img.height(),true);
-  //  projector_image = projector_image_gl;
-  ////  timing_end("rendering_GL");
+    ROS_INFO("Rendering Map image for size %i %i",w,h);
+    QPixmap map_image = gl_viewer->getMapImage(w,h);
+
+    // show Pixmap on label:
+
+    ui.lb_img_2->setPixmap(map_image);
+    ui.lb_img_2->repaint();
+
+  }
 
 
   //#ifdef DO_TIMING
@@ -447,32 +460,12 @@ void MainWindow::show_model_openGL(){
 
 
 
-  //  pix2.save(QString("fooo.png"),0,100);
-  ////  cv::Mat cv_img = qimage2mat(QImage(pix2));
-  //  cv::Mat cv_img = cv::imread("fooo.png");
-  //  cv::circle(cv_img, cv::Point(100,200),30,CV_RGB(255,0,0),-1);
-  //  QImage foo = mat2qimage(cv_img);
-  //  lb_img.setPixmap(pixmap_col.fromImage(foo, 0));
-
-
 #ifdef DO_TIMING
   ROS_INFO("Showing Model with openGL (total): %f ms", (ros::Time::now()-start_show_openGL).toSec()*1000);
 #endif
 
-  /*
-  // TODO: adapt size of image
-  if (qnode.show_height_lines){
 
-    // gl_viewer->drawMapImage(true);
-    // show image on right image-label
-    gl_viewer->initMapSize(ui.lb_img_2->width(),ui.lb_img_2->height(), qnode.elevation_map.min_x(),qnode.elevation_map.min_y(),qnode.elevation_map.getWidth(), qnode.elevation_map.getHeight());
-    //  gl_viewer->resize(ui.lb_img_2->width(),ui.lb_img_2->height());
-    QPixmap pix = gl_viewer->renderPixmap(ui.lb_img_2->width(),ui.lb_img_2->height(),true);
-    ui.lb_img_2->setPixmap(pix);
-    ui.lb_img_2->repaint();
-  }
-*/
-
+  gl_viewer->initMapSize(qnode.elevation_map.min_x(),qnode.elevation_map.min_y(),qnode.elevation_map.getWidth(), qnode.elevation_map.getHeight());
 
 }
 
@@ -488,23 +481,14 @@ void MainWindow::updateHeightLines(){
 }
 
 void MainWindow::updateProjectorImage(){
-  //  timing_start("updating_projector_image");
-  lb_img.setPixmap(projector_image);
-  lb_img.repaint();
-  //  timing_end("updating_projector_image");
+
 }
 
 
 
-void MainWindow::visualizeTracksAndPlanner(){
+//void MainWindow::visualizeTracksAndPlanner(){
 
-  // remove last visualizations
-  projector_image = projector_image_gl;
-  
-
-  qnode.visualizeTracks(&projector_image);
-  qnode.visualizePlanner(&projector_image);
-}
+//}
 
 void MainWindow::showNoMasterMessage() {
   QMessageBox msgBox;
@@ -720,10 +704,9 @@ void MainWindow::update_proj_image(){
 
   timing_start("copy_projector");
 
-  //  assert(qnode.calibrator.projector_image.cols > 0);
-  qimg_proj = Mat2QImage(qnode.calibrator.projector_image);
-  lb_img.setPixmap(pixmap_proj.fromImage(qimg_proj, 0));
-  lb_img.repaint();
+  gl_viewer->showImage(qnode.calibrator.projector_image);
+  gl_viewer->updateGL();
+
   timing_end("copy_projector");
 
 
@@ -840,7 +823,7 @@ void MainWindow::sl_received_image(){
       inv = 255- qnode.area_mask;
       darker.copyTo(cpy,inv);
     }
-    timing_end("dark");
+    // timing_end("dark");
   }
 
   bool resize = abs(rgb_image_scale-1.0) > 0.01;
@@ -886,9 +869,12 @@ void MainWindow::loadParameters(){
   min_dist_changed(qnode.min_dist*1000);
   z_max_changed(qnode.max_dist*100);
 
-  ui.cb_depth_visualization_GL->setChecked(qnode.openGL_visualizationActive);
+  //ui.cb_depth_visualization_GL->setChecked(qnode.openGL_visualizationActive);
 
   //  ui.cb_depth_visualization->setChecked(qnode.depth_visualization_active);
+
+  qnode.calibration_active = false;
+
   ui.cb_calibration_active->setChecked(qnode.calibration_active);
   gl_viewer->show_texture = qnode.show_texture;
   ui.cb_texture->setChecked(gl_viewer->show_texture);
@@ -1233,6 +1219,15 @@ void MainWindow::dark_toggled(bool status){
   draw_mask = status;
 }
 
+
+void MainWindow::show_map_toggled(bool status){
+  show_map_image = status;
+}
+
+void MainWindow::wireframe_toggled(bool status){
+  gl_viewer->toggleWireframe(status);
+}
+
 void MainWindow::path_toggled(bool status){
   qnode.with_path_planning = status;
 
@@ -1273,6 +1268,13 @@ void MainWindow::toggle_update_model(bool status){
 
 void MainWindow::foreground_visualization_toggled(bool status){
   qnode.calibration_active = status;
+
+  // gl_viewer->resizeGL(gl_viewer->width(),gl_viewer->height());
+
+  if (!status){
+    gl_viewer->renderScene(false);
+  }
+
   qnode.saveParameters();
 }
 
@@ -1291,8 +1293,9 @@ void MainWindow::water_simulation_toggled(bool status){
 }
 
 void MainWindow::gl_visualization_toggled(bool status){
-  qnode.openGL_visualizationActive = status;
-  qnode.saveParameters();
+  ROS_INFO("deprecated!");
+  //  qnode.openGL_visualizationActive = status;
+  //  qnode.saveParameters();
 }
 
 //void MainWindow::user_interaction_toggled(bool status){

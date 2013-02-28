@@ -130,17 +130,10 @@
           </property>
          </widget>
         </item>
-        <item row="6" column="1">
-         <widget class="QLabel" name="label_18">
-          <property name="text">
-           <string>Show Heightlines</string>
-          </property>
-         </widget>
-        </item>
         <item row="6" column="3">
          <widget class="QCheckBox" name="cb_showHeightLines">
           <property name="text">
-           <string/>
+           <string>Show Heightlines</string>
           </property>
          </widget>
         </item>
@@ -207,24 +200,24 @@
           </property>
          </widget>
         </item>
+        <item row="9" column="3">
+         <widget class="QCheckBox" name="cb_wireframe">
+          <property name="text">
+           <string>Render wireframe</string>
+          </property>
+         </widget>
+        </item>
         <item row="7" column="1">
-         <widget class="QCheckBox" name="checkBox">
-          <property name="text">
-           <string>CheckBox</string>
-          </property>
-         </widget>
-        </item>
-        <item row="9" column="1">
-         <widget class="QCheckBox" name="checkBox_2">
-          <property name="text">
-           <string>CheckBox</string>
-          </property>
-         </widget>
-        </item>
-        <item row="8" column="1">
          <widget class="QCheckBox" name="cb_dark">
           <property name="text">
            <string>show box</string>
+          </property>
+         </widget>
+        </item>
+        <item row="9" column="4">
+         <widget class="QCheckBox" name="cb_map">
+          <property name="text">
+           <string>Show Map</string>
           </property>
          </widget>
         </item>
@@ -259,6 +252,9 @@
     </item>
     <item row="2" column="0">
      <widget class="QTabWidget" name="tab_manager">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
       <property name="sizePolicy">
        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
         <horstretch>0</horstretch>
@@ -272,7 +268,7 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <property name="documentMode">
        <bool>false</bool>
@@ -1091,6 +1087,9 @@
         </property>
        </widget>
        <widget class="QCheckBox" name="cb_depth_visualization_GL">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="geometry">
          <rect>
           <x>10</x>
@@ -1101,6 +1100,9 @@
         </property>
         <property name="text">
          <string>Depth Visualization (OpenGL)</string>
+        </property>
+        <property name="tristate">
+         <bool>false</bool>
         </property>
        </widget>
        <widget class="QCheckBox" name="cb_texture">
@@ -1496,8 +1498,8 @@
    <slot>pattern_size_changed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>120</x>
-     <y>144</y>
+     <x>253</x>
+     <y>143</y>
     </hint>
     <hint type="destinationlabel">
      <x>561</x>
@@ -1512,8 +1514,8 @@
    <slot>pattern_size_changed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>120</x>
-     <y>144</y>
+     <x>436</x>
+     <y>143</y>
     </hint>
     <hint type="destinationlabel">
      <x>584</x>
@@ -2008,8 +2010,8 @@
    <slot>show_height_lines(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1036</x>
-     <y>436</y>
+     <x>1026</x>
+     <y>447</y>
     </hint>
     <hint type="destinationlabel">
      <x>622</x>
@@ -2232,12 +2234,44 @@
    <slot>dark_toggled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>703</x>
-     <y>492</y>
+     <x>761</x>
+     <y>475</y>
     </hint>
     <hint type="destinationlabel">
      <x>660</x>
      <y>650</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cb_wireframe</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>wireframe_toggled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>852</x>
+     <y>488</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>857</x>
+     <y>507</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cb_map</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>show_map_toggled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1059</x>
+     <y>489</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1074</x>
+     <y>509</y>
     </hint>
    </hints>
   </connection>
@@ -2294,5 +2328,7 @@
   <slot>gesture_toggled(bool)</slot>
   <slot>path_toggled(bool)</slot>
   <slot>dark_toggled(bool)</slot>
+  <slot>wireframe_toggled(bool)</slot>
+  <slot>show_map_toggled(bool)</slot>
  </slots>
 </ui>

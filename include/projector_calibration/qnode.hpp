@@ -65,6 +65,7 @@ public:
 
 
 
+
   //  /// Duration since last static frame
   //  ros::Duration durationSinceLastStaticFrame(){ return (ros::Time::now()-time_of_last_static_frame); }
   //
@@ -94,7 +95,7 @@ public:
 
   // uint train_frame_cnt;
   bool train_background;
-  bool openGL_visualizationActive;
+  // bool openGL_visualizationActive;
   bool foreGroundVisualizationActive;
   bool show_texture;
   bool water_simulation_active;

@@ -186,7 +186,7 @@ void QNode::saveParameters(){
   fs << "color_range" << color_range;
   fs << "min_dist" << min_dist;
   fs << "max_dist" << max_dist;
-  fs << "openGL_visualizationActive" << openGL_visualizationActive;
+  // fs << "openGL_visualizationActive" << openGL_visualizationActive;
   fs << "depth_visualization_active" << depth_visualization_active;
   fs << "show_texture" << show_texture;
   fs << "water_simulation_active" << water_simulation_active;
@@ -211,7 +211,7 @@ bool QNode::loadParameters(){
   color_range = (float)fs["color_range"];
   min_dist = (float)fs["min_dist"];
   max_dist = (float)fs["max_dist"];
-  openGL_visualizationActive = (int)fs["openGL_visualizationActive"];
+  // openGL_visualizationActive = (int)fs["openGL_visualizationActive"];
   depth_visualization_active = (int)fs["depth_visualization_active"];
   show_texture = (int)fs["show_texture"];
   water_simulation_active  = (int)fs["water_simulation_active"];
@@ -268,6 +268,7 @@ void QNode::runDetector(){
   //    pub_detection_foreground2.publish(out_msg.toImageMsg());
   //  }
 
+  timing_start("pub");
 
   if (pub_detection_foreground.getNumSubscribers()){
     cv_bridge::CvImage out_msg;
@@ -297,7 +298,7 @@ void QNode::runDetector(){
     pub_pixel_model.publish(msg);
   }
 
-
+  timing_end("pub");
 
   // ROS_INFO("fg: %i %i  norm: %i %i", pixel_foreground.cols, pixel_foreground.cols, current_norm.cols, current_norm.rows);
 
@@ -349,55 +350,47 @@ void QNode::runDetector(){
   }
   timing_end("tracking");
 
-
-
-
   timing_end("runDetector");
 
 
+//  // visualize tracks
+//  Cloud grasps;
+//  for (GraspTrack_it it = grasp_tracker.tracks.begin(); it != grasp_tracker.tracks.end(); ++it){
+//    if (it->second.state == Track_Active){
+//      it->second.visualizeOnImage(current_col_img,getColor(it->first));
+//      pcl_Point center = it->second.last_detection()->position_world;
+//      grasps.push_back(center);
+//      ROS_INFO("Grasp Track (%i) at: %f %f %f", it->first, center.x,center.y, center.z);
+//    }
+//  }
+
+//  if (pub_hand.getNumSubscribers()){
+//    Cloud::Ptr msg = grasps.makeShared();
+//    msg->header.frame_id = "fixed_frame";
+//    msg->header.stamp = ros::Time::now();
+//    pub_hand.publish(msg);
+//  }
 
 
-  // visualize tracks
-  Cloud grasps;
-  for (GraspTrack_it it = grasp_tracker.tracks.begin(); it != grasp_tracker.tracks.end(); ++it){
-    if (it->second.state == Track_Active){
-      it->second.visualizeOnImage(current_col_img,getColor(it->first));
-      pcl_Point center = it->second.last_detection()->position_world;
-      grasps.push_back(center);
-      ROS_INFO("Grasp Track (%i) at: %f %f %f", it->first, center.x,center.y, center.z);
-    }
-  }
-
-  if (pub_hand.getNumSubscribers()){
-    Cloud::Ptr msg = grasps.makeShared();
-    msg->header.frame_id = "fixed_frame";
-    msg->header.stamp = ros::Time::now();
-    pub_hand.publish(msg);
-  }
+//  for (PieceTrack_it it = piece_tracker.tracks.begin(); it != piece_tracker.tracks.end(); ++it){
+//    if (it->second.state == Track_Active){
+//      it->second.visualizeOnImage(current_col_img,getColor(it->first));
+//      pcl_Point center = it->second.last_detection()->position_world;
+//      // ROS_INFO("Piece Track (%i) at: %f %f %f", it->first, center.x,center.y, center.z);
+//    }
+//  }
 
 
-  for (PieceTrack_it it = piece_tracker.tracks.begin(); it != piece_tracker.tracks.end(); ++it){
-    if (it->second.state == Track_Active){
-      it->second.visualizeOnImage(current_col_img,getColor(it->first));
-      pcl_Point center = it->second.last_detection()->position_world;
-      ROS_INFO("Piece Track (%i) at: %f %f %f", it->first, center.x,center.y, center.z);
-    }
-  }
+//  for (FingerTrack_it it = fingertip_tracker.tracks.begin(); it != fingertip_tracker.tracks.end(); ++it){
+//    // if (it->second.state == Track_Active)
+//    it->second.visualizeOnImage(current_col_img,getColor(it->first),TT_FINGERTIP);
+//    pcl_Point center = it->second.last_detection()->position_world;
+//    ROS_INFO("Finger Track (%i) at: %f %f %f",it->first, center.x,center.y, center.z);
+//  }
 
 
-  for (FingerTrack_it it = fingertip_tracker.tracks.begin(); it != fingertip_tracker.tracks.end(); ++it){
-    // if (it->second.state == Track_Active)
-    it->second.visualizeOnImage(current_col_img,getColor(it->first),TT_FINGERTIP);
-    pcl_Point center = it->second.last_detection()->position_world;
-    ROS_INFO("Finger Track (%i) at: %f %f %f",it->first, center.x,center.y, center.z);
-  }
-
-
-  //  timing_end("runDetector");
 
   Q_EMIT received_col_Image(); // visualisation of Kinect-Color-Image
-
-
 
 }
 
@@ -634,19 +627,12 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
   if (!calibrator.projMatrixSet())
     return;
 
-
-  bool render_opengl = false;
-  bool update_detection_visualization = false;
-
-  if (do_gesture_recognition){
-    runDetector();
-    update_detection_visualization = true;
-  }
+  if (do_gesture_recognition){ runDetector(); }
 
   if (piece_tracker.tracks.size() == 0)
     elevation_map.unLockCells();
   else{
-    // ROS_INFO("Locking cells! (%zu objects)", piece_tracker.tracks.size() );
+    //    ROS_INFO("Locking cells! (%zu objects)", piece_tracker.tracks.size() );
     drawObjectContours(piece_tracker,objectMask);
     //    cv::namedWindow("locked");
     //    cv::imshow("locked",objectMask);
@@ -667,9 +653,7 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
       elevation_map.lockCells(objectMask,calibrator.cloud_moved);
     }
 
-
     elevation_map.updateHeight(calibrator.cloud_moved,0.1);
-    render_opengl = true;
 
     if (with_path_planning){
       ROS_INFO("QNode: updating planner with cellsize %f", elevation_map.cell_size());
@@ -688,7 +672,6 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
 
   }
 
-
   if (water_simulation_active){
     if (restart_modeler){
       init_watersimulation();
@@ -702,26 +685,10 @@ void QNode::cloudCB(const sensor_msgs::PointCloud2ConstPtr& cloud_ptr){
       ROS_INFO("Water simulation: %f ms", (ros::Time::now()-start_water).toSec()*1000.0);
 #endif
 
-      render_opengl = true;
     }
   }
 
-
-  if (!render_opengl && !update_detection_visualization){
-    timing_end("CloudCb");
-    return;
-  }
-
-
-  if (render_opengl) {
-    Q_EMIT model_computed(); // render new scene
-  }
-
-  if (update_detection_visualization){
-    Q_EMIT visualize_Detections(); // show objects on rendered image
-  }
-
-  Q_EMIT copy_projector_image(); // update the GUI showing the rendered image on the projector
+  Q_EMIT model_computed();
 
   timing_end("CloudCb");
 }
@@ -914,86 +881,86 @@ void QNode::imageCallback(const sensor_msgs::ImageConstPtr& msg)
 
 
 
-  ros::Time cb_start = ros::Time::now();
+  //  ros::Time cb_start = ros::Time::now();
 
 
-  // < 1 ms
-  //  cv_bridge::CvImagePtr depth_ptr = cv_bridge::toCvCopy(msg);
-  //  cv::Mat * depth = &depth_ptr->image;
+  //  // < 1 ms
+  //  //  cv_bridge::CvImagePtr depth_ptr = cv_bridge::toCvCopy(msg);
+  //  //  cv::Mat * depth = &depth_ptr->image;
 
 
 
-  //  bool emit_new_image = false;
+  //  //  bool emit_new_image = false;
 
 
-  //  if (water_simulation_active)
-  //   ROS_INFO("water_simulation_active");
-  //
-  //  if (openGL_visualizationActive)
-  //     ROS_INFO("openGL_visualizationActive");
-  //
-  //  if (show_height_lines)
-  //     ROS_INFO("show_height_lines");
+  //  //  if (water_simulation_active)
+  //  //   ROS_INFO("water_simulation_active");
+  //  //
+  //  //  if (openGL_visualizationActive)
+  //  //     ROS_INFO("openGL_visualizationActive");
+  //  //
+  //  //  if (show_height_lines)
+  //  //     ROS_INFO("show_height_lines");
 
 
-  if (calibrator.projMatrixSet() && (water_simulation_active || openGL_visualizationActive || show_height_lines)){
-    //  if (calibrator.isKinectTrafoSet()){
+  //  if (calibrator.projMatrixSet() && (water_simulation_active  || show_height_lines)){
+  //    //  if (calibrator.isKinectTrafoSet()){
 
-    ros::Time start_train = ros::Time::now();
-    bool current_frame_dynamic = elevation_map.updateHeight(calibrator.cloud_moved,max_update_dist);
-#ifdef PRINT_TIMING
-    ROS_INFO("Frame Update: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
-#endif
+  //    ros::Time start_train = ros::Time::now();
+  //    bool current_frame_dynamic = elevation_map.updateHeight(calibrator.cloud_moved,max_update_dist);
+  //#ifdef PRINT_TIMING
+  //    ROS_INFO("Frame Update: %f ms", (ros::Time::now()-start_train).toSec()*1000.0);
+  //#endif
 
-    //   ros::Time start_obj = ros::Time::now();
-    //   modeler.saveAsObj("foo.obj");
-    //#ifdef PRINT_TIMING
-    //   ROS_INFO("Creating Object file: %f ms", (ros::Time::now()-start_obj).toSec()*1000.0);
-    //#endif
+  //    //   ros::Time start_obj = ros::Time::now();
+  //    //   modeler.saveAsObj("foo.obj");
+  //    //#ifdef PRINT_TIMING
+  //    //   ROS_INFO("Creating Object file: %f ms", (ros::Time::now()-start_obj).toSec()*1000.0);
+  //    //#endif
 
-    //   if (current_frame_dynamic)
-    //    ROS_INFO("dynamic scene");
-
-
-    if (current_frame_dynamic){
-      duration_since_last_static_frame = msg->header.stamp - time_of_last_static_frame;
-    }else{
-      time_of_last_static_frame = msg->header.stamp;
-
-      if (duration_since_last_static_frame.toSec() > 0.5)
-        ROS_INFO("Scene static again!");
-
-      duration_since_last_static_frame = ros::Duration(0);
-    }
-
-    Q_EMIT scene_static(duration_since_last_static_frame.toSec());
+  //    //   if (current_frame_dynamic)
+  //    //    ROS_INFO("dynamic scene");
 
 
-    // emit_new_image = true;
-  }
+  //    if (current_frame_dynamic){
+  //      duration_since_last_static_frame = msg->header.stamp - time_of_last_static_frame;
+  //    }else{
+  //      time_of_last_static_frame = msg->header.stamp;
+
+  //      if (duration_since_last_static_frame.toSec() > 0.5)
+  //        ROS_INFO("Scene static again!");
+
+  //      duration_since_last_static_frame = ros::Duration(0);
+  //    }
+
+  //    Q_EMIT scene_static(duration_since_last_static_frame.toSec());
 
 
-  if (water_simulation_active && calibrator.projMatrixSet()){
-    if (restart_modeler){
-      init_watersimulation();
-      restart_modeler = false;
-    }
-    else{
-      ros::Time start_water = ros::Time::now();
-      step_watersimulation();
-#ifdef PRINT_TIMING
-      ROS_INFO("Water simulation: %f ms", (ros::Time::now()-start_water).toSec()*1000.0);
-#endif
-    }
-  }
+  //    // emit_new_image = true;
+  //  }
 
 
-  //  if (emit_new_image)
-  //    Q_EMIT model_computed();
+  //  if (water_simulation_active && calibrator.projMatrixSet()){
+  //    if (restart_modeler){
+  //      init_watersimulation();
+  //      restart_modeler = false;
+  //    }
+  //    else{
+  //      ros::Time start_water = ros::Time::now();
+  //      step_watersimulation();
+  //#ifdef PRINT_TIMING
+  //      ROS_INFO("Water simulation: %f ms", (ros::Time::now()-start_water).toSec()*1000.0);
+  //#endif
+  //    }
+  //  }
 
-#ifdef PRINT_TIMING
-  ROS_INFO("Callback time: %f ms", (ros::Time::now()-cb_start).toSec()*1000.0);
-#endif
+
+  //  //  if (emit_new_image)
+  //  //    Q_EMIT model_computed();
+
+  //#ifdef PRINT_TIMING
+  //  ROS_INFO("Callback time: %f ms", (ros::Time::now()-cb_start).toSec()*1000.0);
+  //#endif
 }
 
 /**
@@ -1248,7 +1215,7 @@ QNode::run()
 
 
   sub_cam_info = nh.subscribe("/camera/depth/camera_info", 1, &QNode::depthCamInfoCB,this);
-  sub_cloud = nh.subscribe("/camera/rgb/points",2,&QNode::cloudCB,this);
+  sub_cloud = nh.subscribe("/camera/rgb/points",1,&QNode::cloudCB,this);
   sub_col_image = nh.subscribe("/camera/rgb/image_color", 1, &QNode::imageCallback,this);
 
   dynamic_reconfigure::Server<projector_calibration::visualization_paramsConfig> srv;

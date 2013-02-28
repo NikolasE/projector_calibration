@@ -168,9 +168,6 @@ public:
   ~MainWindow();
 
 
-
-
-
   void ReadSettings(); // Load up qt program settings at startup
   void WriteSettings(); // Save qt program settings when closing
 
@@ -190,7 +187,6 @@ public:
   GL_Mesh_Viewer *gl_viewer;
 
   bool draw_mask;
-  QLabel lb_img;
   bool pattern_size_auto;
 
 
@@ -238,11 +234,9 @@ public Q_SLOTS:
   void setLightPos(float);
 
   void process_events();
-  // void setProjectorPixmap(const QPixmap& pixmap);
 
   void save_elevation_map();
 
-  // void user_interaction_toggled(bool);
   void depth_visualzation_toggled(bool);
   void pattern_auto_size_toggled(bool);
   void gl_visualization_toggled(bool);
@@ -253,6 +247,8 @@ public Q_SLOTS:
   void show_height_lines(bool);
   void gesture_toggled(bool);
   void path_toggled(bool);
+  void wireframe_toggled(bool);
+  void show_map_toggled(bool);
 
   // calibration
   void compute_homography();
@@ -281,8 +277,6 @@ public Q_SLOTS:
 
   void loadParameters();
 
-  void visualizeTracksAndPlanner();
-
   /// copies content of 'projector_image' to the label on the second screen
   void updateProjectorImage();
 
@@ -293,22 +287,12 @@ public Q_SLOTS:
 
 private:
 
+  bool show_map_image;
+
   double secs_since_last_static_image;
-
-
-
-  // QApplication *qAppff;
 
   cv::Mat small, cpy;
   cv::Mat darker,inv; /// helper images (8UC3 and 8UC1)
-
-  /// the image that will be shown on the projector
-  QPixmap projector_image;
-
-  /// result of OpenGL visualization
-  QPixmap projector_image_gl;
-
-
 
 
   Ui::MainWindowDesign ui;
@@ -316,7 +300,6 @@ private:
 
   MouseHandler mousehandler_projector;
   MouseHandler_points mousehandler_points;
-  // bool mouse_selection_active;
 
   // only show smaller images on the gui:
   float rgb_image_scale;

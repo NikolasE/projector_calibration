@@ -28,8 +28,7 @@
 #include "rgbd_utils/calibration_utils.h"
 #include "rgbd_utils/surface_modeler.h"
 #include "rgbd_utils/type_definitions.h"
-#include "rgbd_utils/ants.h"
-// #include "/usr/gast/engelhan/ros/rgbd_utils/cfg/cpp/rgbd_utils/path_paramsConfig.h"
+#include "rgbd_utils/path_planning.h"
 
 
 #include "rgbd_utils/pinch_detection.h"
@@ -60,10 +59,11 @@ namespace projector_calibration {
 class QNode : public QThread {
   Q_OBJECT
 public:
-  Ant ant;
+  // Ant ant;
   std::map<int,Ant> ants;
 
 
+  void toggle_gesture_recognition(bool do_recognition);
 
 
   //  /// Duration since last static frame
@@ -92,16 +92,15 @@ public:
 
   void run_ant_demo();
   void update_ant(cv::Point goal);
+  void move_ants();
+  float ant_walk_distance;
 
   // uint train_frame_cnt;
   bool train_background;
-  // bool openGL_visualizationActive;
   bool foreGroundVisualizationActive;
   bool show_texture;
   bool water_simulation_active;
   bool with_path_planning;
-  //  bool simulator_initialized;
-
 
   void runDetector();
   cv::Mat pixel_foreground;
@@ -147,14 +146,14 @@ public:
   float planner_max_dist;
   float planner_scaling_factor;
 
-  bool do_gesture_recognition;
+
 
   void writeToOutput(const std::stringstream& msg);
   bool depth_visualization_active;
 
   bool restart_modeler;
 
-  float min_dist, max_dist;
+  float min_dist;
   float color_range;
   bool show_height_lines;
   /// if distance between current and new height of a cell is larger than this value, its height will not be updated
@@ -235,7 +234,7 @@ private:
   int iterations_per_frame;
   float sim_viscosity;
 
-
+bool do_gesture_recognition;
 
   bool first_depth_callback;
   cv::Mat last_static_depth_image;

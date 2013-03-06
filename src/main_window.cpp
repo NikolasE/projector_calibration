@@ -36,11 +36,15 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   QRect screenres = QApplication::desktop()->screenGeometry(1);
 
   gl_viewer = new GL_Mesh_Viewer(parent);
-  gl_viewer->resize(250,500);
+  gl_viewer->resize(500,750);
   gl_viewer->show();
-  gl_viewer->move(QPoint(screenres.x(), screenres.y()));
-  gl_viewer->showFullScreen();
 
+  ROS_INFO("argc: %i",argc);
+
+  if (argc < 2){
+    gl_viewer->move(QPoint(screenres.x(), screenres.y()));
+    gl_viewer->showFullScreen();
+  }
 
   darker = cv::Mat(480,640,CV_8UC3);
   inv = cv::Mat(480,640,CV_8UC1);
@@ -78,7 +82,7 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   QObject::connect(&qnode, SIGNAL(sig_grasp_moved(cv::Point2f, int)), this, SLOT(sl_grasp_moved(cv::Point2f, int)));
   QObject::connect(&qnode, SIGNAL(sig_grasp_ended(cv::Point2f, int)), this, SLOT(sl_grasp_ended(cv::Point2f, int)));
   QObject::connect(&qnode, SIGNAL(sig_handvisible(bool)), this, SLOT(  sl_handvisible(bool)));
-  QObject::connect(&qnode, SIGNAL(visualize_Detections()), this, SLOT(  visualizeTracksAndPlanner()));
+  //  QObject::connect(&qnode, SIGNAL(visualize_Detections()), this, SLOT(  visualizeTracksAndPlanner()));
   QObject::connect(&qnode, SIGNAL(copy_projector_image()), this, SLOT(  updateProjectorImage()));
 
 
@@ -127,6 +131,12 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
   gl_viewer->piece_tracker = &qnode.piece_tracker;
   gl_viewer->fingertip_tracker = &qnode.fingertip_tracker;
 
+
+  cout << qnode.calibrator.cal_cv_with_dist.distCoeffs << endl;
+
+  gl_viewer->setProjectorCalibration(qnode.calibrator.cal_cv_with_dist);
+
+  gl_viewer->ants = &qnode.ants;
 
   loadParameters();
 }
@@ -299,9 +309,6 @@ void MainWindow::show_model_openGL(){
 
   timing_start("open_gl");
 
-  gl_viewer->renderScene(false);
-
-
   if (!qnode.elevation_map.modelComputed()){
     ROS_INFO("Model is not computed");
     return;
@@ -385,7 +392,8 @@ void MainWindow::show_model_openGL(){
 
   ros::Time now_mesh = ros::Time::now();
   float max_edge_length = 0.05; // max edge length of drawn triangle in m
-  gl_viewer->mesh = qnode.mesh_visualizer.createMesh(colored, max_edge_length);
+  gl_viewer->cloud = colored;
+  qnode.mesh_visualizer.createMesh(gl_viewer->cloud,gl_viewer->mesh, max_edge_length);
 #ifdef DO_TIMING
   ROS_INFO("createMesh: %f ms", (ros::Time::now()-now_mesh).toSec()*1000.0);
 #endif
@@ -395,8 +403,8 @@ void MainWindow::show_model_openGL(){
   assert(gl_viewer->proj_matrix.type() == CV_64FC1);
 
   // new stuff:
-  gl_viewer->world2Projector = qnode.calibrator.cal_cv_no_dist.proj_trafo;
-  gl_viewer->cam_internals = qnode.calibrator.cal_cv_no_dist.camera_matrix;
+  gl_viewer->world2Projector = qnode.calibrator.cal_cv_with_dist.proj_trafo;
+  gl_viewer->cam_internals = qnode.calibrator.cal_cv_with_dist.camera_matrix;
 
   //  cv::Mat P = qnode.calibrator.proj_matrix_cv;
   //  cout << "Projection Matrix openCV " << endl << P << endl;
@@ -421,7 +429,7 @@ void MainWindow::show_model_openGL(){
     float max_ = floor(max_height/dist)*dist;
 
 
-    qnode.mesh_visualizer.findHeightLines(gl_viewer->mesh, height_lines, min_,max_,dist);
+    qnode.mesh_visualizer.findHeightLines(gl_viewer->mesh, gl_viewer->cloud,height_lines, min_,max_,dist);
 
     gl_viewer->set_height_lines(height_lines);
     timing_end("height_lines");
@@ -432,31 +440,6 @@ void MainWindow::show_model_openGL(){
 
 
 
-  //  // draws mesh and heigt_lines (if set)
-  timing_start("Rendering");
-  gl_viewer->updateGL();
-  timing_end("Rendering");
-
-
-  // Optional: Also render ortographic projection (geographical Map)
-  if (show_map_image){
-    int w = ui.lb_img_2->width();
-    int h = ui.lb_img_2->height();
-
-    ROS_INFO("Rendering Map image for size %i %i",w,h);
-    QPixmap map_image = gl_viewer->getMapImage(w,h);
-
-    // show Pixmap on label:
-
-    ui.lb_img_2->setPixmap(map_image);
-    ui.lb_img_2->repaint();
-
-  }
-
-
-  //#ifdef DO_TIMING
-  timing_end("open_gl");
-  //#endif
 
 
 
@@ -466,6 +449,30 @@ void MainWindow::show_model_openGL(){
 
 
   gl_viewer->initMapSize(qnode.elevation_map.min_x(),qnode.elevation_map.min_y(),qnode.elevation_map.getWidth(), qnode.elevation_map.getHeight());
+
+
+  //  // draws mesh and heigt_lines (if set)
+  timing_start("Rendering");
+  //  gl_viewer->withDistortion(true); // render with distortion
+
+  gl_viewer->show_fullscreenimage = false;
+
+  gl_viewer->updateGL();
+
+  timing_end("Rendering");
+
+
+  // Optional: Also render ortographic projection (geographical Map)
+  if (show_map_image){
+    QPixmap map_image = gl_viewer->getMapImage(ui.lb_img_2->width(),ui.lb_img_2->height());
+    ui.lb_img_2->setPixmap(map_image);
+    ui.lb_img_2->repaint();
+  }
+
+  //#ifdef DO_TIMING
+  timing_end("open_gl");
+  //#endif
+
 
 }
 
@@ -504,24 +511,24 @@ void MainWindow::update_ant(){
   //  if (qnode.ant.getState() == ANT_MOVING)
   //   gl_viewer->ants[qnode.ant.getId()] = qnode.ant;
 
-  gl_viewer->ants = &qnode.ants;
+//  gl_viewer->ants = &qnode.ants;
 
 }
 
 
 void MainWindow::got_new_ant(Ant ant){
 
-  ROS_INFO("Got new ant %i",ant.getId());
+//  ROS_INFO("Got new ant %i",ant.getId());
 
-  //  if (ant.getState() == ANT_MOVING){
-  //   ROS_INFO("Added ant");
-  //   gl_viewer->ants[ant.getId()] = ant;
-  //  }
+//  if (ant.getState() == ANT_MOVING){
+//    ROS_INFO("Added ant");
+//    gl_viewer->ants[ant.getId()] = ant;
+//  }
 
 }
 
 void MainWindow::ant_demo(){
-  // qnode.run_ant_demo();
+  qnode.run_ant_demo();
 }
 
 void MainWindow::select_marker_area(){
@@ -627,13 +634,13 @@ void MainWindow::compute_trafo(){
 
 void MainWindow::projection_opencv(){
 
-  float mean_error;
-  qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error,true);
-  stringstream ss; ss << "Opencv WITH distortion coeffs: " << mean_error;
+  float mean_error, max_error;
+  qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error, max_error,true);
+  stringstream ss; ss << "Opencv WITH distortion coeffs: " << mean_error << " max: " << max_error;
   qnode.writeToOutput(ss);
 
-  qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error,false);
-  stringstream ss2; ss2 << "Opencv WITHOUT distortion coeffs: " << mean_error;
+  qnode.calibrator.computeProjectionMatrix_OPENCV(mean_error,max_error,false);
+  stringstream ss2; ss2 << "Opencv WITHOUT distortion coeffs: " << mean_error << " max: " << max_error;
   qnode.writeToOutput(ss2);
 
   if (qnode.pub_projector_marker.getNumSubscribers()>0){
@@ -702,12 +709,12 @@ void MainWindow::pattern_size_changed(){
 void MainWindow::update_proj_image(){
 
 
-  timing_start("copy_projector");
+  // timing_start("copy_projector");
 
   gl_viewer->showImage(qnode.calibrator.projector_image);
   gl_viewer->updateGL();
 
-  timing_end("copy_projector");
+  // timing_end("copy_projector");
 
 
   // draw projector image on right label
@@ -832,19 +839,11 @@ void MainWindow::sl_received_image(){
     cv::resize(cpy, small, cv::Size(),rgb_image_scale,rgb_image_scale, CV_INTER_CUBIC);
   }
 
-  //  for (uint i=0; i< mousehandler_points.pts.size(); ++i){
-  //    cv::Point2f p = cv::Point2f(mousehandler_points.pts[i].x,mousehandler_points.pts[i].y);
-  //    cv::circle(resize?small:cpy, p, 10, CV_RGB(255,0,0),3);
-  //  }
-
   cv::Mat& img = resize?small:cpy;
 
   // 0ms
   qimg_col = QImage((const uchar*)(img.data), img.cols, img.rows, img.step1(), QImage::Format_RGB888).rgbSwapped();
 
-  //  timing_start("cp_fromImage"); // 10-15ms
-  //  pixmap_col.fromImage(qimg_col, 0);
-  //  timing_end("cp_fromImage");
 
   // 2-3 ms
   //timing_start("cp_painter");
@@ -867,11 +866,20 @@ void MainWindow::loadParameters(){
   sl_threshold_changed(qnode.calibrator.eval_brightness_threshold);
   color_slider_moved(qnode.color_range*100);
   min_dist_changed(qnode.min_dist*1000);
-  z_max_changed(qnode.max_dist*100);
+  //  z_max_changed(qnode.max_dist*100);
+  heightline_dist_changed(qnode.height_line_distance*10*100);
 
-  //ui.cb_depth_visualization_GL->setChecked(qnode.openGL_visualizationActive);
+  draw_mask = true;
+  ui.cb_dark->setChecked(draw_mask);
 
-  //  ui.cb_depth_visualization->setChecked(qnode.depth_visualization_active);
+  //  ui.cb_
+  ui.cb_showHeightLines->setChecked(qnode.show_height_lines);
+
+  // ui.cb_depth_visualization_GL->setChecked(qnode.openGL_visualizationActive);
+  // ui.cb_depth_visualization->setChecked(qnode.depth_visualization_active);
+
+  ui.cb_distortion->setChecked(gl_viewer->withDistortion());
+
 
   qnode.calibration_active = false;
 
@@ -883,7 +891,7 @@ void MainWindow::loadParameters(){
 
   ui.fg_update_model->setChecked(qnode.update_pixel_model);
   ui.cb_gesture->setChecked(false);  // qnode.do_gesture_recognition);
-  qnode.do_gesture_recognition = false;
+  qnode.toggle_gesture_recognition(false);
   ui.fg_update_map->setChecked(true);// qnode.update_elevation_map);
   qnode.update_elevation_map = true;
 
@@ -937,13 +945,21 @@ void MainWindow::min_dist_changed(int min_dist){
   qnode.saveParameters();
 }
 
-void MainWindow::z_max_changed(int z_max){
-  ui.slider_z_max->setSliderPosition(z_max);
-  qnode.max_dist = z_max/100.0; // given in cm
-  ui.z_max_label->setText(QString::number(z_max));
-  ui.z_max_label->repaint();
 
+void MainWindow::heightline_dist_changed(int pos){
+  ui.sl_height_dist->setSliderPosition(pos);
+  qnode.height_line_distance = pos/1000.0;
+  ui.lb_height_dist->setText(QString::number(pos/10.0));
   qnode.saveParameters();
+}
+
+void MainWindow::z_max_changed(int z_max){
+  //  ui.slider_z_max->setSliderPosition(z_max);
+  //  qnode.max_dist = z_max/100.0; // given in cm
+  //  ui.z_max_label->setText(QString::number(z_max));
+  //  ui.z_max_label->repaint();
+
+  //  qnode.saveParameters();
 }
 
 
@@ -1242,17 +1258,15 @@ void MainWindow::path_toggled(bool status){
 }
 
 
+void MainWindow::with_distortion_toggled(bool status){
+  gl_viewer->toggleDistortion(status);
+  //  gl_viewer->resizeGL(gl_viewer->w_,gl_viewer->h_);
+}
+
+
 void MainWindow::gesture_toggled(bool status){
-  qnode.do_gesture_recognition = status;
-
-  // don't update model while tracking objects
-  //  if (!qnode.do_gesture_recognition){
-  //    ui.fg_update_model->setChecked(false);
-  //    ui.cb_path->setChecked(false);
-  //  }
-
+  qnode.toggle_gesture_recognition(status);
   ui.lb_handvisible->setText("??");
-
 
   qnode.saveParameters();
 }
@@ -1271,9 +1285,10 @@ void MainWindow::foreground_visualization_toggled(bool status){
 
   // gl_viewer->resizeGL(gl_viewer->width(),gl_viewer->height());
 
-  if (!status){
-    gl_viewer->renderScene(false);
-  }
+  //  if (!status){
+  //    gl_viewer->withDistortion(false);
+  //    ui.cb_distortion->setChecked(false);
+  //  }
 
   qnode.saveParameters();
 }

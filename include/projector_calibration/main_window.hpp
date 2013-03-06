@@ -224,7 +224,7 @@ public Q_SLOTS:
   void toggle_update_elevationmap(bool);
   void dark_toggled(bool);
   void visualizeDetectionsOnSurface();
-
+  void with_distortion_toggled(bool);
   void sl_handvisible(bool visible);
 
   void sl_grasp_started(cv::Point2f, int);
@@ -236,6 +236,8 @@ public Q_SLOTS:
   void process_events();
 
   void save_elevation_map();
+
+  void heightline_dist_changed(int);
 
   void depth_visualzation_toggled(bool);
   void pattern_auto_size_toggled(bool);

@@ -221,6 +221,13 @@
           </property>
          </widget>
         </item>
+        <item row="9" column="1">
+         <widget class="QCheckBox" name="cb_distortion">
+          <property name="text">
+           <string>with Distortion</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
      </layout>
@@ -268,7 +275,7 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>5</number>
       </property>
       <property name="documentMode">
        <bool>false</bool>
@@ -1232,10 +1239,10 @@
        <attribute name="title">
         <string>Warhammer</string>
        </attribute>
-       <widget class="QLabel" name="z_max_label">
+       <widget class="QLabel" name="lb_height_dist">
         <property name="geometry">
          <rect>
-          <x>350</x>
+          <x>300</x>
           <y>60</y>
           <width>31</width>
           <height>17</height>
@@ -1285,23 +1292,23 @@
        <widget class="QLabel" name="label_11">
         <property name="geometry">
          <rect>
-          <x>330</x>
+          <x>250</x>
           <y>40</y>
-          <width>51</width>
-          <height>17</height>
+          <width>131</width>
+          <height>20</height>
          </rect>
         </property>
         <property name="text">
-         <string>Z max:</string>
+         <string>Height line distance</string>
         </property>
        </widget>
-       <widget class="QSlider" name="slider_z_max">
+       <widget class="QSlider" name="sl_height_dist">
         <property name="enabled">
          <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
-          <x>340</x>
+          <x>290</x>
           <y>80</y>
           <width>29</width>
           <height>220</height>
@@ -1311,10 +1318,13 @@
          <number>0</number>
         </property>
         <property name="maximum">
-         <number>60</number>
+         <number>100</number>
+        </property>
+        <property name="pageStep">
+         <number>1</number>
         </property>
         <property name="value">
-         <number>20</number>
+         <number>10</number>
         </property>
         <property name="orientation">
          <enum>Qt::Vertical</enum>
@@ -1371,7 +1381,7 @@
          <string>Restart Watersimulation</string>
         </property>
        </widget>
-       <widget class="QPushButton" name="b_restart_water_2">
+       <widget class="QPushButton" name="b_new_ant">
         <property name="geometry">
          <rect>
           <x>340</x>
@@ -1876,22 +1886,6 @@
    </hints>
   </connection>
   <connection>
-   <sender>slider_z_max</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>MainWindowDesign</receiver>
-   <slot>z_max_changed(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>366</x>
-     <y>200</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>593</x>
-     <y>466</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>slider_mindist</sender>
    <signal>valueChanged(int)</signal>
    <receiver>MainWindowDesign</receiver>
@@ -1988,7 +1982,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>b_restart_water_2</sender>
+   <sender>b_new_ant</sender>
    <signal>clicked()</signal>
    <receiver>MainWindowDesign</receiver>
    <slot>ant_demo()</slot>
@@ -2275,6 +2269,38 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>sl_height_dist</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>heightline_dist_changed(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>312</x>
+     <y>304</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>356</x>
+     <y>508</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cb_distortion</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindowDesign</receiver>
+   <slot>with_distortion_toggled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>712</x>
+     <y>491</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>654</x>
+     <y>705</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>show_fullscreen_pattern()</slot>
@@ -2330,5 +2356,7 @@
   <slot>dark_toggled(bool)</slot>
   <slot>wireframe_toggled(bool)</slot>
   <slot>show_map_toggled(bool)</slot>
+  <slot>heightline_dist_changed(int)</slot>
+  <slot>with_distortion_toggled(bool)</slot>
  </slots>
 </ui>

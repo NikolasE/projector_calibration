@@ -26,8 +26,6 @@ int main(int argc, char **argv) {
     projector_calibration::MainWindow w(argc,argv);
 
 
-//    w.app = &app;
-
     w.show();
 
     app.connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit()));
